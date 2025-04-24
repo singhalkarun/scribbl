@@ -1,5 +1,7 @@
 import Config
 
+config :logger, level: :debug
+
 # Configure your database
 config :scribbl_backend, ScribblBackend.Repo,
   username: "postgres",
@@ -64,3 +66,5 @@ config :phoenix, :plug_init_mode, :runtime
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+
