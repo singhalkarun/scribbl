@@ -1,53 +1,89 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { useState } from "react";
+import { createSocket } from "@/lib/socket";
+import { Socket } from "phoenix";
 
 export default function JoinPage() {
   const [name, setName] = useState("");
-  const [room, setRoom] = useState("");
-  const { setPlayerName, setRoomId } = usePlayerStore();
+  const [roomId, setRoomId] = useState("");
+  const [socket, setSocket] = useState<Socket | null>(null);
+
   const router = useRouter();
+  const setPlayerName = usePlayerStore((s) => s.setPlayerName);
+  const setRoomIdGlobal = usePlayerStore((s) => s.setRoomId);
+  const setChannel = usePlayerStore((s) => s.setChannel);
+
+  useEffect(() => {
+    const s = createSocket();
+    s.connect(); // connect ONCE inside useEffect
+    setSocket(s);
+
+    return () => {
+      s.disconnect(); // Clean up socket when page unmounts
+    };
+  }, []);
 
   const handleJoin = () => {
+    if (!socket) {
+      console.error("Socket not ready");
+      return;
+    }
     if (!name.trim()) return;
+
+    const finalRoomId =
+      roomId.trim() || Math.random().toString(36).substring(2, 8);
+
+    // Save to global store
     setPlayerName(name.trim());
-    setRoomId(room.trim());
-    router.push("/game");
+    setRoomIdGlobal(finalRoomId);
+
+    const channel = socket.channel(`room:${finalRoomId}`, {});
+
+    channel
+      .join()
+      .receive("ok", (res) => {
+        console.log("Joined successfully", res);
+        setChannel(channel);
+        router.push("/game"); // Navigate to game
+      })
+      .receive("error", (err) => {
+        console.error("Unable to join", err);
+      });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleJoin();
+    if (e.key === "Enter") {
+      handleJoin();
+    }
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white p-6 rounded shadow w-full max-w-md text-center space-y-4">
-        <h1 className="text-2xl font-bold">Join Game</h1>
-        <input
-          type="text"
-          placeholder="Enter your name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="w-full border px-3 py-2 rounded text-sm"
-        />
-        <input
-          type="text"
-          placeholder="Enter room ID (optional)"
-          value={room}
-          onChange={(e) => setRoom(e.target.value)}
-          onKeyDown={handleKeyDown}
-          className="w-full border px-3 py-2 rounded text-sm"
-        />
-        <button
-          onClick={handleJoin}
-          className="bg-blue-500 text-white px-4 py-2 rounded w-full text-sm hover:bg-blue-600 transition hover:cursor-pointer"
-        >
-          {room.trim() ? "Join Room" : "Join Random Room"}
-        </button>
-      </div>
+    <div className="h-screen w-screen flex flex-col justify-center items-center gap-4 p-4">
+      <h1 className="text-3xl font-bold">Join a room</h1>
+      <input
+        className="border px-4 py-2 rounded w-64"
+        placeholder="Enter your name"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        onKeyDown={handleKeyDown}
+      />
+      <input
+        className="border px-4 py-2 rounded w-64"
+        placeholder="Enter room id (optional)"
+        value={roomId}
+        onChange={(e) => setRoomId(e.target.value)}
+        onKeyDown={handleKeyDown}
+      />
+      <button
+        onClick={handleJoin}
+        disabled={!socket}
+        className="bg-blue-500 text-white px-6 py-2 rounded disabled:opacity-50"
+      >
+        {roomId.trim() ? "Join Room" : "Join Random Room"}
+      </button>
     </div>
   );
 }
