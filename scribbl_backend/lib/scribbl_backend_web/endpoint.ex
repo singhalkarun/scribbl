@@ -12,6 +12,9 @@ defmodule ScribblBackendWeb.Endpoint do
   ]
 
   socket "/socket", ScribblBackendWeb.UserSocket
+  # skip origin verification for now
+    websocket: [check_origin: false]
+
   
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]],
