@@ -11,7 +11,7 @@ defmodule ScribblBackendWeb.Endpoint do
     same_site: "Lax"
   ]
 
-  socket "/socket", ScribblBackendWeb.UserSocket
+  socket "/socket", ScribblBackendWeb.UserSocket,
   # skip origin verification for now
     websocket: [check_origin: false]
 
