@@ -1,0 +1,3 @@
+api.{$DOMAIN_NAME} {
+  reverse_proxy scribbl_backend:4000
+}
