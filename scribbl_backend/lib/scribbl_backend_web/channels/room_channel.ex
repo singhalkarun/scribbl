@@ -1,4 +1,4 @@
-defmodule ScribbleBackendWeb.RoomChannel do
+defmodule ScribblBackendWeb.RoomChannel do
   use Phoenix.Channel
 
   def join("room:" <> _room_id, _params, socket) do
