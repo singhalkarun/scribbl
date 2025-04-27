@@ -2,25 +2,24 @@
 
 import { getSimilarity } from "@/utils/getSimilarity";
 import { useEffect, useRef, useState } from "react";
-
-interface Message {
-  sender: string;
-  text: string;
-  system?: boolean;
-}
+import { usePlayerStore, Message } from "@/store/usePlayerStore";
 
 interface ChatProps {
   wordToGuess: string;
   onCorrectGuess: () => void;
   playerName: string;
+  sendMessage: (messageText: string) => void;
 }
 
 export default function Chat({
   wordToGuess,
   onCorrectGuess,
   playerName,
+  sendMessage,
 }: ChatProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const messages = usePlayerStore((state) => state.messages);
+  const currentUserId = usePlayerStore((state) => state.userId);
+  const players = usePlayerStore((state) => state.players);
   const [input, setInput] = useState("");
   const [guessedCorrectly, setGuessedCorrectly] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
@@ -32,31 +31,18 @@ export default function Chat({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed) return;
+    if (!trimmed || guessedCorrectly) return;
 
-    const newMessages: Message[] = [{ sender: playerName, text: trimmed }];
+    sendMessage(trimmed);
 
     const guess = trimmed.toLowerCase();
     const correct = guess === wordToGuess.toLowerCase();
-    const similarity = getSimilarity(guess, wordToGuess.toLowerCase());
-
     if (correct) {
-      newMessages.push({
-        sender: "System",
-        text: `${playerName} guessed it! 🎉`,
-        system: true,
-      });
+      console.log("Guessed correctly locally, disabling input.");
       setGuessedCorrectly(true);
       onCorrectGuess();
-    } else if (similarity > 0.5) {
-      newMessages.push({
-        sender: "System",
-        text: "You're very close!",
-        system: true,
-      });
     }
 
-    setMessages((prev) => [...prev, ...newMessages]);
     setInput("");
   };
 
@@ -65,23 +51,33 @@ export default function Chat({
       <h2 className="font-semibold text-lg mb-2">Chat</h2>
 
       <div className="flex-1 overflow-y-auto pr-1 space-y-2">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
-              msg.sender === "You"
-                ? "bg-blue-500 text-white self-end ml-auto"
-                : msg.sender === "System"
-                ? "bg-green-200 text-green-800 mx-auto text-center"
-                : "bg-gray-200 text-gray-800 self-start"
-            }`}
-          >
-            {msg.sender !== "System" && (
-              <strong className="block font-medium">{msg.sender}</strong>
-            )}
-            <p>{msg.text}</p>
-          </div>
-        ))}
+        {messages.map((msg, i) => {
+          const isCurrentUser = msg.userId === currentUserId;
+          const senderName = players[msg.userId] || msg.userId || "Unknown";
+          const isSystemMessage = msg.system;
+
+          console.log(
+            `[Chat] Rendering msg ${i}: Text="${msg.text}", msg.userId=${msg.userId}, currentUserId=${currentUserId}, isCurrentUser=${isCurrentUser}`
+          );
+
+          return (
+            <div
+              key={i}
+              className={`max-w-[80%] px-3 py-2 rounded-lg text-sm ${
+                isCurrentUser
+                  ? "bg-blue-500 text-white self-end ml-auto"
+                  : isSystemMessage
+                  ? "bg-green-200 text-green-800 mx-auto text-center"
+                  : "bg-gray-200 text-gray-800 self-start"
+              }`}
+            >
+              {!isSystemMessage && !isCurrentUser && (
+                <strong className="block font-medium">{senderName}</strong>
+              )}
+              <p>{msg.text}</p>
+            </div>
+          );
+        })}
         <div ref={endRef} />
       </div>
 
