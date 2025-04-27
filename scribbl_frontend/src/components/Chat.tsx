@@ -53,7 +53,8 @@ export default function Chat({
       <div className="flex-1 overflow-y-auto pr-1 space-y-2">
         {messages.map((msg, i) => {
           const isCurrentUser = msg.userId === currentUserId;
-          const senderName = players[msg.userId] || msg.userId || "Unknown";
+          const senderName =
+            msg.senderName || players[msg.userId] || msg.userId || "Unknown";
           const isSystemMessage = msg.system;
 
           console.log(

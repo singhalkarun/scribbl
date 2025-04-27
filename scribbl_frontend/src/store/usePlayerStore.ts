@@ -21,6 +21,7 @@ export interface Message {
   userId: string; // Changed from sender
   text: string;
   system?: boolean;
+  senderName?: string; // Added senderName
 }
 
 interface PlayerStore {
@@ -111,7 +112,24 @@ export const usePlayerStore = create<PlayerStore>()(
           return { players: updatedPlayers };
         }),
       addMessage: (message) =>
-        set((state) => ({ messages: [...state.messages, message] })),
+        set((state) => {
+          // Look up sender name from current state
+          const senderName = message.system
+            ? "System"
+            : state.players[message.userId] || message.userId || "Unknown";
+
+          // Add the senderName to the message object
+          const messageWithSender: Message = {
+            ...message,
+            senderName: senderName,
+          };
+
+          console.log(
+            `[Store] Adding message with senderName '${senderName}':`,
+            messageWithSender
+          );
+          return { messages: [...state.messages, messageWithSender] };
+        }),
       clearPlayerInfo: () => {
         set({ playerName: "", roomId: "", userId: "" }); // Clear userId too
       },
