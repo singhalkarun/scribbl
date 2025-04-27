@@ -35,16 +35,6 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
-  def terminate(_reason, socket) do
-    # Notify other pods when a user disconnects
-    Phoenix.PubSub.broadcast(
-      ScribblBackend.PubSub,
-      socket.topic,
-      %{event: "presence_diff", payload: %{joined: [], left: [%{user_id: socket.assigns.user_id}]}}
-    )
-    {:stop, :normal, socket}
-  end
-
   def handle_in("new_message", %{"message" => message}, socket) do
     user_id = socket.assigns.user_id
   
