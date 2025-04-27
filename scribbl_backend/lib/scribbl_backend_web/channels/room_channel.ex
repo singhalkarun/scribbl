@@ -46,12 +46,21 @@ defmodule ScribblBackendWeb.RoomChannel do
   end
 
   def handle_in("new_message", %{"message" => message}, socket) do
-    # Broadcast the new message to all pods
+    user_id = socket.assigns.user_id
+  
+    # Broadcast the new message to all pods, now including userId
     Phoenix.PubSub.broadcast(
       ScribblBackend.PubSub,
       socket.topic,
-      %{event: "new_message", payload: %{"message" => message}}
+      %{
+        event: "new_message",
+        payload: %{
+          "message" => message,
+          "userId" => user_id
+        }
+      }
     )
+  
     {:noreply, socket}
   end
 end
