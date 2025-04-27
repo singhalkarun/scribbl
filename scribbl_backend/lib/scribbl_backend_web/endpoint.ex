@@ -13,7 +13,8 @@ defmodule ScribblBackendWeb.Endpoint do
 
   socket "/socket", ScribblBackendWeb.UserSocket,
   # skip origin verification for now
-    websocket: [check_origin: false]
+    websocket: [check_origin: false],
+    pubsub_server: ScribblBackend.PubSub
 
   
   socket "/live", Phoenix.LiveView.Socket,

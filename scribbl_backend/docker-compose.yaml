@@ -1,36 +1,53 @@
 services:
   postgres:
-    image: postgres:17.4-alpine3.21
-    environment: 
+    image: postgres:15
+    environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    restart: always
+    ports:
+      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   scribbl_backend_1:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       REDIS_URL: ${REDIS_URL}
       NODE_NAME: "1"
     restart: always
+    ports:
+      - "4001:4000"
     depends_on:
       - postgres
 
   scribbl_backend_2:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    build:
+      context: .
+      dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       REDIS_URL: ${REDIS_URL}
       NODE_NAME: "2"
     restart: always
+    ports:
+      - "4002:4000"
     depends_on:
       - postgres
 
+  redis:
+    image: redis:7.4.3-alpine
+    restart: always
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    
   caddy:
     image: caddy:2.10.0-alpine
     volumes:
@@ -44,14 +61,8 @@ services:
       - scribbl_backend_1
       - scribbl_backend_2
 
-  redis:
-    image: redis:7.4.3-alpine
-    restart: always
-    volumes:
-      - redis_data:/data
-
 volumes:
   pgdata:
+  redis_data:
   caddy_data:
   caddy_config:
-  redis_data:
