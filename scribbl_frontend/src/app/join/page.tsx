@@ -1,30 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { createSocket } from "@/lib/socket";
-import { Socket } from "phoenix";
 
 export default function JoinPage() {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const [isJoining, setIsJoining] = useState(false);
 
   const router = useRouter();
+  const socket = usePlayerStore((s) => s.socket);
   const setPlayerName = usePlayerStore((s) => s.setPlayerName);
   const setRoomIdGlobal = usePlayerStore((s) => s.setRoomId);
-  const setChannel = usePlayerStore((s) => s.setChannel);
-
-  useEffect(() => {
-    const s = createSocket();
-    s.connect(); // connect ONCE inside useEffect
-    setSocket(s);
-
-    return () => {
-      s.disconnect(); // Clean up socket when page unmounts
-    };
-  }, []);
 
   const handleJoin = () => {
     if (!socket) {
@@ -33,25 +21,19 @@ export default function JoinPage() {
     }
     if (!name.trim()) return;
 
+    setIsJoining(true);
+
     const finalRoomId =
       roomId.trim() || Math.random().toString(36).substring(2, 8);
 
-    // Save to global store
+    console.log(
+      `[JoinPage] Setting player name: ${name.trim()} and room ID: ${finalRoomId}`
+    );
     setPlayerName(name.trim());
     setRoomIdGlobal(finalRoomId);
 
-    const channel = socket.channel(`room:${finalRoomId}`, {});
-
-    channel
-      .join()
-      .receive("ok", (res) => {
-        console.log("Joined successfully", res);
-        setChannel(channel);
-        router.push("/game"); // Navigate to game
-      })
-      .receive("error", (err) => {
-        console.error("Unable to join", err);
-      });
+    console.log("[JoinPage] Navigating to /game");
+    router.push("/game");
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -79,10 +61,14 @@ export default function JoinPage() {
       />
       <button
         onClick={handleJoin}
-        disabled={!socket}
+        disabled={!socket || isJoining}
         className="bg-blue-500 text-white px-6 py-2 rounded disabled:opacity-50"
       >
-        {roomId.trim() ? "Join Room" : "Join Random Room"}
+        {isJoining
+          ? "Joining..."
+          : roomId.trim()
+          ? "Join Room"
+          : "Join Random Room"}
       </button>
     </div>
   );

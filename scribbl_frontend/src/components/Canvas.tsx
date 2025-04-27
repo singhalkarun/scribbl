@@ -5,7 +5,7 @@ import React, { useRef, useState, useEffect } from "react";
 import io, { Socket } from "socket.io-client";
 
 // Configuration
-const SOCKET_SERVER_URL = "http://localhost:3001";
+const SOCKET_SERVER_URL = "";
 
 const colors = ["black", "red", "blue", "green", "orange", "purple"];
 
@@ -47,67 +47,67 @@ export default function Canvas() {
   }, [paths]);
 
   // WebSocket Connection
-  useEffect(() => {
-    // Connect to the WebSocket server only once
-    if (!socketRef.current) {
-      console.log("Connecting to WebSocket server...");
+  // useEffect(() => {
+  //   // Connect to the WebSocket server only once
+  //   if (!socketRef.current) {
+  //     console.log("Connecting to WebSocket server...");
 
-      socketRef.current = io(SOCKET_SERVER_URL, {
-        transports: ["websocket"],
-      });
+  //     socketRef.current = io(SOCKET_SERVER_URL, {
+  //       transports: ["websocket"],
+  //     });
 
-      // Socket event listeners
-      socketRef.current.on("connect", () => {
-        console.log(
-          "Connected to WebSocket server with ID:",
-          socketRef.current?.id
-        );
-        // Request initial drawing state from server
-        socketRef.current?.emit("get_initial_drawing");
-      });
+  //     // Socket event listeners
+  //     socketRef.current.on("connect", () => {
+  //       console.log(
+  //         "Connected to WebSocket server with ID:",
+  //         socketRef.current?.id
+  //       );
+  //       // Request initial drawing state from server
+  //       socketRef.current?.emit("get_initial_drawing");
+  //     });
 
-      socketRef.current.on("initial_drawing", (initialPaths: SketchPath[]) => {
-        console.log("Received initial drawing state");
-        if (initialPaths && initialPaths.length > 0) {
-          // Update our state with the initial paths
-          setPaths(initialPaths);
-          // Canvas will update via the useEffect hook
-        }
-      });
+  //     socketRef.current.on("initial_drawing", (initialPaths: SketchPath[]) => {
+  //       console.log("Received initial drawing state");
+  //       if (initialPaths && initialPaths.length > 0) {
+  //         // Update our state with the initial paths
+  //         setPaths(initialPaths);
+  //         // Canvas will update via the useEffect hook
+  //       }
+  //     });
 
-      socketRef.current.on("new_path", (newPath: SketchPath) => {
-        console.log("Received new path from another user");
-        if (newPath) {
-          // Add the new path to existing paths
-          setPaths((prevPaths) => [...prevPaths, newPath]);
-          // Canvas will update via the useEffect hook
-        }
-      });
+  //     socketRef.current.on("new_path", (newPath: SketchPath) => {
+  //       console.log("Received new path from another user");
+  //       if (newPath) {
+  //         // Add the new path to existing paths
+  //         setPaths((prevPaths) => [...prevPaths, newPath]);
+  //         // Canvas will update via the useEffect hook
+  //       }
+  //     });
 
-      socketRef.current.on("clear_canvas", () => {
-        console.log("Received clear canvas command");
-        setPaths([]);
-        // Canvas will update via the useEffect hook
-      });
+  //     socketRef.current.on("clear_canvas", () => {
+  //       console.log("Received clear canvas command");
+  //       setPaths([]);
+  //       // Canvas will update via the useEffect hook
+  //     });
 
-      socketRef.current.on("connect_error", (err) => {
-        console.error("WebSocket connection error:", err);
-      });
+  //     socketRef.current.on("connect_error", (err) => {
+  //       console.error("WebSocket connection error:", err);
+  //     });
 
-      socketRef.current.on("disconnect", (reason) => {
-        console.log("Disconnected from WebSocket server:", reason);
-      });
-    }
+  //     socketRef.current.on("disconnect", (reason) => {
+  //       console.log("Disconnected from WebSocket server:", reason);
+  //     });
+  //   }
 
-    // Cleanup on unmount
-    return () => {
-      if (socketRef.current?.connected) {
-        console.log("Disconnecting WebSocket...");
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-    };
-  }, []);
+  //   // Cleanup on unmount
+  //   return () => {
+  //     if (socketRef.current?.connected) {
+  //       console.log("Disconnecting WebSocket...");
+  //       socketRef.current.disconnect();
+  //       socketRef.current = null;
+  //     }
+  //   };
+  // }, []);
 
   // Drawing Handlers
   const handleColorChange = (newColor: string) => {
