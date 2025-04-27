@@ -12,6 +12,7 @@ defmodule ScribblBackend.Application do
       ScribblBackend.Repo,
       {DNSCluster, query: Application.get_env(:scribbl_backend, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ScribblBackend.PubSub, adapter: Phoenix.PubSub.Redis, url: System.get_env("REDIS_URL"), node_name: System.get_env("NODE_NAME") || "default_node"},
+      ScribblBackendWeb.Presence,
       # Start the Finch HTTP client for sending emails
       {Finch, name: ScribblBackend.Finch},
       # Start a worker by calling: ScribblBackend.Worker.start_link(arg)
