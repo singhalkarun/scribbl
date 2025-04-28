@@ -75,32 +75,37 @@ export default function GamePage() {
   }
 
   return (
-    <main className="h-screen w-screen flex flex-row bg-gray-100 overflow-hidden">
+    <main className="h-screen w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-2 md:p-0 gap-2 md:gap-0">
       {/* Canvas area */}
-      <div className="flex-1 p-4">
-        <Canvas />
+      <div className="md:flex-1 md:p-4 h-[40vh] md:h-auto">
+        <div className="w-full h-full bg-white rounded-xl shadow-lg flex flex-col">
+          <Canvas />
+        </div>
       </div>
 
       {/* Sidebar */}
-      <aside className="w-80 bg-white border-l p-4 flex flex-col gap-4 overflow-y-auto">
+      <aside className="w-full md:w-80 lg:w-96 bg-white md:bg-transparent md:border-l border-gray-200 p-2 md:p-4 flex flex-col gap-2 md:gap-4 overflow-y-auto flex-shrink-0 flex-1 md:flex-none md:h-screen">
         {/* Players */}
-        <div className="bg-gray-50 rounded shadow p-3">
-          <h2 className="font-semibold text-lg mb-2">Players</h2>
-          <ul className="text-sm text-gray-700 space-y-1">
+        <div className="bg-white border border-gray-200 md:rounded-lg md:shadow-sm p-3">
+          <h2 className="font-bold text-lg mb-2 text-gray-700">Players</h2>
+          <ul className="text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 md:max-h-32">
             {playersList.length > 0 ? (
               playersList.map((name, index) => (
-                <li key={index}>
-                  👤 {name === playerName ? <b>{name} (You)</b> : name}
+                <li key={index} className="flex items-center gap-2">
+                  <span className="text-lg">👤</span>
+                  <span>
+                    {name === playerName ? <b>{name} (You)</b> : name}
+                  </span>
                 </li>
               ))
             ) : (
-              <li>No players yet...</li>
+              <li className="text-gray-500 italic">No players yet...</li>
             )}
           </ul>
         </div>
 
         {/* Chat */}
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 overflow-hidden border border-gray-200 md:rounded-lg md:shadow-sm min-h-0">
           <Chat
             wordToGuess={wordToGuess}
             onCorrectGuess={() => setGuessed(true)}
@@ -110,8 +115,8 @@ export default function GamePage() {
         </div>
 
         {/* Word hint */}
-        <div className="bg-gray-50 rounded shadow p-3 text-center">
-          <p className="text-xl font-mono tracking-widest">
+        <div className="bg-white border border-gray-200 md:rounded-lg md:shadow-sm p-3 text-center">
+          <p className="text-xl md:text-2xl font-mono tracking-widest text-indigo-600">
             {guessed
               ? wordToGuess.split("").join(" ")
               : wordToGuess
@@ -119,6 +124,7 @@ export default function GamePage() {
                   .map(() => "_")
                   .join(" ")}
           </p>
+          <p className="text-xs text-gray-500 mt-1">Guess the word!</p>
         </div>
       </aside>
     </main>
