@@ -46,7 +46,8 @@ defmodule ScribblBackend.MixProject do
       {:dns_cluster, "~> 0.1.1"},
       {:bandit, "~> 1.5"},
       {:phoenix_pubsub_redis, "~> 3.0"},
-      {:uuid, "~> 1.1"}
+      {:uuid, "~> 1.1"},
+      {:redix, "~> 1.5"}
     ]
   end
 
