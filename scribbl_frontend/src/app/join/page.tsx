@@ -43,33 +43,39 @@ export default function JoinPage() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col justify-center items-center gap-4 p-4">
-      <h1 className="text-3xl font-bold">Join a room</h1>
-      <input
-        className="border px-4 py-2 rounded w-64"
-        placeholder="Enter your name"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
-      <input
-        className="border px-4 py-2 rounded w-64"
-        placeholder="Enter room id (optional)"
-        value={roomId}
-        onChange={(e) => setRoomId(e.target.value)}
-        onKeyDown={handleKeyDown}
-      />
-      <button
-        onClick={handleJoin}
-        disabled={!socket || isJoining}
-        className="bg-blue-500 text-white px-6 py-2 rounded disabled:opacity-50"
-      >
-        {isJoining
-          ? "Joining..."
-          : roomId.trim()
-          ? "Join Room"
-          : "Join Random Room"}
-      </button>
+    <div className="min-h-screen w-screen flex flex-col justify-center items-center p-4 bg-gradient-to-br from-indigo-50 via-white to-cyan-100">
+      <div className="bg-white p-8 rounded-xl shadow-lg w-full max-w-md">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-6">
+          Join a Scribbl Room
+        </h1>
+        <div className="space-y-4">
+          <input
+            className="border border-gray-300 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-200"
+            placeholder="Enter your name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <input
+            className="border border-gray-300 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-200"
+            placeholder="Enter room ID (optional)"
+            value={roomId}
+            onChange={(e) => setRoomId(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+        </div>
+        <button
+          onClick={handleJoin}
+          disabled={!socket || isJoining}
+          className="mt-6 w-full bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:cursor-pointer"
+        >
+          {isJoining
+            ? "Joining..."
+            : roomId.trim()
+            ? "Join Room"
+            : "Create or Join Random Room"}
+        </button>
+      </div>
     </div>
   );
 }
