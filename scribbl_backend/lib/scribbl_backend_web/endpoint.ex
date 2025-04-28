@@ -13,10 +13,10 @@ defmodule ScribblBackendWeb.Endpoint do
 
   socket "/socket", ScribblBackendWeb.UserSocket,
   # skip origin verification for now
-    websocket: [check_origin: false],
+    websocket: [check_origin: false, timeout: 180_000],
     pubsub_server: ScribblBackend.PubSub
 
-  
+
   socket "/live", Phoenix.LiveView.Socket,
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
