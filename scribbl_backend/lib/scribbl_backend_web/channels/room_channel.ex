@@ -1,6 +1,7 @@
 defmodule ScribblBackendWeb.RoomChannel do
   use Phoenix.Channel
   alias ScribblBackendWeb.Presence
+  alias ScribblBackend.GameHelper
 
   def join("room:" <> _room_id, %{"name" => name}, socket) do
     # Track the user's presence via Phoenix Presence
@@ -20,6 +21,20 @@ defmodule ScribblBackendWeb.RoomChannel do
     current_presences = Presence.list(socket)
     push(socket, "presence_state", current_presences)
 
+    # get room info using game helper, only send room_id from topic
+
+    room_id = String.split(socket.topic, ":") |> List.last()
+
+    case GameHelper.get_or_initialize_room(room_id) do
+      {:ok, room_info} ->
+        # Push the room info to the current socket
+        push(socket, "room_info", room_info)
+
+      {:error, reason} ->
+        # Handle error (e.g., log it)
+        IO.puts("Error getting room info: #{reason}")
+    end
+
     {:noreply, socket}
   end
 
@@ -37,7 +52,7 @@ defmodule ScribblBackendWeb.RoomChannel do
 
   def handle_in("new_message", %{"message" => message}, socket) do
     user_id = socket.assigns.user_id
-  
+
     # Broadcast the new message to all pods, now including userId
     Phoenix.PubSub.broadcast(
       ScribblBackend.PubSub,
@@ -50,7 +65,7 @@ defmodule ScribblBackendWeb.RoomChannel do
         }
       }
     )
-  
+
     {:noreply, socket}
   end
 end
