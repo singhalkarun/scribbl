@@ -39,20 +39,20 @@ defmodule ScribblBackend.RedisHelper do
   end
 
   @doc """
-  Sets the key-value pair in Hash in Redis.
+  Sets multiple key-value pair in Hash in Redis.
   ## Parameters
 
     - `key`: The key to set.
-    - `field`: The field to set.
-    - `value`: The value to set.
-
+    - `fields`: A map of fields and values to set.
   ## Examples
 
-      iex> ScribblBackend.RedisHelper.hset("my_key", "my_field", "my_value")
+      iex> ScribblBackend.RedisHelper.hmset("my_key", %{"field1" => "value1", "field2" => "value2"})
       :ok
   """
-  def hset(key, field, value) do
-    Redix.command(:redix, ["HSET", key, field, value])
+  def hset(key, fields) when is_map(fields) do
+    # Convert the map to a list of tuples
+    fields_list = Enum.flat_map(fields, fn {k, v} -> [k, v] end)
+    Redix.command(:redix, ["HSET", key | fields_list])
   end
 
   @doc """
@@ -189,4 +189,99 @@ defmodule ScribblBackend.RedisHelper do
   def exists(key) do
     Redix.command(:redix, ["EXISTS", key])
   end
+
+  @doc """
+  Remoce an element from a list in Redis.
+  ## Parameters
+
+    - `key`: The key to remove from.
+    - `value`: The value to remove.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.lrem("my_key", "my_value")
+      :ok
+  """
+  def lrem(key, value) do
+    Redix.command(:redix, ["LREM", key, "0", value])
+  end
+
+  @doc """
+  Adds one or more members to a set in Redis.
+  ## Parameters
+
+    - `key`: The key to add to.
+    - `members`: The members to add.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.sadd("my_key", ["member1", "member2"])
+      :ok
+  """
+  def sadd(key, members) do
+    # Convert the list to a flat list of arguments
+    members_list = Enum.flat_map(members, fn member -> [member] end)
+    Redix.command(:redix, ["SADD", key | members_list])
+  end
+
+  @doc """
+  Removes one or more members from a set in Redis.
+  ## Parameters
+
+    - `key`: The key to remove from.
+    - `members`: The members to remove.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.srem("my_key", ["member1", "member2"])
+      :ok
+  """
+  def srem(key, members) do
+    # Convert the list to a flat list of arguments
+    members_list = Enum.flat_map(members, fn member -> [member] end)
+    Redix.command(:redix, ["SREM", key | members_list])
+  end
+
+  @doc """
+  Checks if a member exists in a set in Redis.
+  ## Parameters
+
+    - `key`: The key to check.
+    - `member`: The member to check.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.sismember("my_key", "member1")
+      {:ok, 1}
+  """
+  def sismember(key, member) do
+    Redix.command(:redix, ["SISMEMBER", key, member])
+  end
+
+
+  @doc """
+  Pick a random member from a set in Redis.
+  ## Parameters
+
+    - `key`: The key to pick from.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.srandmember("my_key")
+      {:ok, "member1"}
+  """
+  def srandmember(key) do
+    Redix.command(:redix, ["SRANDMEMBER", key])
+  end
+
+  @doc """
+  Pop a random member from a set in Redis.
+  ## Parameters
+
+    - `key`: The key to pop from.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.spop("my_key")
+      {:ok, "member1"}
+  """
+  def spop(key) do
+    Redix.command(:redix, ["SPOP", key])
+  end
+
+
 end
