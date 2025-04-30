@@ -12,6 +12,11 @@ defmodule ScribblBackendWeb.RoomChannel do
       joined_at: :os.system_time(:seconds)
     })
 
+    # add the socket to user specific topic
+    user_id = socket.assigns.user_id
+    topic = "user:#{user_id}"
+    Phoenix.PubSub.subscribe(ScribblBackend.PubSub, topic)
+
     # Schedule actions after the socket has finished joining
     send(self(), :after_join)
 
@@ -64,6 +69,23 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "drawer_assigned", payload: payload}, socket) do
+    # Push the drawer assigned event to the current socket
+    push(socket, "drawer_assigned", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "word_assigned", payload: payload}, socket) do
+    # Push the word assigned event to the current socket
+    push(socket, "word_assigned", payload)
+    {:noreply, socket}
+  end
+  def handle_info(%{event: "error", payload: payload}, socket) do
+    # Push the error event to the current socket
+    push(socket, "error", payload)
+    {:noreply, socket}
+  end
+
   def handle_in("new_message", %{"message" => message}, socket) do
     user_id = socket.assigns.user_id
 
@@ -99,6 +121,55 @@ defmodule ScribblBackendWeb.RoomChannel do
             payload: game_info
           }
         )
+
+        case GameHelper.allocate_drawer(room_id) do
+          {:ok, drawer} ->
+            # broadcast the drawer to all players
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "drawer_assigned",
+                payload: %{
+                  "drawer" => drawer
+                }
+              }
+            )
+
+            # generate a random word and send to the drawer
+            word = GameHelper.generate_word()
+
+
+            # send the word to the drawer
+
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              "user:#{drawer}",
+              %{
+                event: "word_assigned",
+                payload: %{
+                  "word" => word
+                }
+              }
+            )
+
+          {:error, reason} ->
+            # Handle error (e.g., log it)
+            IO.puts("Error allocating drawer: #{reason}")
+
+            # send error message to all players
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "error",
+                payload: %{
+                  "message" => "Error allocating drawer: #{reason}"
+                }
+              }
+            )
+
+        end
 
       {:error, reason} ->
         # Handle error (e.g., log it)

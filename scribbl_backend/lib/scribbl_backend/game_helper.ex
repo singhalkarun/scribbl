@@ -32,9 +32,10 @@ defmodule ScribblBackend.GameHelper do
         # room exists, return the room info
         {:ok, room_info} = RedisHelper.hgetall(room_key)
 
-        room_info = Enum.chunk_every(room_info, 2)
-        |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
-        |> Enum.into(%{})
+        room_info =
+          Enum.chunk_every(room_info, 2)
+          |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
+          |> Enum.into(%{})
 
         {:ok, room_info}
 
@@ -48,18 +49,20 @@ defmodule ScribblBackend.GameHelper do
             "max_rounds" => max_rounds,
             "current_round" => 0,
             "status" => "waiting",
-            "current_drawer" => "",
+            "current_drawer" => ""
           }
         )
 
         # return the new room info
         {:ok, room_info} = RedisHelper.hgetall(room_key)
 
-        room_info = Enum.chunk_every(room_info, 2)
-        |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
-        |> Enum.into(%{})
+        room_info =
+          Enum.chunk_every(room_info, 2)
+          |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
+          |> Enum.into(%{})
 
         {:ok, room_info}
+
       {:error, reason} ->
         # handle error
         {:error, reason}
@@ -81,7 +84,6 @@ defmodule ScribblBackend.GameHelper do
 
     # add the player to the room in the list of players
     RedisHelper.rpush(room_key, player_id)
-
   end
 
   # function to get the list of players in the room
@@ -115,7 +117,6 @@ defmodule ScribblBackend.GameHelper do
 
     # remove the player from the room in the list of players
     RedisHelper.lrem(room_key, player_id)
-
   end
 
   # start the game
@@ -142,16 +143,12 @@ defmodule ScribblBackend.GameHelper do
         room_key,
         %{
           "status" => "finished",
-          "current_drawer" => "",
+          "current_drawer" => ""
         }
       )
 
       {:error, "Game over"}
-
     else
-       # create a set of players for round
-      eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{current_round}:eligible_drawers"
-
       players_key = "#{@room_prefix}{#{room_id}}:players"
 
       # get the list of players in the room
@@ -162,21 +159,62 @@ defmodule ScribblBackend.GameHelper do
         {:error, "Not enough players to start the game"}
       else
         # add players to the eligible drawers set
+        eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{String.to_integer(current_round) + 1}:eligible_drawers"
+
         RedisHelper.sadd(eligible_drawers_key, players)
 
         RedisHelper.hmset(
           room_key,
           %{
             "status" => "started",
-            "current_round" => String.to_integer(current_round) + 1,
+            "current_round" => String.to_integer(current_round) + 1
           }
         )
 
-        {:ok, %{
-          "current_round" => String.to_integer(current_round) + 1,
-          "status" => "started",
-        }}
+        {:ok,
+         %{
+           "current_round" => String.to_integer(current_round) + 1,
+           "status" => "started"
+         }}
       end
     end
+  end
+
+  def allocate_drawer(room_id) do
+    room_key = "#{@room_prefix}{#{room_id}}:info"
+
+    # get the current round
+    {:ok, current_round} = RedisHelper.hget(room_key, "current_round")
+    # get the eligible drawers for the current round
+    eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{current_round}:eligible_drawers"
+
+    # check if there are eligible drawers
+    {:ok, members} = RedisHelper.smembers(eligible_drawers_key)
+
+    IO.puts("Eligible drawers: #{inspect(members)}")
+
+    case RedisHelper.srandmember(eligible_drawers_key) do
+      {:ok, nil} ->
+        # No eligible drawers available
+        {:error, "No eligible drawers available"}
+
+      {:ok, drawer} ->
+
+        # set the current drawer in the room info
+        RedisHelper.hmset(
+          room_key,
+          %{
+            "current_drawer" => drawer
+          }
+        )
+        {:ok, drawer}
+    end
+  end
+
+  def generate_word() do
+    # This function should return a random word from the word list
+    # For now, we will just return a placeholder word
+    words = ["apple", "banana", "cherry", "date", "elderberry"]
+    Enum.random(words)
   end
 end

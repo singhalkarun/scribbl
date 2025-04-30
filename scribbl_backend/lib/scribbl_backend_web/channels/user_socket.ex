@@ -7,6 +7,7 @@ defmodule ScribblBackendWeb.UserSocket do
     # Assign a unique user ID to the socket
     user_id = UUID.uuid4()
     socket = assign(socket, :user_id, user_id)
+
     {:ok, socket}
   end
 

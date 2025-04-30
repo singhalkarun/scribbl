@@ -283,5 +283,19 @@ defmodule ScribblBackend.RedisHelper do
     Redix.command(:redix, ["SPOP", key])
   end
 
+  @doc """
+  Get all members of a set in Redis.
+
+  ## Parameters
+
+    - `key`: The key to get.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.smembers("my_key")
+      {:ok, ["member1", "member2"]}
+  """
+  def smembers(key) do
+    Redix.command(:redix, ["SMEMBERS", key])
+  end
 
 end
