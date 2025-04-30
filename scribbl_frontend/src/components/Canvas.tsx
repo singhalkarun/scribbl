@@ -24,6 +24,7 @@ interface SketchPath {
 
 export default function Canvas() {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<Socket | null>(null);
 
   // State for drawing properties
@@ -32,6 +33,7 @@ export default function Canvas() {
   const [eraserWidth, setEraserWidth] = useState(10);
   const [isEraser, setIsEraser] = useState(false);
   const [paths, setPaths] = useState<SketchPath[]>([]);
+  const [showBrushSlider, setShowBrushSlider] = useState(false);
 
   // When paths state changes, update the canvas to match
   useEffect(() => {
@@ -113,12 +115,32 @@ export default function Canvas() {
   const handleColorChange = (newColor: string) => {
     setColor(newColor);
     setIsEraser(false);
+    setShowBrushSlider(true);
     canvasRef.current?.eraseMode(false);
   };
 
-  const handleEraseToggle = (erase: boolean) => {
-    setIsEraser(erase);
-    canvasRef.current?.eraseMode(erase);
+  const handleDrawModeClick = () => {
+    if (!isEraser) {
+      // If already in Draw mode, toggle the slider
+      setShowBrushSlider(!showBrushSlider);
+    } else {
+      // If switching to Draw mode, activate it and show slider
+      setIsEraser(false);
+      setShowBrushSlider(true);
+      canvasRef.current?.eraseMode(false);
+    }
+  };
+
+  const handleEraseModeClick = () => {
+    if (isEraser) {
+      // If already in Erase mode, toggle the slider
+      setShowBrushSlider(!showBrushSlider);
+    } else {
+      // If switching to Erase mode, activate it and show slider
+      setIsEraser(true);
+      setShowBrushSlider(true);
+      canvasRef.current?.eraseMode(true);
+    }
   };
 
   const handleClear = () => {
@@ -129,6 +151,60 @@ export default function Canvas() {
     socketRef.current?.emit("clear_canvas");
     // Canvas will update via the useEffect hook
   };
+
+  // Handle trackpad zoom gesture - moved to useEffect
+  // const handleWheel = (e: React.WheelEvent) => { ... };
+
+  // Effect to handle wheel event listener for stroke size adjustment
+  // AND hide slider on draw start
+  useEffect(() => {
+    const container = canvasContainerRef.current;
+
+    const handleWheel = (e: WheelEvent) => {
+      // Check if it's a pinch zoom gesture (Ctrl key + wheel)
+      if (e.ctrlKey) {
+        // Prevent browser zoom only when Ctrl is pressed
+        e.preventDefault();
+
+        if (e.deltaY !== 0) {
+          const delta = e.deltaY > 0 ? -1 : 1; // Inverted scroll direction might feel more natural for size
+
+          // Use functional updates for state based on previous state
+          if (isEraser) {
+            setEraserWidth((prev) => Math.max(1, Math.min(50, prev + delta)));
+          } else {
+            setStrokeWidth((prev) => Math.max(1, Math.min(20, prev + delta)));
+          }
+        }
+      }
+      // Do not prevent default scroll behavior if Ctrl is not pressed
+    };
+
+    const hideSliderOnDrawStart = () => {
+      setShowBrushSlider(false);
+    };
+
+    if (container) {
+      // Add listener with passive: false to allow preventDefault
+      container.addEventListener("wheel", handleWheel, { passive: false });
+      // Add listeners to hide slider on canvas interaction
+      container.addEventListener("mousedown", hideSliderOnDrawStart);
+      container.addEventListener("touchstart", hideSliderOnDrawStart, {
+        passive: true,
+      }); // Use passive: true for touchstart if not preventing default
+    }
+
+    // Cleanup function to remove the listeners
+    return () => {
+      if (container) {
+        container.removeEventListener("wheel", handleWheel);
+        container.removeEventListener("mousedown", hideSliderOnDrawStart);
+        container.removeEventListener("touchstart", hideSliderOnDrawStart);
+      }
+    };
+    // Re-run effect if isEraser changes (for wheel handler state access)
+    // No need to re-run for setShowBrushSlider as it's stable
+  }, [isEraser]);
 
   // Simpler undo handler that should work without sockets
   const handleUndo = () => {
@@ -182,28 +258,15 @@ export default function Canvas() {
       .then((exportedPaths: SketchPath[]) => {
         // Check if we have any paths
         if (exportedPaths && exportedPaths.length > 0) {
-          // If we already have paths in our state and the length increased
-          if (paths.length < exportedPaths.length) {
-            // The new path is the last one
-            const newPath = exportedPaths[exportedPaths.length - 1];
+          // Get the latest path
+          const newPath = exportedPaths[exportedPaths.length - 1];
 
-            // Update state with all paths
-            setPaths(exportedPaths);
-
-            // Send only the latest path to the server
-            console.log("Sending new path:", newPath);
-            socketRef.current?.emit("new_path", newPath);
-          } else {
-            // This might be a case where paths were removed (like undo)
-            // or paths were modified but count stayed the same
-            setPaths(exportedPaths);
-
-            // We might want to sync the entire state in some cases
-            // socketRef.current?.emit("update_paths", exportedPaths);
-          }
-        } else {
-          // No paths - canvas was cleared
-          setPaths([]);
+          // Update state with all paths
+          setPaths(exportedPaths);
+          console.log("Exported paths:", exportedPaths);
+          // Send the new path to the server
+          console.log("Sending new path:", newPath);
+          socketRef.current?.emit("new_path", newPath);
         }
       })
       .catch((error) => {
@@ -211,79 +274,119 @@ export default function Canvas() {
       });
   };
 
+  // Handle path updates from other users
+  useEffect(() => {
+    if (socketRef.current) {
+      socketRef.current.on("new_path", (newPath: SketchPath) => {
+        console.log("Received new path from another user");
+        if (newPath) {
+          // Add the new path to existing paths
+          setPaths((prevPaths) => [...prevPaths, newPath]);
+        }
+      });
+    }
+  }, []);
+
   return (
-    <div className="w-full h-screen flex flex-col gap-2 p-4 bg-gray-50 font-sans">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 mb-2 flex-wrap p-2 bg-white rounded-lg shadow">
-        {/* Color buttons */}
-        {colors.map((c) => (
+    <div className="w-full h-full flex flex-col md:gap-2 md:p-4 bg-gray-50 font-sans">
+      {/* Toolbar - Make relative for absolute positioning of slider */}
+      <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
+        {/* Main controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Color buttons */}
+          {colors.map((c) => (
+            <button
+              key={c}
+              aria-label={`Select color ${c}`}
+              onClick={() => handleColorChange(c)}
+              className={`w-8 h-8 rounded-full border-2 transition-transform duration-150 ease-in-out hover:cursor-pointer ${
+                color === c && !isEraser
+                  ? "border-blue-600 scale-110 ring-2 ring-blue-300"
+                  : "border-gray-300 hover:scale-105"
+              }`}
+              style={{ backgroundColor: c }}
+            />
+          ))}
+
+          {/* Separator */}
+          <div className="border-l border-gray-300 h-6 mx-2"></div>
+
+          {/* Mode toggle */}
           <button
-            key={c}
-            aria-label={`Select color ${c}`}
-            onClick={() => handleColorChange(c)}
-            className={`w-8 h-8 rounded-full border-2 transition-transform duration-150 ease-in-out ${
-              color === c && !isEraser
-                ? "border-blue-600 scale-110 ring-2 ring-blue-300"
-                : "border-gray-300 hover:scale-105"
+            onClick={handleDrawModeClick}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
+              !isEraser
+                ? "bg-blue-500 text-white shadow-sm"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
             }`}
-            style={{ backgroundColor: c }}
-          />
-        ))}
+          >
+            Draw
+          </button>
+          <button
+            onClick={handleEraseModeClick}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
+              isEraser
+                ? "bg-red-500 text-white shadow-sm"
+                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+            }`}
+          >
+            Erase
+          </button>
 
-        {/* Separator */}
-        <div className="border-l border-gray-300 h-6 mx-2"></div>
+          <button
+            onClick={handleClear}
+            className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors shadow-sm hover:cursor-pointer"
+          >
+            Clear All
+          </button>
+        </div>
 
-        {/* Mode toggle */}
-        <button
-          onClick={() => handleEraseToggle(false)}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
-            !isEraser
-              ? "bg-blue-500 text-white shadow-sm"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Draw
-        </button>
-        <button
-          onClick={() => handleEraseToggle(true)}
-          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
-            isEraser
-              ? "bg-red-500 text-white shadow-sm"
-              : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-          }`}
-        >
-          Erase
-        </button>
-
-        {/* Separator */}
-        {/* <div className="border-l border-gray-300 h-6 mx-2"></div> */}
-
-        {/* Actions */}
-        {/* <button
-          onClick={handleUndo}
-          className="px-3 py-1.5 bg-yellow-400 text-yellow-900 rounded-md text-sm font-medium hover:bg-yellow-500 transition-colors shadow-sm"
-        >
-          Undo
-        </button>
-        <button
-          onClick={handleRedo}
-          className="px-3 py-1.5 bg-yellow-400 text-yellow-900 rounded-md text-sm font-medium hover:bg-yellow-500 transition-colors shadow-sm"
-        >
-          Redo
-        </button> */}
-        <button
-          onClick={handleClear}
-          className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors shadow-sm hover:cursor-pointer"
-        >
-          Clear All
-        </button>
+        {/* Brush size slider - Position absolutely */}
+        {showBrushSlider && (
+          <div className="absolute top-full left-0 right-0 z-10 mt-1 p-2 bg-white rounded-b-lg shadow-md border-t border-gray-100 flex items-center gap-4 px-4">
+            <span className="text-sm text-gray-600 flex-shrink-0">
+              {isEraser ? "Eraser Size" : "Brush Size"}
+            </span>
+            <input
+              type="range"
+              min="1"
+              max={isEraser ? "50" : "20"}
+              value={isEraser ? eraserWidth : strokeWidth}
+              onChange={(e) => {
+                const value = parseInt(e.target.value);
+                if (isEraser) {
+                  setEraserWidth(value);
+                } else {
+                  setStrokeWidth(value);
+                }
+              }}
+              className="w-48"
+            />
+            <span className="text-sm text-gray-600">
+              {isEraser ? eraserWidth : strokeWidth}px
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Drawing canvas */}
       <div
-        className="relative flex-1 border border-gray-300 rounded-lg shadow-inner overflow-hidden bg-white"
+        ref={canvasContainerRef}
+        className="relative flex-1 border border-gray-300 rounded-lg shadow-inner overflow-hidden bg-white min-h-0"
         style={{
-          cursor: "url('/pencil.png') 0 40, auto",
+          cursor: isEraser
+            ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                eraserWidth * 2
+              }" height="${eraserWidth * 2}" viewBox="0 0 ${eraserWidth * 2} ${
+                eraserWidth * 2
+              }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
+                eraserWidth - 1
+              }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
+            : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                strokeWidth * 2
+              }" height="${strokeWidth * 2}" viewBox="0 0 ${strokeWidth * 2} ${
+                strokeWidth * 2
+              }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`,
         }}
       >
         <ReactSketchCanvas
@@ -295,6 +398,7 @@ export default function Canvas() {
           eraserWidth={eraserWidth}
           canvasColor="white"
           onStroke={handleStroke}
+          allowOnlyPointerType="all"
           style={{
             border: "none",
             borderRadius: "8px",

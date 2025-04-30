@@ -85,8 +85,8 @@ export default function Chat({
       <form onSubmit={handleSubmit} className="mt-2 flex gap-1">
         <input
           type="text"
-          placeholder="Type your guess..."
-          className="border px-2 py-1 rounded text-sm flex-1"
+          placeholder="Type here"
+          className="border px-2 py-1 rounded text-sm flex-1 min-w-0"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={guessedCorrectly}

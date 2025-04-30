@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono, Outfit } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import SocketInitializer from "@/components/SocketInitializer";
+
+const outfit = Outfit({
+  variable: "--font-outfit",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 const inter = Inter({
   variable: "--font-inter",
@@ -43,10 +50,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
-      >
+    <html
+      lang="en"
+      className={`${outfit.variable} ${inter.variable} ${jetbrainsMono.variable}`}
+      style={{ fontFamily: "var(--font-outfit)" }}
+    >
+      <head>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-1YN078DXYJ"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-1YN078DXYJ');
+          `}
+        </Script>
+      </head>
+      <body className="antialiased">
         <SocketInitializer />
         {children}
       </body>
