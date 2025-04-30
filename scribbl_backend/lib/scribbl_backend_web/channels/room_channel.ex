@@ -80,9 +80,16 @@ defmodule ScribblBackendWeb.RoomChannel do
     push(socket, "word_assigned", payload)
     {:noreply, socket}
   end
+
   def handle_info(%{event: "error", payload: payload}, socket) do
     # Push the error event to the current socket
     push(socket, "error", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "drawing", payload: payload}, socket) do
+    # Push the drawing event to the current socket
+    push(socket, "drawing", payload)
     {:noreply, socket}
   end
 
@@ -101,6 +108,39 @@ defmodule ScribblBackendWeb.RoomChannel do
         }
       }
     )
+
+    {:noreply, socket}
+  end
+
+  # handle drawing events
+  def handle_in(
+        "drawing",
+        %{
+          "drawMode" => drawMode,
+          "strokeColor" => strokeColor,
+          "strokeWidth" => strokeWidth,
+          "paths" => paths
+        },
+        socket
+      ) do
+    # Broadcast the drawing data to all players in the room
+
+    Phoenix.PubSub.broadcast_from(
+      ScribblBackend.PubSub,
+      self(),
+      socket.topic,
+      %{
+        event: "drawing",
+        payload: %{
+          "drawMode" => drawMode,
+          "strokeColor" => strokeColor,
+          "strokeWidth" => strokeWidth,
+          "paths" => paths
+        }
+      }
+    )
+
+    # ToDO: Save the drawing data to Redis or any other storage for persistence
 
     {:noreply, socket}
   end
@@ -139,7 +179,6 @@ defmodule ScribblBackendWeb.RoomChannel do
             # generate a random word and send to the drawer
             word = GameHelper.generate_word()
 
-
             # send the word to the drawer
 
             Phoenix.PubSub.broadcast(
@@ -168,7 +207,6 @@ defmodule ScribblBackendWeb.RoomChannel do
                 }
               }
             )
-
         end
 
       {:error, reason} ->
