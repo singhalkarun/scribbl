@@ -47,6 +47,7 @@ services:
   redis:
     image: redis:7.4.3-alpine
     restart: always
+    command: redis-server --notify-keyspace-events Ex --loglevel debug
     volumes:
       - redis_data:/data
     ports:

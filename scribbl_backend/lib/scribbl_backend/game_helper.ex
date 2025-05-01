@@ -188,12 +188,7 @@ defmodule ScribblBackend.GameHelper do
     # get the eligible drawers for the current round
     eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{current_round}:eligible_drawers"
 
-    # check if there are eligible drawers
-    {:ok, members} = RedisHelper.smembers(eligible_drawers_key)
-
-    IO.puts("Eligible drawers: #{inspect(members)}")
-
-    case RedisHelper.srandmember(eligible_drawers_key) do
+    case RedisHelper.spop(eligible_drawers_key) do
       {:ok, nil} ->
         # No eligible drawers available
         {:error, "No eligible drawers available"}
@@ -217,4 +212,34 @@ defmodule ScribblBackend.GameHelper do
     words = ["apple", "banana", "cherry", "date", "elderberry"]
     Enum.random(words)
   end
+
+  def start_turn(room_id, word) do
+    room_word_key = "#{@room_prefix}{#{room_id}}:word"
+
+    room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
+
+    RedisHelper.set(
+      room_word_key,
+      word
+    )
+
+    # set the turn timer with lock and expiration
+    RedisHelper.setex(
+      room_timer_key,
+      60,
+      "active"
+    )
+
+    {:ok, %{"word_length" => Integer.to_string(String.length(word))}}
+  end
+
+  def get_current_drawer(room_id) do
+    room_key = "#{@room_prefix}{#{room_id}}:info"
+
+    # get the current drawer
+    {:ok, current_drawer} = RedisHelper.hget(room_key, "current_drawer")
+
+    {:ok, current_drawer}
+  end
+
 end

@@ -298,4 +298,23 @@ defmodule ScribblBackend.RedisHelper do
     Redix.command(:redix, ["SMEMBERS", key])
   end
 
+  @doc """
+  Set a key with an expiration time in Redis.
+  ## Parameters
+
+    - `key`: The key to set.
+    - `value`: The value to set.
+    - `ttl`: The expiration time in seconds.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.setex("my_key", "my_value", 60)
+      :ok
+  """
+  def setex(key, ttl, value) do
+    case Redix.command(:redix, ["SETEX", key, ttl, value]) do
+      {:ok, _response} -> IO.puts("Key set successfully")
+      {:error, reason} -> IO.puts("Failed to set key: #{reason}")
+    end
+  end
+
 end

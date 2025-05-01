@@ -9,7 +9,6 @@ defmodule ScribblBackend.Application do
   def start(_type, _args) do
     children = [
       ScribblBackendWeb.Telemetry,
-      ScribblBackend.Repo,
       {DNSCluster, query: Application.get_env(:scribbl_backend, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub,
        name: ScribblBackend.PubSub,
@@ -23,6 +22,7 @@ defmodule ScribblBackend.Application do
        host: System.get_env("REDIS_HOST") || "localhost",
        port: (System.get_env("REDIS_PORT") || "6379") |> String.to_integer(),
        database: (System.get_env("REDIS_DB") || "0") |> String.to_integer()},
+      ScribblBackend.TimeoutWatcher,
       ScribblBackendWeb.Presence,
       # Start the Finch HTTP client for sending emails
       {Finch, name: ScribblBackend.Finch},

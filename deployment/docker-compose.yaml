@@ -53,6 +53,7 @@ services:
   redis:
     image: redis:7.4.3-alpine
     restart: always
+    command: redis-server --notify-keyspace-events Ex
     volumes:
       - redis_data:/data
 

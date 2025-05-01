@@ -75,9 +75,9 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
-  def handle_info(%{event: "word_assigned", payload: payload}, socket) do
+  def handle_info(%{event: "select_word", payload: payload}, socket) do
     # Push the word assigned event to the current socket
-    push(socket, "word_assigned", payload)
+    push(socket, "select_word", payload)
     {:noreply, socket}
   end
 
@@ -87,9 +87,21 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "turn_over", payload: payload}, socket) do
+    # Push the turn over event to the current socket
+    push(socket, "turn_over", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "drawing", payload: payload}, socket) do
     # Push the drawing event to the current socket
     push(socket, "drawing", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "turn_started", payload: payload}, socket) do
+    # Push the turn started event to the current socket
+    push(socket, "turn_started", payload)
     {:noreply, socket}
   end
 
@@ -145,6 +157,44 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_in(
+        "start_turn",
+        %{
+          "word" => word
+        },
+        socket
+      ) do
+    # Get the room ID from the socket topic
+    room_id = String.split(socket.topic, ":") |> List.last()
+    drawer_id = socket.assigns.user_id
+
+    # Check if the user is the drawer
+    # Get the current drawer from Redis
+    {:ok, current_drawer} = GameHelper.get_current_drawer(room_id)
+
+    if current_drawer != drawer_id do
+      # If the user is not the drawer, send an error message
+      push(socket, "error", %{"message" => "You are not the drawer"})
+      {:noreply, socket}
+    else
+      # start the turn
+      case GameHelper.start_turn(room_id, word) do
+        {:ok, turn_info} ->
+          # Broadcast the start event to all players
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "turn_started",
+              payload: turn_info
+            }
+          )
+      end
+    end
+
+    {:noreply, socket}
+  end
+
   def handle_in("start_game", %{}, socket) do
     # Get the room ID from the socket topic
     room_id = String.split(socket.topic, ":") |> List.last()
@@ -185,7 +235,7 @@ defmodule ScribblBackendWeb.RoomChannel do
               ScribblBackend.PubSub,
               "user:#{drawer}",
               %{
-                event: "word_assigned",
+                event: "select_word",
                 payload: %{
                   "word" => word
                 }
