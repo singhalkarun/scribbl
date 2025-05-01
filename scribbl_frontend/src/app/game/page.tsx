@@ -13,7 +13,6 @@ export default function GamePage() {
 
   const { connectionState, sendMessage } = useRoomChannel();
 
-  const wordToGuess = "CHAT";
   const [guessed, setGuessed] = useState(false);
   const [roomStatus, setRoomStatus] = useState("waiting");
   const [gameInfo, setGameInfo] = useState({
@@ -188,7 +187,7 @@ export default function GamePage() {
           {/* Chat - Takes half width on mobile */}
           <div className="w-1/2 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0 md:w-auto md:flex-1">
             <Chat
-              wordToGuess={wordToGuess}
+              wordToGuess={wordToDraw}
               onCorrectGuess={() => setGuessed(true)}
               playerName={playerName}
               sendMessage={sendMessage}
@@ -238,8 +237,8 @@ export default function GamePage() {
               {isCurrentUserDrawing
                 ? wordToDraw
                 : guessed
-                ? wordToGuess.split("").join(" ")
-                : wordToGuess
+                ? wordToDraw.split("").join(" ")
+                : wordToDraw
                     .split("")
                     .map(() => "_")
                     .join(" ")}
