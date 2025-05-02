@@ -22,8 +22,17 @@ defmodule ScribblBackend.TimeoutWatcher do
     db = System.get_env("REDIS_DB") || "0"
     redis_channel = "__keyevent@#{db}__:expired"
 
+    host = System.get_env("REDIS_HOST") || "localhost"
+    port = System.get_env("REDIS_PORT") || "6379"
+
+    opts = [
+      host: host,
+      port: String.to_integer(port),
+      name: :redix_pubsub
+    ]
+
     # Subscribe to Redis key expiration events
-    {:ok, redix_pubsub} = Redix.PubSub.start_link(name: :redix_pubsub)
+    {:ok, redix_pubsub} = Redix.PubSub.start_link(opts)
 
     case Redix.PubSub.subscribe(redix_pubsub, redis_channel, self()) do
       {:ok, ref} ->
