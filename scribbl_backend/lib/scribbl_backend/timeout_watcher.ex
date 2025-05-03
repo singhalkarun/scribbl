@@ -118,52 +118,7 @@ defmodule ScribblBackend.TimeoutWatcher do
           }
         )
 
-        case GameHelper.allocate_drawer(room_id) do
-          {:ok, drawer} ->
-            # broadcast the drawer to all players
-            Phoenix.PubSub.broadcast(
-              ScribblBackend.PubSub,
-              "room:#{room_id}",
-              %{
-                event: "drawer_assigned",
-                payload: %{
-                  "drawer" => drawer
-                }
-              }
-            )
-
-            # generate a random word and send to the drawer
-            word = GameHelper.generate_word()
-
-            # send the word to the drawer
-
-            Phoenix.PubSub.broadcast(
-              ScribblBackend.PubSub,
-              "user:#{drawer}",
-              %{
-                event: "select_word",
-                payload: %{
-                  "word" => word
-                }
-              }
-            )
-
-            {:error, reason} ->
-              # Handle error (e.g., log it)
-              IO.puts("Error allocating drawer: #{reason}")
-
-              # send error message to all players
-              Phoenix.PubSub.broadcast(
-                ScribblBackend.PubSub,
-                "room:#{room_id}",
-                %{
-                  event: "error",
-                  payload: %{
-                    "message" => "Error allocating drawer: #{reason}"
-                  }
-                }
-              )
-        end
+        GameHelper.start(room_id)
     end
   end
 

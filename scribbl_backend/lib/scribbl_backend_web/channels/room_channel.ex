@@ -87,6 +87,12 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "game_over", payload: payload}, socket) do
+    # Push the game over event to the current socket
+    push(socket, "game_over", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "turn_over", payload: payload}, socket) do
     # Push the turn over event to the current socket
     push(socket, "turn_over", payload)
@@ -199,73 +205,8 @@ defmodule ScribblBackendWeb.RoomChannel do
     # Get the room ID from the socket topic
     room_id = String.split(socket.topic, ":") |> List.last()
 
-    # start the game
-    case GameHelper.start_game(room_id) do
-      {:ok, game_info} ->
-        # Broadcast the start event to all players
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          socket.topic,
-          %{
-            event: "game_started",
-            payload: game_info
-          }
-        )
-
-        case GameHelper.allocate_drawer(room_id) do
-          {:ok, drawer} ->
-            # broadcast the drawer to all players
-            Phoenix.PubSub.broadcast(
-              ScribblBackend.PubSub,
-              socket.topic,
-              %{
-                event: "drawer_assigned",
-                payload: %{
-                  "drawer" => drawer
-                }
-              }
-            )
-
-            # generate a random word and send to the drawer
-            word = GameHelper.generate_word()
-
-            # send the word to the drawer
-
-            Phoenix.PubSub.broadcast(
-              ScribblBackend.PubSub,
-              "user:#{drawer}",
-              %{
-                event: "select_word",
-                payload: %{
-                  "word" => word
-                }
-              }
-            )
-
-          {:error, reason} ->
-            # Handle error (e.g., log it)
-            IO.puts("Error allocating drawer: #{reason}")
-
-            # send error message to all players
-            Phoenix.PubSub.broadcast(
-              ScribblBackend.PubSub,
-              socket.topic,
-              %{
-                event: "error",
-                payload: %{
-                  "message" => "Error allocating drawer: #{reason}"
-                }
-              }
-            )
-        end
-
-      {:error, reason} ->
-        # Handle error (e.g., log it)
-        IO.puts("Error starting game: #{reason}")
-
-        # send error message to the current socket
-        push(socket, "error", %{"message" => "Error starting game: #{reason}"})
-    end
+    # Start the game
+    GameHelper.start(room_id)
 
     {:noreply, socket}
   end

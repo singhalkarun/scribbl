@@ -119,79 +119,65 @@ defmodule ScribblBackend.GameHelper do
     RedisHelper.lrem(room_key, player_id)
   end
 
-  # start the game
-  @doc """
-  Start the game in the room.
-  ## Parameters
-    - `room_id`: The ID of the room to start the game in.
-  ## Examples
-      iex> ScribblBackend.GameHelper.start_game("room_1")
-      :ok
-  """
-  def start_game(room_id) do
-    room_key = "#{@room_prefix}{#{room_id}}:info"
+  def start(room_id) do
+    # get or initialize the room
+    {:ok, room_info} = get_or_initialize_room(room_id)
 
-    {:ok, current_round} = RedisHelper.hget(room_key, "current_round")
+    # extract room info
+    current_round = room_info.current_round
+    max_rounds = room_info.max_rounds
 
-    # check if the current round is less than the max rounds
-
-    {:ok, max_rounds} = RedisHelper.hget(room_key, "max_rounds")
-
-    if String.to_integer(current_round) >= String.to_integer(max_rounds) do
-      # end the game
-      RedisHelper.hmset(
-        room_key,
-        %{
-          "status" => "finished",
-          "current_drawer" => ""
-        }
-      )
-
-      {:error, "Game over"}
-    else
-      players_key = "#{@room_prefix}{#{room_id}}:players"
-
-      # get the list of players in the room
-      {:ok, players} = RedisHelper.lrange(players_key)
-
-      # check if there are enough players to start the game
-      if length(players) < 2 do
-        {:error, "Not enough players to start the game"}
-      else
-        # add players to the eligible drawers set
-        eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{String.to_integer(current_round) + 1}:eligible_drawers"
-
-        RedisHelper.sadd(eligible_drawers_key, players)
-
-        RedisHelper.hmset(
-          room_key,
-          %{
-            "status" => "started",
-            "current_round" => String.to_integer(current_round) + 1
-          }
-        )
-
-        {:ok,
-         %{
-           "current_round" => String.to_integer(current_round) + 1,
-           "status" => "started"
-         }}
-      end
-    end
-  end
-
-  def allocate_drawer(room_id) do
-    room_key = "#{@room_prefix}{#{room_id}}:info"
-
-    # get the current round
-    {:ok, current_round} = RedisHelper.hget(room_key, "current_round")
-    # get the eligible drawers for the current round
+    # get eligible drawer for the current round
     eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{current_round}:eligible_drawers"
+    room_key = "#{@room_prefix}{#{room_id}}:info"
+    players_key = "#{@room_prefix}{#{room_id}}:players"
+
 
     case RedisHelper.spop(eligible_drawers_key) do
       {:ok, nil} ->
-        # No eligible drawers available
-        {:error, "No eligible drawers available"}
+
+        # check if the current round is less than the max rounds
+        if String.to_integer(current_round) >= String.to_integer(max_rounds) do
+          # end the game
+          RedisHelper.hmset(
+            room_id,
+            %{
+              "status" => "finished",
+              "current_drawer" => ""
+            }
+          )
+
+          # send the game over event to all players
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            "room:#{room_id}",
+            %{
+              event: "game_over",
+              payload: %{}
+            }
+          )
+
+          {:error, "Game over"}
+        else
+          # move to the next round
+          RedisHelper.hmset(
+            room_key,
+            %{
+              "current_round" => String.to_integer(current_round) + 1
+            }
+          )
+
+          # set the eligible drawers for the next round
+          eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{String.to_integer(current_round) + 1}:eligible_drawers"
+          # get the list of players in the room
+          {:ok, players} = RedisHelper.lrange(players_key)
+
+          # add players to the eligible drawers set
+          RedisHelper.sadd(eligible_drawers_key, players)
+
+          # trigger start function again
+          start(room_id)
+        end
 
       {:ok, drawer} ->
 
@@ -202,8 +188,36 @@ defmodule ScribblBackend.GameHelper do
             "current_drawer" => drawer
           }
         )
-        {:ok, drawer}
+
+        # broadcast the drawer to all players
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          "room:#{room_id}",
+          %{
+            event: "drawer_assigned",
+            payload: %{
+              "round" => current_round,
+              "drawer" => drawer
+            }
+          }
+        )
+
+        # generate a random word and send to the drawer
+        word = generate_word()
+        # send the word to the drawer
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          "user:#{drawer}",
+          %{
+            event: "select_word",
+            payload: %{
+              "word" => word
+            }
+          }
+        )
     end
+
+
   end
 
   def generate_word() do
