@@ -1,7 +1,7 @@
 "use client";
 
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Chat from "@/components/Chat";
 import { useRouter } from "next/navigation";
@@ -21,13 +21,40 @@ export default function GamePage() {
     currentRound: "0",
   });
   const [wordToDraw, setWordToDraw] = useState("");
+  const [wordLength, setWordLength] = useState(0);
+  const [showWordSelection, setShowWordSelection] = useState(false);
+  const [suggestedWord, setSuggestedWord] = useState("");
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [gameJustEnded, setGameJustEnded] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const router = useRouter();
 
   // Check if current user is the drawer
   const isCurrentUserDrawing = useMemo(() => {
-    return gameInfo.currentDrawer === userId;
+    const isDrawer = gameInfo.currentDrawer === userId;
+    console.log("[GamePage] Drawer check:", {
+      currentDrawer: gameInfo.currentDrawer,
+      userId,
+      isDrawer,
+    });
+    return isDrawer;
   }, [gameInfo.currentDrawer, userId]);
+
+  // Handle word selection
+  const handleWordSelect = () => {
+    const channel = usePlayerStore.getState().channel;
+    if (channel) {
+      console.log(
+        "[GamePage] Sending start_turn event with word:",
+        suggestedWord
+      );
+      channel.push("start_turn", { word: suggestedWord });
+      // Set the word to draw for the drawer only
+      setWordToDraw(suggestedWord);
+      setShowWordSelection(false);
+    }
+  };
 
   // Redirect if player info is missing *after* hydration
   useEffect(() => {
@@ -49,6 +76,11 @@ export default function GamePage() {
 
   // Select the players object
   const playersList = useMemo(() => Object.values(players), [players]);
+
+  // Debug log for suggestedWord changes
+  useEffect(() => {
+    console.log("[GamePage] suggestedWord changed:", suggestedWord);
+  }, [suggestedWord]);
 
   // Handle socket events for room info
   useEffect(() => {
@@ -88,7 +120,94 @@ export default function GamePage() {
         // Listen for select_word event (only sent to the drawer)
         const selectWordRef = channel.on("select_word", (payload) => {
           console.log("[GamePage] Received select_word:", payload);
-          setWordToDraw(payload.word);
+          // Only set the suggested word, not final yet
+          setSuggestedWord(payload.word);
+          console.log("[GamePage] Set suggestedWord to:", payload.word);
+          setShowWordSelection(true);
+        });
+
+        // Listen for turn_started event
+        const turnStartedRef = channel.on("turn_started", (payload) => {
+          console.log("[GamePage] Received turn_started:", payload);
+          // Reset the guessed state for the new turn
+          setGuessed(false);
+          // Set the word length for displaying blanks
+          setWordLength(payload.word_length);
+          // Make sure room status is set to "started"
+          setRoomStatus("started");
+          // If the word selection overlay is showing, hide it
+          if (showWordSelection) {
+            setShowWordSelection(false);
+          }
+
+          // Start the timer - 60 seconds
+          setTimeLeft(60);
+
+          // Clear any existing timer
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+          }
+
+          // Set up the new timer
+          timerRef.current = setInterval(() => {
+            setTimeLeft((prevTime) => {
+              if (prevTime <= 1) {
+                // If timer reaches 0, clear the interval
+                if (timerRef.current) {
+                  clearInterval(timerRef.current);
+                  timerRef.current = null;
+                }
+                return 0;
+              }
+              return prevTime - 1;
+            });
+          }, 1000);
+        });
+
+        // Listen for turn_over event
+        const turnOverRef = channel.on("turn_over", (payload) => {
+          console.log("[GamePage] Received turn_over:", payload);
+          // Clear the timer if it's still running
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+
+          // Reset states for the next turn
+          setTimeLeft(0);
+          setWordToDraw("");
+          setWordLength(0);
+        });
+
+        // Listen for game_over event
+        const gameOverRef = channel.on("game_over", (payload) => {
+          console.log("[GamePage] Received game_over:", payload);
+
+          // Clear any running timer
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+
+          // Show game over message
+          setGameJustEnded(true);
+
+          // Reset the game state to show the Start Game button again
+          setRoomStatus("waiting");
+          setGameInfo((prev) => ({
+            ...prev,
+            currentDrawer: "",
+            currentRound: "0",
+          }));
+          setTimeLeft(0);
+          setWordToDraw("");
+          setWordLength(0);
+          setGuessed(false);
+
+          // Clear the game over message after a few seconds
+          setTimeout(() => {
+            setGameJustEnded(false);
+          }, 5000);
         });
 
         // Cleanup listeners
@@ -98,6 +217,15 @@ export default function GamePage() {
             channel.off("game_started", gameStartedRef);
             channel.off("drawer_assigned", drawerAssignedRef);
             channel.off("select_word", selectWordRef);
+            channel.off("turn_started", turnStartedRef);
+            channel.off("turn_over", turnOverRef);
+            channel.off("game_over", gameOverRef);
+
+            // Clear any running timer
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
           }
         };
       }
@@ -151,10 +279,31 @@ export default function GamePage() {
 
   return (
     <main className="h-screen w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+      {/* Word Selection Overlay */}
+      {showWordSelection && isCurrentUserDrawing && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 shadow-2xl text-center max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Select Word to Draw
+            </h2>
+            <p className="text-gray-600 mb-6">
+              Click on the word to start your turn
+            </p>
+
+            <button
+              onClick={handleWordSelect}
+              className="text-2xl py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white w-full rounded-lg font-semibold transition-colors hover:cursor-pointer"
+            >
+              {suggestedWord || "Loading..."}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Canvas area - Fixed height on mobile, grows on md+ */}
       <div className="px-1 h-[45vh] md:h-auto md:flex-1 md:p-4">
         <div className="w-full h-full bg-white rounded-xl md:shadow-lg flex flex-col overflow-hidden">
-          <Canvas />
+          <Canvas isDrawer={isCurrentUserDrawing} />
         </div>
       </div>
 
@@ -187,7 +336,7 @@ export default function GamePage() {
           {/* Chat - Takes half width on mobile */}
           <div className="w-1/2 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0 md:w-auto md:flex-1">
             <Chat
-              wordToGuess={wordToDraw}
+              wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
               onCorrectGuess={() => setGuessed(true)}
               playerName={playerName}
               sendMessage={sendMessage}
@@ -198,20 +347,37 @@ export default function GamePage() {
         {/* Conditionally render Word hint or Start Game button */}
         {roomStatus === "waiting" ? (
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-3 md:p-3 text-center flex-shrink-0">
+            {gameJustEnded ? (
+              <div className="mb-3">
+                <h3 className="text-xl font-bold text-indigo-600 mb-1">
+                  Game Over!
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">The game has ended</p>
+                <div className="w-full h-1 bg-indigo-100 rounded mb-4">
+                  <div
+                    className="h-full bg-indigo-500 rounded animate-pulse"
+                    style={{ width: "100%" }}
+                  ></div>
+                </div>
+              </div>
+            ) : null}
+
             <button
-              className={`w-full py-2 px-4 rounded-md font-semibold text-white ${
-                playersList.length >= 2
+              className={`w-full py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer ${
+                playersList.length >= 2 && !gameInfo.currentDrawer
                   ? "bg-indigo-600 hover:bg-indigo-700"
                   : "bg-gray-400 cursor-not-allowed"
               }`}
-              disabled={playersList.length < 2}
+              disabled={playersList.length < 2 || !!gameInfo.currentDrawer}
               onClick={handleStartGame}
             >
-              Start Game
+              {gameJustEnded ? "Start New Game" : "Start Game"}
             </button>
             <p className="text-xs text-gray-500 mt-2">
               {playersList.length < 2
                 ? "Need at least 2 players to start"
+                : gameInfo.currentDrawer
+                ? "Game is starting..."
                 : "Click to start the game!"}
             </p>
           </div>
@@ -233,15 +399,40 @@ export default function GamePage() {
               </div>
             </div>
 
+            {/* Timer - only show when time is running */}
+            {timeLeft > 0 && (
+              <div className="mb-3">
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      timeLeft <= 10 ? "bg-red-500" : "bg-green-500"
+                    }`}
+                    style={{
+                      width: `${(timeLeft / 60) * 100}%`,
+                      transition: "width 1s linear",
+                    }}
+                  ></div>
+                </div>
+                <div className="text-sm mt-1 font-medium">
+                  {timeLeft} seconds left
+                </div>
+              </div>
+            )}
+
             <p className="text-xl md:text-2xl font-mono tracking-widest text-indigo-600">
               {isCurrentUserDrawing
                 ? wordToDraw
                 : guessed
                 ? wordToDraw.split("").join(" ")
-                : wordToDraw
-                    .split("")
-                    .map(() => "_")
-                    .join(" ")}
+                : wordLength > 0
+                ? Array(
+                    typeof wordLength === "string"
+                      ? parseInt(wordLength)
+                      : wordLength
+                  )
+                    .fill("_")
+                    .join(" ")
+                : ""}
             </p>
             <p className="text-xs text-gray-500 mt-1">
               {isCurrentUserDrawing ? "Draw this word!" : "Guess the word!"}
