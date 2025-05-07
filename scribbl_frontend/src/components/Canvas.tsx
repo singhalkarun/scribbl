@@ -2,7 +2,8 @@
 
 import { ReactSketchCanvas, ReactSketchCanvasRef } from "react-sketch-canvas";
 import React, { useRef, useState, useEffect } from "react";
-import io, { Socket } from "socket.io-client";
+import { Channel } from "phoenix";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 // Configuration
 const SOCKET_SERVER_URL = "";
@@ -22,10 +23,14 @@ interface SketchPath {
   paths: PathPoint[];
 }
 
-export default function Canvas() {
+interface CanvasProps {
+  isDrawer: boolean;
+}
+
+export default function Canvas({ isDrawer }: CanvasProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const { channel } = usePlayerStore();
 
   // State for drawing properties
   const [color, setColor] = useState("black");
@@ -48,71 +53,59 @@ export default function Canvas() {
     }
   }, [paths]);
 
-  // WebSocket Connection
-  // useEffect(() => {
-  //   // Connect to the WebSocket server only once
-  //   if (!socketRef.current) {
-  //     console.log("Connecting to WebSocket server...");
+  // Connect to Phoenix channel for drawing events
+  useEffect(() => {
+    if (!channel) {
+      console.log("[Canvas] No channel available yet");
+      return;
+    }
 
-  //     socketRef.current = io(SOCKET_SERVER_URL, {
-  //       transports: ["websocket"],
-  //     });
+    console.log("[Canvas] Setting up drawing event listeners");
 
-  //     // Socket event listeners
-  //     socketRef.current.on("connect", () => {
-  //       console.log(
-  //         "Connected to WebSocket server with ID:",
-  //         socketRef.current?.id
-  //       );
-  //       // Request initial drawing state from server
-  //       socketRef.current?.emit("get_initial_drawing");
-  //     });
+    // Listen for drawing events from other users
+    const drawingRef = channel.on("drawing", (payload) => {
+      console.log("[Canvas] Received drawing event:", payload);
 
-  //     socketRef.current.on("initial_drawing", (initialPaths: SketchPath[]) => {
-  //       console.log("Received initial drawing state");
-  //       if (initialPaths && initialPaths.length > 0) {
-  //         // Update our state with the initial paths
-  //         setPaths(initialPaths);
-  //         // Canvas will update via the useEffect hook
-  //       }
-  //     });
+      if (!isDrawer) {
+        // Only process if we're not the drawer
+        const newPath: SketchPath = {
+          drawMode: payload.drawMode,
+          strokeColor: payload.strokeColor,
+          strokeWidth: payload.strokeWidth,
+          paths: payload.paths,
+        };
 
-  //     socketRef.current.on("new_path", (newPath: SketchPath) => {
-  //       console.log("Received new path from another user");
-  //       if (newPath) {
-  //         // Add the new path to existing paths
-  //         setPaths((prevPaths) => [...prevPaths, newPath]);
-  //         // Canvas will update via the useEffect hook
-  //       }
-  //     });
+        // Add the new path to existing paths
+        setPaths((prevPaths) => [...prevPaths, newPath]);
+      }
+    });
 
-  //     socketRef.current.on("clear_canvas", () => {
-  //       console.log("Received clear canvas command");
-  //       setPaths([]);
-  //       // Canvas will update via the useEffect hook
-  //     });
+    // Listen for clear canvas events
+    const clearCanvasRef = channel.on("clear_canvas", () => {
+      console.log("[Canvas] Received clear canvas event");
+      setPaths([]);
+    });
 
-  //     socketRef.current.on("connect_error", (err) => {
-  //       console.error("WebSocket connection error:", err);
-  //     });
+    // Clear canvas when a new turn starts
+    const turnStartedRef = channel.on("turn_started", () => {
+      console.log("[Canvas] New turn started, clearing canvas");
+      setPaths([]);
+    });
 
-  //     socketRef.current.on("disconnect", (reason) => {
-  //       console.log("Disconnected from WebSocket server:", reason);
-  //     });
-  //   }
-
-  //   // Cleanup on unmount
-  //   return () => {
-  //     if (socketRef.current?.connected) {
-  //       console.log("Disconnecting WebSocket...");
-  //       socketRef.current.disconnect();
-  //       socketRef.current = null;
-  //     }
-  //   };
-  // }, []);
+    // Cleanup listeners when component unmounts
+    return () => {
+      if (channel) {
+        channel.off("drawing", drawingRef);
+        channel.off("clear_canvas", clearCanvasRef);
+        channel.off("turn_started", turnStartedRef);
+      }
+    };
+  }, [channel, isDrawer]);
 
   // Drawing Handlers
   const handleColorChange = (newColor: string) => {
+    if (!isDrawer) return; // Only drawer can change colors
+
     setColor(newColor);
     setIsEraser(false);
     setShowBrushSlider(true);
@@ -120,6 +113,8 @@ export default function Canvas() {
   };
 
   const handleDrawModeClick = () => {
+    if (!isDrawer) return; // Only drawer can change modes
+
     if (!isEraser) {
       // If already in Draw mode, toggle the slider
       setShowBrushSlider(!showBrushSlider);
@@ -132,6 +127,8 @@ export default function Canvas() {
   };
 
   const handleEraseModeClick = () => {
+    if (!isDrawer) return; // Only drawer can change modes
+
     if (isEraser) {
       // If already in Erase mode, toggle the slider
       setShowBrushSlider(!showBrushSlider);
@@ -144,20 +141,23 @@ export default function Canvas() {
   };
 
   const handleClear = () => {
+    if (!isDrawer) return; // Only drawer can clear
+
     // Clear local state
     setPaths([]);
     // Send clear event to server
-    console.log("Sending clear canvas command");
-    socketRef.current?.emit("clear_canvas");
+    console.log("[Canvas] Sending clear canvas event");
+    if (channel) {
+      channel.push("clear_canvas", {});
+    }
     // Canvas will update via the useEffect hook
   };
-
-  // Handle trackpad zoom gesture - moved to useEffect
-  // const handleWheel = (e: React.WheelEvent) => { ... };
 
   // Effect to handle wheel event listener for stroke size adjustment
   // AND hide slider on draw start
   useEffect(() => {
+    if (!isDrawer) return; // Only attach these events for the drawer
+
     const container = canvasContainerRef.current;
 
     const handleWheel = (e: WheelEvent) => {
@@ -204,57 +204,59 @@ export default function Canvas() {
     };
     // Re-run effect if isEraser changes (for wheel handler state access)
     // No need to re-run for setShowBrushSlider as it's stable
-  }, [isEraser]);
+  }, [isEraser, isDrawer]);
 
   // Simpler undo handler that should work without sockets
   const handleUndo = () => {
-    if (canvasRef.current) {
-      // Perform the undo operation
-      canvasRef.current.undo();
+    if (!isDrawer || !canvasRef.current) return; // Only drawer can undo
 
-      // Update our state after a very brief delay
-      setTimeout(() => {
-        if (canvasRef.current) {
-          canvasRef.current
-            .exportPaths()
-            .then((updatedPaths) => {
-              setPaths(updatedPaths);
-            })
-            .catch((err) =>
-              console.error("Error exporting paths after undo:", err)
-            );
-        }
-      }, 10); // Very short delay
-    }
+    // Perform the undo operation
+    canvasRef.current.undo();
+
+    // Update our state after a very brief delay
+    setTimeout(() => {
+      if (canvasRef.current) {
+        canvasRef.current
+          .exportPaths()
+          .then((updatedPaths) => {
+            setPaths(updatedPaths);
+          })
+          .catch((err) =>
+            console.error("[Canvas] Error exporting paths after undo:", err)
+          );
+      }
+    }, 10); // Very short delay
   };
 
   // Simpler redo handler that should work without sockets
   const handleRedo = () => {
-    if (canvasRef.current) {
-      // Perform the redo operation
-      canvasRef.current.redo();
+    if (!isDrawer || !canvasRef.current) return; // Only drawer can redo
 
-      // Update our state after a very brief delay
-      setTimeout(() => {
-        if (canvasRef.current) {
-          canvasRef.current
-            .exportPaths()
-            .then((updatedPaths) => {
-              setPaths(updatedPaths);
-            })
-            .catch((err) =>
-              console.error("Error exporting paths after redo:", err)
-            );
-        }
-      }, 10); // Very short delay
-    }
+    // Perform the redo operation
+    canvasRef.current.redo();
+
+    // Update our state after a very brief delay
+    setTimeout(() => {
+      if (canvasRef.current) {
+        canvasRef.current
+          .exportPaths()
+          .then((updatedPaths) => {
+            setPaths(updatedPaths);
+          })
+          .catch((err) =>
+            console.error("[Canvas] Error exporting paths after redo:", err)
+          );
+      }
+    }, 10); // Very short delay
   };
 
   // Handle stroke completion
   const handleStroke = () => {
+    if (!isDrawer || !canvasRef.current || !channel) return; // Only drawer can draw
+
     // Export the current paths from the canvas
     canvasRef.current
-      ?.exportPaths()
+      .exportPaths()
       .then((exportedPaths: SketchPath[]) => {
         // Check if we have any paths
         if (exportedPaths && exportedPaths.length > 0) {
@@ -263,130 +265,137 @@ export default function Canvas() {
 
           // Update state with all paths
           setPaths(exportedPaths);
-          console.log("Exported paths:", exportedPaths);
+
           // Send the new path to the server
-          console.log("Sending new path:", newPath);
-          socketRef.current?.emit("new_path", newPath);
+          console.log("[Canvas] Sending drawing event:", newPath);
+          channel.push("drawing", {
+            drawMode: newPath.drawMode,
+            strokeColor: newPath.strokeColor,
+            strokeWidth: newPath.strokeWidth,
+            paths: newPath.paths,
+          });
         }
       })
       .catch((error) => {
-        console.error("Error exporting paths:", error);
+        console.error("[Canvas] Error exporting paths:", error);
       });
   };
-
-  // Handle path updates from other users
-  useEffect(() => {
-    if (socketRef.current) {
-      socketRef.current.on("new_path", (newPath: SketchPath) => {
-        console.log("Received new path from another user");
-        if (newPath) {
-          // Add the new path to existing paths
-          setPaths((prevPaths) => [...prevPaths, newPath]);
-        }
-      });
-    }
-  }, []);
 
   return (
     <div className="w-full h-full flex flex-col md:gap-2 md:p-4 bg-gray-50 font-sans">
       {/* Toolbar - Make relative for absolute positioning of slider */}
-      <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
-        {/* Main controls */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Color buttons */}
-          {colors.map((c) => (
+      {isDrawer ? (
+        <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
+          {/* Main controls */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Color buttons */}
+            {colors.map((c) => (
+              <button
+                key={c}
+                aria-label={`Select color ${c}`}
+                onClick={() => handleColorChange(c)}
+                className={`w-8 h-8 rounded-full border-2 transition-transform duration-150 ease-in-out hover:cursor-pointer ${
+                  color === c && !isEraser
+                    ? "border-blue-600 scale-110 ring-2 ring-blue-300"
+                    : "border-gray-300 hover:scale-105"
+                }`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+
+            {/* Separator */}
+            <div className="border-l border-gray-300 h-6 mx-2"></div>
+
+            {/* Mode toggle */}
             <button
-              key={c}
-              aria-label={`Select color ${c}`}
-              onClick={() => handleColorChange(c)}
-              className={`w-8 h-8 rounded-full border-2 transition-transform duration-150 ease-in-out hover:cursor-pointer ${
-                color === c && !isEraser
-                  ? "border-blue-600 scale-110 ring-2 ring-blue-300"
-                  : "border-gray-300 hover:scale-105"
+              onClick={handleDrawModeClick}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
+                !isEraser
+                  ? "bg-blue-500 text-white shadow-sm"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
               }`}
-              style={{ backgroundColor: c }}
-            />
-          ))}
+            >
+              Draw
+            </button>
+            <button
+              onClick={handleEraseModeClick}
+              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
+                isEraser
+                  ? "bg-red-500 text-white shadow-sm"
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              Erase
+            </button>
 
-          {/* Separator */}
-          <div className="border-l border-gray-300 h-6 mx-2"></div>
-
-          {/* Mode toggle */}
-          <button
-            onClick={handleDrawModeClick}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
-              !isEraser
-                ? "bg-blue-500 text-white shadow-sm"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            Draw
-          </button>
-          <button
-            onClick={handleEraseModeClick}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
-              isEraser
-                ? "bg-red-500 text-white shadow-sm"
-                : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-            }`}
-          >
-            Erase
-          </button>
-
-          <button
-            onClick={handleClear}
-            className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors shadow-sm hover:cursor-pointer"
-          >
-            Clear All
-          </button>
-        </div>
-
-        {/* Brush size slider - Position absolutely */}
-        {showBrushSlider && (
-          <div className="absolute top-full left-0 right-0 z-10 mt-1 p-2 bg-white rounded-b-lg shadow-md border-t border-gray-100 flex items-center gap-4 px-4">
-            <span className="text-sm text-gray-600 flex-shrink-0">
-              {isEraser ? "Eraser Size" : "Brush Size"}
-            </span>
-            <input
-              type="range"
-              min="1"
-              max={isEraser ? "50" : "20"}
-              value={isEraser ? eraserWidth : strokeWidth}
-              onChange={(e) => {
-                const value = parseInt(e.target.value);
-                if (isEraser) {
-                  setEraserWidth(value);
-                } else {
-                  setStrokeWidth(value);
-                }
-              }}
-              className="w-48"
-            />
-            <span className="text-sm text-gray-600">
-              {isEraser ? eraserWidth : strokeWidth}px
-            </span>
+            <button
+              onClick={handleClear}
+              className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors shadow-sm hover:cursor-pointer"
+            >
+              Clear All
+            </button>
           </div>
-        )}
-      </div>
+
+          {/* Brush size slider - Position absolutely */}
+          {showBrushSlider && (
+            <div className="absolute top-full left-0 right-0 z-10 mt-1 p-2 bg-white rounded-b-lg shadow-md border-t border-gray-100 flex items-center gap-4 px-4">
+              <span className="text-sm text-gray-600 flex-shrink-0">
+                {isEraser ? "Eraser Size" : "Brush Size"}
+              </span>
+              <input
+                type="range"
+                min="1"
+                max={isEraser ? "50" : "20"}
+                value={isEraser ? eraserWidth : strokeWidth}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value);
+                  if (isEraser) {
+                    setEraserWidth(value);
+                  } else {
+                    setStrokeWidth(value);
+                  }
+                }}
+                className="w-48"
+              />
+              <span className="text-sm text-gray-600">
+                {isEraser ? eraserWidth : strokeWidth}px
+              </span>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
+          <div className="py-2 text-center text-indigo-700 font-medium">
+            {/* Information message for non-drawers */}
+            Waiting for drawer to draw...
+          </div>
+        </div>
+      )}
 
       {/* Drawing canvas */}
       <div
         ref={canvasContainerRef}
         className="relative flex-1 border border-gray-300 rounded-lg shadow-inner overflow-hidden bg-white min-h-0"
         style={{
-          cursor: isEraser
-            ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
-                eraserWidth * 2
-              }" height="${eraserWidth * 2}" viewBox="0 0 ${eraserWidth * 2} ${
-                eraserWidth * 2
-              }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
-                eraserWidth - 1
-              }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
-            : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
-                strokeWidth * 2
-              }" height="${strokeWidth * 2}" viewBox="0 0 ${strokeWidth * 2} ${
-                strokeWidth * 2
-              }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`,
+          cursor: isDrawer
+            ? isEraser
+              ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                  eraserWidth * 2
+                }" height="${eraserWidth * 2}" viewBox="0 0 ${
+                  eraserWidth * 2
+                } ${
+                  eraserWidth * 2
+                }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
+                  eraserWidth - 1
+                }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
+              : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                  strokeWidth * 2
+                }" height="${strokeWidth * 2}" viewBox="0 0 ${
+                  strokeWidth * 2
+                } ${
+                  strokeWidth * 2
+                }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`
+            : "not-allowed",
         }}
       >
         <ReactSketchCanvas
@@ -397,12 +406,13 @@ export default function Canvas() {
           strokeColor={color}
           eraserWidth={eraserWidth}
           canvasColor="white"
-          onStroke={handleStroke}
+          onStroke={isDrawer ? handleStroke : undefined}
           allowOnlyPointerType="all"
           style={{
             border: "none",
             borderRadius: "8px",
             display: "block",
+            pointerEvents: isDrawer ? "auto" : "none",
           }}
         />
       </div>
