@@ -111,6 +111,27 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "drawing_clear", payload: payload}, socket) do
+    # Push the player joined event to the current socket
+    push(socket, "drawing_clear", payload)
+    {:noreply, socket}
+  end
+
+  # broadcast drawing clear event to all players
+  def handle_in("drawing_clear", %{}, socket) do
+    # Broadcast the drawing clear event to all players in the room
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      socket.topic,
+      %{
+        event: "drawing_clear",
+        payload: %{}
+      }
+    )
+
+    {:noreply, socket}
+  end
+
   def handle_in("new_message", %{"message" => message}, socket) do
     user_id = socket.assigns.user_id
 
