@@ -40,6 +40,11 @@ export default function Canvas({ isDrawer }: CanvasProps) {
   const [paths, setPaths] = useState<SketchPath[]>([]);
   const [showBrushSlider, setShowBrushSlider] = useState(false);
 
+  // Track drawing state
+  const lastSentPointsRef = useRef<number>(0);
+  const isDrawingRef = useRef<boolean>(false);
+  const previousPathRef = useRef<SketchPath | null>(null);
+
   // When paths state changes, update the canvas to match
   useEffect(() => {
     if (canvasRef.current && paths.length >= 0) {
@@ -75,15 +80,57 @@ export default function Canvas({ isDrawer }: CanvasProps) {
           paths: payload.paths,
         };
 
-        // Add the new path to existing paths
-        setPaths((prevPaths) => [...prevPaths, newPath]);
+        // If this is an in-progress update (not complete)
+        if (payload.isComplete === false) {
+          setPaths((prevPaths) => {
+            // If we have existing paths
+            if (prevPaths.length > 0) {
+              const lastPath = prevPaths[prevPaths.length - 1];
+              // Check if the last path has the same properties (same stroke)
+              if (
+                lastPath.drawMode === newPath.drawMode &&
+                lastPath.strokeColor === newPath.strokeColor &&
+                lastPath.strokeWidth === newPath.strokeWidth
+              ) {
+                // Append new points to the last path
+                const updatedPaths = [...prevPaths];
+                updatedPaths[updatedPaths.length - 1] = {
+                  ...lastPath,
+                  paths: [...lastPath.paths, ...newPath.paths],
+                };
+                return updatedPaths;
+              }
+            }
+            // No matching path found, add as new path
+            return [...prevPaths, newPath];
+          });
+        } else {
+          // Complete stroke - add as a new path
+          setPaths((prevPaths) => [...prevPaths, newPath]);
+        }
       }
     });
 
-    // Listen for clear canvas events
-    const clearCanvasRef = channel.on("clear_canvas", () => {
+    // Listen for clear canvas events - use drawing_clear to avoid conflicts
+    const clearCanvasRef = channel.on("drawing_clear", () => {
       console.log("[Canvas] Received clear canvas event");
+
+      // Reset all drawing state if we're a viewer
+      if (!isDrawer) {
+        lastSentPointsRef.current = 0;
+        previousPathRef.current = null;
+      }
+
+      // Clear state
       setPaths([]);
+
+      // Clear the canvas with slight delay to ensure state updates first
+      setTimeout(() => {
+        if (canvasRef.current) {
+          canvasRef.current.clearCanvas();
+          console.log("[Canvas] Canvas cleared from remote event");
+        }
+      }, 10);
     });
 
     // Clear canvas when a new turn starts
@@ -96,11 +143,22 @@ export default function Canvas({ isDrawer }: CanvasProps) {
     return () => {
       if (channel) {
         channel.off("drawing", drawingRef);
-        channel.off("clear_canvas", clearCanvasRef);
+        channel.off("drawing_clear", clearCanvasRef);
         channel.off("turn_started", turnStartedRef);
       }
     };
   }, [channel, isDrawer]);
+
+  // Apply stroke/eraser width changes to the canvas
+  useEffect(() => {
+    if (canvasRef.current && isDrawer) {
+      if (isEraser) {
+        canvasRef.current.eraseMode(true);
+      } else {
+        canvasRef.current.eraseMode(false);
+      }
+    }
+  }, [isEraser, strokeWidth, eraserWidth, isDrawer]);
 
   // Drawing Handlers
   const handleColorChange = (newColor: string) => {
@@ -143,14 +201,27 @@ export default function Canvas({ isDrawer }: CanvasProps) {
   const handleClear = () => {
     if (!isDrawer) return; // Only drawer can clear
 
+    // Reset all drawing state
+    lastSentPointsRef.current = 0;
+    previousPathRef.current = null;
+    isDrawingRef.current = false;
+
     // Clear local state
     setPaths([]);
-    // Send clear event to server
+
+    // Make sure to clear the canvas with a slight delay to ensure state updates first
+    setTimeout(() => {
+      if (canvasRef.current) {
+        canvasRef.current.clearCanvas();
+        console.log("[Canvas] Canvas cleared locally");
+      }
+    }, 10);
+
+    // Send clear event to server - use drawing_clear to avoid conflicts
     console.log("[Canvas] Sending clear canvas event");
     if (channel) {
-      channel.push("clear_canvas", {});
+      channel.push("drawing_clear", {});
     }
-    // Canvas will update via the useEffect hook
   };
 
   // Effect to handle wheel event listener for stroke size adjustment
@@ -250,9 +321,60 @@ export default function Canvas({ isDrawer }: CanvasProps) {
     }, 10); // Very short delay
   };
 
+  // New function for real-time drawing updates - simplified approach
+  const handleDrawingMove = () => {
+    if (!isDrawer || !canvasRef.current || !channel) return;
+
+    // Set drawing state active if it wasn't already
+    if (!isDrawingRef.current) {
+      isDrawingRef.current = true;
+      lastSentPointsRef.current = 0;
+      previousPathRef.current = null;
+      console.log("[Canvas] Starting to draw");
+    }
+
+    // Export current paths to get latest points
+    canvasRef.current
+      .exportPaths()
+      .then((exportedPaths: SketchPath[]) => {
+        if (exportedPaths && exportedPaths.length > 0) {
+          // Get latest path
+          const latestPath = exportedPaths[exportedPaths.length - 1];
+
+          // Always send the entire current path to maintain continuity
+          if (
+            previousPathRef.current?.paths.length !== latestPath.paths.length
+          ) {
+            // Send the entire path every time to ensure continuity
+            channel.push("drawing", {
+              drawMode: latestPath.drawMode,
+              strokeColor: latestPath.strokeColor,
+              strokeWidth: latestPath.strokeWidth,
+              paths: latestPath.paths,
+              isComplete: false,
+            });
+
+            // Update our reference to the current path
+            previousPathRef.current = JSON.parse(JSON.stringify(latestPath));
+          }
+        }
+      })
+      .catch((error) => {
+        console.error("[Canvas] Error exporting paths during drawing:", error);
+      });
+  };
+
   // Handle stroke completion
   const handleStroke = () => {
-    if (!isDrawer || !canvasRef.current || !channel) return; // Only drawer can draw
+    if (!isDrawer || !canvasRef.current || !channel) return;
+
+    // Only process if we were actually drawing
+    if (!isDrawingRef.current) return;
+
+    // Reset drawing state
+    isDrawingRef.current = false;
+    lastSentPointsRef.current = 0;
+    previousPathRef.current = null;
 
     // Export the current paths from the canvas
     canvasRef.current
@@ -266,13 +388,14 @@ export default function Canvas({ isDrawer }: CanvasProps) {
           // Update state with all paths
           setPaths(exportedPaths);
 
-          // Send the new path to the server
-          console.log("[Canvas] Sending drawing event:", newPath);
+          // Send the new path to the server with isComplete flag
+          console.log("[Canvas] Sending final drawing event:", newPath);
           channel.push("drawing", {
             drawMode: newPath.drawMode,
             strokeColor: newPath.strokeColor,
             strokeWidth: newPath.strokeWidth,
             paths: newPath.paths,
+            isComplete: true,
           });
         }
       })
@@ -407,6 +530,7 @@ export default function Canvas({ isDrawer }: CanvasProps) {
           eraserWidth={eraserWidth}
           canvasColor="white"
           onStroke={isDrawer ? handleStroke : undefined}
+          onChange={isDrawer ? handleDrawingMove : undefined}
           allowOnlyPointerType="all"
           style={{
             border: "none",
