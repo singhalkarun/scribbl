@@ -99,6 +99,12 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "correct_guess", payload: payload}, socket) do
+    # Push the player joined event to the current socket
+    push(socket, "correct_guess", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "drawing", payload: payload}, socket) do
     # Push the drawing event to the current socket
     push(socket, "drawing", payload)
@@ -114,6 +120,12 @@ defmodule ScribblBackendWeb.RoomChannel do
   def handle_info(%{event: "drawing_clear", payload: payload}, socket) do
     # Push the player joined event to the current socket
     push(socket, "drawing_clear", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "score_updated", payload: payload}, socket) do
+    # Push the score update event to the current socket
+    push(socket, "score_updated", payload)
     {:noreply, socket}
   end
 
@@ -133,20 +145,8 @@ defmodule ScribblBackendWeb.RoomChannel do
   end
 
   def handle_in("new_message", %{"message" => message}, socket) do
-    user_id = socket.assigns.user_id
 
-    # Broadcast the new message to all pods, now including userId
-    Phoenix.PubSub.broadcast(
-      ScribblBackend.PubSub,
-      socket.topic,
-      %{
-        event: "new_message",
-        payload: %{
-          "message" => message,
-          "userId" => user_id
-        }
-      }
-    )
+    GameHelper.handle_guess(message, socket)
 
     {:noreply, socket}
   end
@@ -231,6 +231,11 @@ defmodule ScribblBackendWeb.RoomChannel do
 
     {:noreply, socket}
   end
+
+    # Catch-all to ignore any unhandled events
+    def handle_in(_event, _payload, socket) do
+      {:noreply, socket}
+    end
 
   def terminate(_reason, socket) do
     # Remove the user from the players list

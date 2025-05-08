@@ -317,4 +317,49 @@ defmodule ScribblBackend.RedisHelper do
     end
   end
 
+  @doc """
+  Increment the value of a key in Redis.
+  ## Parameters
+
+    - `key`: The key to increment.
+    - `increment`: The amount to increment by.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.incr("my_key", 1)
+      {:ok, 2}
+  """
+  def incr(key, increment) do
+    Redix.command(:redix, ["INCRBY", key, increment])
+  end
+  @doc """
+
+  Decrement the value of a key in Redis.
+  ## Parameters
+
+    - `key`: The key to decrement.
+    - `decrement`: The amount to decrement by.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.decr("my_key", 1)
+      {:ok, 0}
+  """
+  def decr(key, decrement) do
+    Redix.command(:redix, ["DECRBY", key, decrement])
+  end
+
+  @doc """
+  Get the ttl of a key in Redis.
+  ## Parameters
+
+    - `key`: The key to get the ttl for.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.ttl("my_key")
+      {:ok, 60}
+  """
+  def ttl(key) do
+    Redix.command(:redix, ["TTL", key])
+  end
+
+
 end

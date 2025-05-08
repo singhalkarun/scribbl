@@ -132,10 +132,8 @@ defmodule ScribblBackend.GameHelper do
     room_key = "#{@room_prefix}{#{room_id}}:info"
     players_key = "#{@room_prefix}{#{room_id}}:players"
 
-
     case RedisHelper.spop(eligible_drawers_key) do
       {:ok, nil} ->
-
         # check if the current round is less than the max rounds
         if String.to_integer(current_round) >= String.to_integer(max_rounds) do
           # end the game
@@ -168,7 +166,9 @@ defmodule ScribblBackend.GameHelper do
           )
 
           # set the eligible drawers for the next round
-          eligible_drawers_key = "#{@room_prefix}{#{room_id}}:round:#{String.to_integer(current_round) + 1}:eligible_drawers"
+          eligible_drawers_key =
+            "#{@room_prefix}{#{room_id}}:round:#{String.to_integer(current_round) + 1}:eligible_drawers"
+
           # get the list of players in the room
           {:ok, players} = RedisHelper.lrange(players_key)
 
@@ -180,7 +180,6 @@ defmodule ScribblBackend.GameHelper do
         end
 
       {:ok, drawer} ->
-
         # set the current drawer in the room info
         RedisHelper.hmset(
           room_key,
@@ -216,8 +215,6 @@ defmodule ScribblBackend.GameHelper do
           }
         )
     end
-
-
   end
 
   def generate_word() do
@@ -229,6 +226,13 @@ defmodule ScribblBackend.GameHelper do
 
   def start_turn(room_id, word) do
     room_word_key = "#{@room_prefix}{#{room_id}}:word"
+
+    # set the word in Redis
+
+    RedisHelper.set(
+      room_word_key,
+      word
+    )
 
     room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
 
@@ -256,4 +260,108 @@ defmodule ScribblBackend.GameHelper do
     {:ok, current_drawer}
   end
 
+  def handle_guess(message, socket) do
+    # check if the guess is correct
+    room_id = String.split(socket.topic, ":") |> List.last()
+    room_word_key = "#{@room_prefix}{#{room_id}}:word"
+    room_key = "#{@room_prefix}{#{room_id}}:info"
+    room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
+    user_id = socket.assigns.user_id
+
+    {:ok, drawer} = RedisHelper.hget(room_key, "current_drawer")
+    {:ok, round} = RedisHelper.hget(room_key, "current_round")
+
+    # print drawer and socket user id
+    Logger.info("Drawer: #{drawer}, Socket User ID: #{user_id}")
+
+    if drawer == socket.assigns.user_id do
+      # ignore the message
+      {:noreply, socket}
+    else
+      # get the word from Redis
+      {:ok, word} = RedisHelper.get(room_word_key)
+
+      # check if the guess is correct
+      if String.downcase(message) == String.downcase(word) do
+        # check if the user is not eligible to guess
+        non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{round}::non_eligible_guessers"
+        {:ok, is_non_eligible} = RedisHelper.sismember(non_eligible_guessers_key, user_id)
+
+        if is_non_eligible == 1 do
+          # ignore the message
+          {:noreply, socket}
+        else
+          # send the correct guess event to all players and increase player score basis time when the guess was made
+          # get the current time
+          {:ok, current_time} = RedisHelper.ttl(room_timer_key)
+
+          # calculate the score based on the time left and total time
+          # Assuming the total time is 60 seconds
+          total_time = 60
+          time_left = total_time - current_time
+          score = max(0, time_left)
+
+          # increase the player score using incrby
+          player_score_key = "#{@room_prefix}{#{room_id}}:player:#{user_id}:score"
+          {:ok, player_score} = RedisHelper.incr(player_score_key, score)
+
+          # add the player in non eligible guessers list, sadd takes key and list of values
+          RedisHelper.sadd(non_eligible_guessers_key, List.wrap(user_id))
+
+          # increase the drawer score
+          drawer_score_key = "#{@room_prefix}{#{room_id}}:player:#{drawer}:score"
+          {:ok, drawer_score} = RedisHelper.incr(drawer_score_key, current_time)
+
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "score_updated",
+              payload: %{
+                "user_id" => drawer,
+                "score" => drawer_score
+              }
+            }
+          )
+
+          # send the score to all players
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "score_updated",
+              payload: %{
+                "user_id" => user_id,
+                "score" => player_score
+              }
+            }
+          )
+
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "correct_guess",
+              payload: %{
+                "user_id" => socket.assigns.user_id
+              }
+            }
+          )
+        end
+      else
+        # send the message to all players
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          socket.topic,
+          %{
+            event: "new_message",
+            payload: %{
+              "message" => message,
+              "userId" => user_id
+            }
+          }
+        )
+      end
+    end
+  end
 end
