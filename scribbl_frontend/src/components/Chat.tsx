@@ -68,7 +68,9 @@ export default function Chat({
                 isCurrentUser
                   ? "bg-blue-500 text-white self-end ml-auto"
                   : isSystemMessage
-                  ? "bg-green-200 text-green-800 mx-auto text-center"
+                  ? msg.text.includes("guessed correctly")
+                    ? "bg-green-100 text-green-800 mx-auto text-center border border-green-200"
+                    : "bg-green-200 text-green-800 mx-auto text-center"
                   : "bg-gray-200 text-gray-800 self-start"
               }`}
             >

@@ -8,8 +8,15 @@ import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
 
 export default function GamePage() {
-  const { playerName, roomId, players, userId, _hasHydrated } =
-    usePlayerStore();
+  const {
+    playerName,
+    roomId,
+    players,
+    userId,
+    _hasHydrated,
+    scores,
+    updateScore,
+  } = usePlayerStore();
 
   const { connectionState, sendMessage } = useRoomChannel();
 
@@ -210,6 +217,24 @@ export default function GamePage() {
           }, 5000);
         });
 
+        // Listen for score_updated event
+        const scoreUpdatedRef = channel.on("score_updated", (payload) => {
+          console.log("[GamePage] Received score_updated:", payload);
+          updateScore(payload.user_id, payload.score);
+        });
+
+        // Listen for correct_guess event
+        const correctGuessRef = channel.on("correct_guess", (payload) => {
+          console.log("[GamePage] Received correct_guess:", payload);
+          const guesserName = players[payload.user_id] || "Someone";
+          // Add a system message about the correct guess
+          usePlayerStore.getState().addMessage({
+            userId: "system",
+            text: `${guesserName} guessed correctly! 🎉`,
+            system: true,
+          });
+        });
+
         // Cleanup listeners
         return () => {
           if (channel) {
@@ -220,6 +245,8 @@ export default function GamePage() {
             channel.off("turn_started", turnStartedRef);
             channel.off("turn_over", turnOverRef);
             channel.off("game_over", gameOverRef);
+            channel.off("score_updated", scoreUpdatedRef);
+            channel.off("correct_guess", correctGuessRef);
 
             // Clear any running timer
             if (timerRef.current) {
@@ -230,7 +257,7 @@ export default function GamePage() {
         };
       }
     }
-  }, [connectionState, roomId]);
+  }, [connectionState, roomId, players, updateScore]);
 
   // Handle start game button click
   const handleStartGame = () => {
@@ -319,14 +346,28 @@ export default function GamePage() {
             </h2>
             <ul className="text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
               {playersList.length > 0 ? (
-                playersList.map((name, index) => (
-                  <li key={index} className="flex items-center gap-2">
-                    <span className="text-lg">👤</span>
-                    <span>
-                      {name === playerName ? <b>{name} (You)</b> : name}
-                    </span>
-                  </li>
-                ))
+                playersList.map((name, index) => {
+                  const playerId = Object.entries(players).find(
+                    ([_, n]) => n === name
+                  )?.[0];
+                  const score = playerId ? scores[playerId] || 0 : 0;
+                  return (
+                    <li
+                      key={index}
+                      className="flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">👤</span>
+                        <span>
+                          {name === playerName ? <b>{name} (You)</b> : name}
+                        </span>
+                      </div>
+                      <span className="font-medium text-indigo-600">
+                        {score} pts
+                      </span>
+                    </li>
+                  );
+                })
               ) : (
                 <li className="text-gray-500 italic">No players yet...</li>
               )}
@@ -360,6 +401,24 @@ export default function GamePage() {
                   ></div>
                 </div>
               </div>
+            ) : gameInfo.currentDrawer ? (
+              <div className="mb-3">
+                <h3 className="text-xl font-bold text-indigo-600 mb-1">
+                  Game in Progress
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  Round {gameInfo.currentRound} of {gameInfo.maxRounds}
+                </p>
+                <p className="text-sm text-gray-600 mb-2">
+                  {players[gameInfo.currentDrawer] || "Someone"} is drawing
+                </p>
+                <div className="w-full h-1 bg-indigo-100 rounded mb-4">
+                  <div
+                    className="h-full bg-indigo-500 rounded animate-pulse"
+                    style={{ width: "100%" }}
+                  ></div>
+                </div>
+              </div>
             ) : null}
 
             <button
@@ -377,7 +436,7 @@ export default function GamePage() {
               {playersList.length < 2
                 ? "Need at least 2 players to start"
                 : gameInfo.currentDrawer
-                ? "Game is starting..."
+                ? "Waiting for current game to finish..."
                 : "Click to start the game!"}
             </p>
           </div>

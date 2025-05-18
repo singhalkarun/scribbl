@@ -31,6 +31,7 @@ interface PlayerStore {
   channel: Channel | null;
   socket: Socket | null;
   players: { [userId: string]: string }; // Map of userId to playerName
+  scores: { [userId: string]: number }; // Add scores state
   messages: Message[]; // Add messages state
   setPlayerName: (name: string) => void;
   setRoomId: (roomId: string) => void;
@@ -43,6 +44,7 @@ interface PlayerStore {
     leaves: PresenceState;
   }) => void; // Action for diffs
   addMessage: (message: Message) => void; // Signature uses updated Message type
+  updateScore: (userId: string, score: number) => void; // Add score update function
   clearPlayerInfo: () => void;
   _hasHydrated: boolean; // Flag to track hydration state
 }
@@ -56,6 +58,7 @@ export const usePlayerStore = create<PlayerStore>()(
       channel: null,
       socket: null,
       players: {}, // Initial state for players
+      scores: {}, // Initialize scores
       messages: [], // Initial messages state
       setPlayerName: (name) => set({ playerName: name }),
       setRoomId: (roomId) => set({ roomId }),
@@ -130,6 +133,10 @@ export const usePlayerStore = create<PlayerStore>()(
           );
           return { messages: [...state.messages, messageWithSender] };
         }),
+      updateScore: (userId, score) =>
+        set((state) => ({
+          scores: { ...state.scores, [userId]: score },
+        })),
       clearPlayerInfo: () => {
         set({ playerName: "", roomId: "", userId: "" }); // Clear userId too
       },
