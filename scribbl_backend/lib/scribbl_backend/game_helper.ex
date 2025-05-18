@@ -267,6 +267,7 @@ defmodule ScribblBackend.GameHelper do
     room_key = "#{@room_prefix}{#{room_id}}:info"
     room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
     user_id = socket.assigns.user_id
+    players_key = "#{@room_prefix}{#{room_id}}:players"
 
     {:ok, drawer} = RedisHelper.hget(room_key, "current_drawer")
     {:ok, round} = RedisHelper.hget(room_key, "current_round")
@@ -307,6 +308,14 @@ defmodule ScribblBackend.GameHelper do
 
           # add the player in non eligible guessers list, sadd takes key and list of values
           RedisHelper.sadd(non_eligible_guessers_key, List.wrap(user_id))
+
+          # check if length of non eligible players is equal to total players
+          {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
+          {:ok, num_players} = RedisHelper.llen(players_key)
+
+          if num_non_eligible_players == num_players - 1 do
+            RedisHelper.expire(room_timer_key, 1)
+          end
 
           # increase the drawer score
           drawer_score_key = "#{@room_prefix}{#{room_id}}:player:#{drawer}:score"

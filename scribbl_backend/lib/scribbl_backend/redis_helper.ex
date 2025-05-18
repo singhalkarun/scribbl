@@ -361,5 +361,35 @@ defmodule ScribblBackend.RedisHelper do
     Redix.command(:redix, ["TTL", key])
   end
 
+  @doc """
+  Get the number of members in redis.
+  ## Parameters
+
+    - `key`: The key to get the number of members for.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.scard("my_key")
+      {:ok, 2}
+  """
+  def scard(key) do
+    Redix.command(:redix, ["SCARD", key])
+  end
+
+  @doc """
+  Expire a key in redis manually.
+  ## Parameters
+
+    - `key`: The key to expire.
+    - `ttl`: The expiration time in seconds.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.expire("my_key", 60)
+      :ok
+  """
+  def expire(key, ttl) do
+    Redix.command(:redix, ["EXPIRE", key, ttl])
+  end
+
+
 
 end
