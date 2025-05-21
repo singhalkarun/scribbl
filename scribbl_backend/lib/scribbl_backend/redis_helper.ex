@@ -390,6 +390,22 @@ defmodule ScribblBackend.RedisHelper do
     Redix.command(:redix, ["EXPIRE", key, ttl])
   end
 
+  @doc """
+  Delete a key in redis manually.
+  ## Parameters
+
+    - `key`: The key to delete.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.del("my_key")
+      :ok
+  """
+  def del(key) do
+    Redix.command(:redix, ["DEL", key])
+  end
+
+
+
 
 
 end

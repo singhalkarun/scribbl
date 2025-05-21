@@ -132,6 +132,10 @@ defmodule ScribblBackend.GameHelper do
     room_key = "#{@room_prefix}{#{room_id}}:info"
     players_key = "#{@room_prefix}{#{room_id}}:players"
 
+    # reset the non eligible guessers list at the start of each turn
+    non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{current_round}:non_eligible_guessers"
+    RedisHelper.del(non_eligible_guessers_key)
+
     case RedisHelper.spop(eligible_drawers_key) do
       {:ok, nil} ->
         # check if the current round is less than the max rounds
@@ -174,6 +178,8 @@ defmodule ScribblBackend.GameHelper do
 
           # add players to the eligible drawers set
           RedisHelper.sadd(eligible_drawers_key, players)
+
+          RedisHelper.del(non_eligible_guessers_key)
 
           # trigger start function again
           start(room_id)
@@ -285,7 +291,7 @@ defmodule ScribblBackend.GameHelper do
       # check if the guess is correct
       if String.downcase(message) == String.downcase(word) do
         # check if the user is not eligible to guess
-        non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{round}::non_eligible_guessers"
+        non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{round}:non_eligible_guessers"
         {:ok, is_non_eligible} = RedisHelper.sismember(non_eligible_guessers_key, user_id)
 
         if is_non_eligible == 1 do
