@@ -16,6 +16,11 @@ interface PathPoint {
   y: number;
 }
 
+interface NormalizedPathPoint {
+  x: number;
+  y: number;
+}
+
 interface SketchPath {
   drawMode: boolean;
   strokeColor: string;
@@ -72,27 +77,33 @@ export default function Canvas({ isDrawer }: CanvasProps) {
       console.log("[Canvas] Received drawing event:", payload);
 
       if (!isDrawer) {
-        // Only process if we're not the drawer
+        const container = canvasContainerRef.current;
+        const canvasWidth = container?.clientWidth || 1;
+        const canvasHeight = container?.clientHeight || 1;
+
+        // Denormalize the coordinates when receiving
+        const denormalizedPaths = denormalizeCoordinates(
+          payload.paths,
+          canvasWidth,
+          canvasHeight
+        );
+
         const newPath: SketchPath = {
           drawMode: payload.drawMode,
           strokeColor: payload.strokeColor,
           strokeWidth: payload.strokeWidth,
-          paths: payload.paths,
+          paths: denormalizedPaths,
         };
 
-        // If this is an in-progress update (not complete)
         if (payload.isComplete === false) {
           setPaths((prevPaths) => {
-            // If we have existing paths
             if (prevPaths.length > 0) {
               const lastPath = prevPaths[prevPaths.length - 1];
-              // Check if the last path has the same properties (same stroke)
               if (
                 lastPath.drawMode === newPath.drawMode &&
                 lastPath.strokeColor === newPath.strokeColor &&
                 lastPath.strokeWidth === newPath.strokeWidth
               ) {
-                // Append new points to the last path
                 const updatedPaths = [...prevPaths];
                 updatedPaths[updatedPaths.length - 1] = {
                   ...lastPath,
@@ -101,11 +112,9 @@ export default function Canvas({ isDrawer }: CanvasProps) {
                 return updatedPaths;
               }
             }
-            // No matching path found, add as new path
             return [...prevPaths, newPath];
           });
         } else {
-          // Complete stroke - add as a new path
           setPaths((prevPaths) => [...prevPaths, newPath]);
         }
       }
@@ -321,11 +330,34 @@ export default function Canvas({ isDrawer }: CanvasProps) {
     }, 10); // Very short delay
   };
 
-  // New function for real-time drawing updates - simplified approach
+  // Add function to normalize coordinates
+  const normalizeCoordinates = (
+    paths: PathPoint[],
+    canvasWidth: number,
+    canvasHeight: number
+  ): NormalizedPathPoint[] => {
+    return paths.map((point) => ({
+      x: point.x / canvasWidth,
+      y: point.y / canvasHeight,
+    }));
+  };
+
+  // Add function to denormalize coordinates
+  const denormalizeCoordinates = (
+    paths: NormalizedPathPoint[],
+    canvasWidth: number,
+    canvasHeight: number
+  ): PathPoint[] => {
+    return paths.map((point) => ({
+      x: point.x * canvasWidth,
+      y: point.y * canvasHeight,
+    }));
+  };
+
+  // Modify handleDrawingMove to use normalized coordinates
   const handleDrawingMove = () => {
     if (!isDrawer || !canvasRef.current || !channel) return;
 
-    // Set drawing state active if it wasn't already
     if (!isDrawingRef.current) {
       isDrawingRef.current = true;
       lastSentPointsRef.current = 0;
@@ -333,28 +365,33 @@ export default function Canvas({ isDrawer }: CanvasProps) {
       console.log("[Canvas] Starting to draw");
     }
 
-    // Export current paths to get latest points
     canvasRef.current
       .exportPaths()
       .then((exportedPaths: SketchPath[]) => {
         if (exportedPaths && exportedPaths.length > 0) {
-          // Get latest path
           const latestPath = exportedPaths[exportedPaths.length - 1];
+          const container = canvasContainerRef.current;
+          const canvasWidth = container?.clientWidth || 1;
+          const canvasHeight = container?.clientHeight || 1;
 
-          // Always send the entire current path to maintain continuity
           if (
             previousPathRef.current?.paths.length !== latestPath.paths.length
           ) {
-            // Send the entire path every time to ensure continuity
+            // Normalize the coordinates before sending
+            const normalizedPaths = normalizeCoordinates(
+              latestPath.paths,
+              canvasWidth,
+              canvasHeight
+            );
+
             channel.push("drawing", {
               drawMode: latestPath.drawMode,
               strokeColor: latestPath.strokeColor,
               strokeWidth: latestPath.strokeWidth,
-              paths: latestPath.paths,
+              paths: normalizedPaths,
               isComplete: false,
             });
 
-            // Update our reference to the current path
             previousPathRef.current = JSON.parse(JSON.stringify(latestPath));
           }
         }
