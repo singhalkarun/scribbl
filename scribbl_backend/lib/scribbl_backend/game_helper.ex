@@ -208,7 +208,7 @@ defmodule ScribblBackend.GameHelper do
         )
 
         # generate a random word and send to the drawer
-        word = generate_word()
+        words = generate_word()
         # send the word to the drawer
         Phoenix.PubSub.broadcast(
           ScribblBackend.PubSub,
@@ -216,7 +216,7 @@ defmodule ScribblBackend.GameHelper do
           %{
             event: "select_word",
             payload: %{
-              "word" => word
+              "words" => words
             }
           }
         )
@@ -225,9 +225,59 @@ defmodule ScribblBackend.GameHelper do
 
   def generate_word() do
     # This function should return a random word from the word list
-    # For now, we will just return a placeholder word
-    words = ["apple", "banana", "cherry", "date", "elderberry"]
-    Enum.random(words)
+
+    words = [
+      "lollipop", "carrot", "hamburger", "cookie", "cow", "burping", "mermaid", "octopus",
+      "donut", "hotdog", "underwear", "pizza", "monkey", "unicorn", "frog", "popsicle",
+      "penguin", "flipflop", "sleeping", "icecream", "farting", "alien", "broom", "kangaroo",
+      "cactus", "tickling", "cupcake", "giraffe", "plunger", "superhero", "sock", "robot",
+      "cloud", "dinosaur", "shoe", "zebra", "wig", "crying", "hugging", "llama",
+      "balloon", "ghost", "witch", "sneezing", "chicken", "rubberduck", "zombie", "banana",
+      "sloth", "waffle", "popcorn", "cowboy", "beard", "toaster", "bacon", "bubble",
+      "snail", "jellyfish", "pickle", "tornado", "marshmallow", "noodle", "waffle", "crayon",
+      "penguin", "taco", "spaceship", "toothbrush", "iceberg", "pillow", "maracas", "yeti",
+      "grapes", "dragon", "spaghetti", "ketchup", "mustard", "bug", "ufo", "goblin",
+      "burrito", "sandwich", "meatball", "frenchfries", "snowball", "rocket", "slug", "clown",
+      "moonwalk", "cowbell", "trampoline", "scooter", "cabbage", "pancake", "rainbow", "guitar",
+      "accordion", "booger", "donkey", "whistle", "toenail", "helmet", "scarf", "tutu",
+      "skateboard", "snorkel", "hedgehog", "moose", "gorilla", "muffin", "broomstick", "parrot",
+      "doughnut", "lighthouse", "firetruck", "carnival", "popsicle", "marble", "tissue", "bucket",
+      "tiger", "sunflower", "bicycle", "peanut", "pretzel", "hairbrush", "pajamas", "trombone",
+      "yogurt", "backpack", "peacock", "koala", "whiskers", "bubbles", "velcro", "unicycle",
+      "icecube", "eggplant", "wiggle", "mascot", "lava", "yo-yo", "raccoon", "jelly",
+      "cucumber", "mustache", "flipflop", "caterpillar", "lumberjack", "noodles", "coconut", "ostrich",
+      "grapefruit", "caramel", "bungee", "pudding", "poodle", "slippers", "feather", "whale",
+      "meerkat", "tadpole", "saxophone", "sundae", "mango", "toothpaste", "drumstick", "scissors",
+      "koosh", "beehive", "maraca", "goose", "licorice", "sneeze", "muffler", "meatloaf",
+      "mashedpotato", "scooter", "teacup", "boombox", "hoverboard", "catapult", "unibrow", "skunk",
+      "fudge", "glue", "slinky", "haystack", "sparkle", "cup", "gumball", "lobster",
+      "hammock", "peach", "kiwi", "clog", "pogo", "ravioli", "firefly", "macaroni",
+      "cabbage", "ladle", "waffle", "beetle", "starfish", "pencil", "quicksand", "platypus",
+      "tweezers", "squirrel", "cranberry", "mittens", "comb", "freckles", "flamingo", "gazelle",
+      "sock", "pickle", "waffle", "crown", "pogo", "dustpan", "nugget", "crayon",
+      "hamster", "pigtails", "lawnmower", "sprinkler", "clamp", "marble", "nail", "ladder",
+      "faucet", "beagle", "goat", "otter", "walrus", "mop", "crab", "ruler",
+      "scooter", "pail", "flute", "binoculars", "sandcastle", "tangerine", "pineapple", "mustard",
+      "eraser", "tornado", "dandelion", "geyser", "tractor", "goggles", "ribbon", "owl",
+      "axe", "spoon", "fence", "skates", "gravy", "saddle", "tutu", "yoyo",
+      "screwdriver", "paint", "button", "kite", "ladle", "quilt", "sponge", "mango",
+      "pliers", "shampoo", "syrup", "bell", "pliers", "corn", "bubblegum", "bat",
+      "tent", "glasses", "drill", "spatula", "shovel", "tarp", "smore", "napkin",
+      "triangle", "pogo", "avocado", "hedge", "banjo", "ukulele", "stapler", "notebook",
+      "grill", "lizard", "chalk", "skirt", "parka", "tissue", "rake", "helmet",
+      "soap", "flashlight", "bowtie", "giraffe", "carrot", "duckling", "waffle", "melon",
+      "cherry", "grapes", "fig", "olive", "walnut", "cashew", "hazelnut", "pecan",
+      "sprinkles", "coconut", "pomegranate", "lime", "lemon", "radish", "turnip", "mushroom",
+      "pea", "broccoli", "beet", "asparagus", "lettuce", "zucchini", "artichoke", "chili",
+      "yam", "squash", "cantaloupe", "guava", "papaya", "nectarine", "persimmon", "plum",
+      "blueberry", "blackberry", "raspberry", "strawberry", "cranberry", "gooseberry", "boysenberry", "mulberry",
+      "onion", "garlic", "ginger", "celery", "parsley", "basil", "oregano", "thyme",
+      "rosemary", "sage", "cilantro", "chive", "dill", "mint", "bayleaf", "vanilla",
+      "cinnamon", "nutmeg", "clove", "cardamom", "coriander", "turmeric", "curry", "saffron"
+  ]
+
+    Enum.take_random(words, 3)
+
   end
 
   def start_turn(room_id, word) do
