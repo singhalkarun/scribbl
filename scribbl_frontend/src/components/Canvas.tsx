@@ -2,11 +2,7 @@
 
 import { ReactSketchCanvas, ReactSketchCanvasRef } from "react-sketch-canvas";
 import React, { useRef, useState, useEffect } from "react";
-import { Channel } from "phoenix";
 import { usePlayerStore } from "@/store/usePlayerStore";
-
-// Configuration
-const SOCKET_SERVER_URL = "";
 
 const colors = ["black", "red", "blue", "green", "orange", "purple"];
 
@@ -53,12 +49,16 @@ export default function Canvas({ isDrawer }: CanvasProps) {
   // When paths state changes, update the canvas to match
   useEffect(() => {
     if (canvasRef.current && paths.length >= 0) {
-      // Clear first to avoid duplicating paths
-      canvasRef.current.clearCanvas();
+      // Only update if the paths have actually changed
+      const currentPaths = canvasRef.current.exportPaths();
+      if (JSON.stringify(currentPaths) !== JSON.stringify(paths)) {
+        // Clear first to avoid duplicating paths
+        canvasRef.current.clearCanvas();
 
-      // Only load paths if we have any
-      if (paths.length > 0) {
-        canvasRef.current.loadPaths(paths);
+        // Only load paths if we have any
+        if (paths.length > 0) {
+          canvasRef.current.loadPaths(paths);
+        }
       }
     }
   }, [paths]);
@@ -354,7 +354,7 @@ export default function Canvas({ isDrawer }: CanvasProps) {
     }));
   };
 
-  // Modify handleDrawingMove to use normalized coordinates
+  // Modify handleDrawingMove to be more efficient
   const handleDrawingMove = () => {
     if (!isDrawer || !canvasRef.current || !channel) return;
 
@@ -364,6 +364,10 @@ export default function Canvas({ isDrawer }: CanvasProps) {
       previousPathRef.current = null;
       console.log("[Canvas] Starting to draw");
     }
+
+    // Throttle the path export and sending
+    if (Date.now() - lastSentPointsRef.current < 50) return; // Only send every 50ms
+    lastSentPointsRef.current = Date.now();
 
     canvasRef.current
       .exportPaths()

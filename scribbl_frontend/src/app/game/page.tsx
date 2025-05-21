@@ -30,7 +30,7 @@ export default function GamePage() {
   const [wordToDraw, setWordToDraw] = useState("");
   const [wordLength, setWordLength] = useState(0);
   const [showWordSelection, setShowWordSelection] = useState(false);
-  const [suggestedWord, setSuggestedWord] = useState("");
+  const [suggestedWords, setSuggestedWords] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameJustEnded, setGameJustEnded] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -54,11 +54,11 @@ export default function GamePage() {
     if (channel) {
       console.log(
         "[GamePage] Sending start_turn event with word:",
-        suggestedWord
+        suggestedWords[0]
       );
-      channel.push("start_turn", { word: suggestedWord });
+      channel.push("start_turn", { word: suggestedWords[0] });
       // Set the word to draw for the drawer only
-      setWordToDraw(suggestedWord);
+      setWordToDraw(suggestedWords[0]);
       setShowWordSelection(false);
     }
   };
@@ -86,8 +86,8 @@ export default function GamePage() {
 
   // Debug log for suggestedWord changes
   useEffect(() => {
-    console.log("[GamePage] suggestedWord changed:", suggestedWord);
-  }, [suggestedWord]);
+    console.log("[GamePage] suggestedWords changed:", suggestedWords);
+  }, [suggestedWords]);
 
   // Handle socket events for room info
   useEffect(() => {
@@ -121,15 +121,16 @@ export default function GamePage() {
           setGameInfo((prev) => ({
             ...prev,
             currentDrawer: payload.drawer,
+            currentRound: payload.round,
           }));
         });
 
         // Listen for select_word event (only sent to the drawer)
         const selectWordRef = channel.on("select_word", (payload) => {
           console.log("[GamePage] Received select_word:", payload);
-          // Only set the suggested word, not final yet
-          setSuggestedWord(payload.word);
-          console.log("[GamePage] Set suggestedWord to:", payload.word);
+          // Set the array of suggested words
+          setSuggestedWords(payload.words);
+          console.log("[GamePage] Set suggestedWords to:", payload.words);
           setShowWordSelection(true);
         });
 
@@ -314,15 +315,32 @@ export default function GamePage() {
               Select Word to Draw
             </h2>
             <p className="text-gray-600 mb-6">
-              Click on the word to start your turn
+              Click on a word to start your turn
             </p>
 
-            <button
-              onClick={handleWordSelect}
-              className="text-2xl py-4 px-6 bg-indigo-600 hover:bg-indigo-700 text-white w-full rounded-lg font-semibold transition-colors hover:cursor-pointer"
-            >
-              {suggestedWord || "Loading..."}
-            </button>
+            <div className="space-y-3">
+              {suggestedWords.map((word, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    const channel = usePlayerStore.getState().channel;
+                    if (channel) {
+                      console.log(
+                        "[GamePage] Sending start_turn event with word:",
+                        word
+                      );
+                      channel.push("start_turn", { word });
+                      // Set the word to draw for the drawer only
+                      setWordToDraw(word);
+                      setShowWordSelection(false);
+                    }
+                  }}
+                  className="text-xl py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white w-full rounded-lg font-semibold transition-colors hover:cursor-pointer"
+                >
+                  {word}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -341,9 +359,27 @@ export default function GamePage() {
         <div className="flex-1 flex flex-row gap-2 min-h-0 md:flex-col md:gap-4">
           {/* Players - Takes half width on mobile */}
           <div className="w-1/2 bg-white border border-gray-200 rounded-lg shadow-sm p-3 flex flex-col md:w-auto min-h-0">
-            <h2 className="font-bold text-lg mb-2 text-gray-700 flex-shrink-0">
-              Players
-            </h2>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="font-bold text-lg text-gray-700 flex-shrink-0">
+                Players
+              </h2>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(roomId);
+                }}
+                className="text-gray-500 transition-colors relative group cursor-pointer"
+              >
+                <p className="text-sm">
+                  Room ID:{" "}
+                  <span className="text-sm text-indigo-600 font-mono">
+                    {roomId}
+                  </span>
+                </p>
+                <span className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
+                  Click to copy room ID
+                </span>
+              </button>
+            </div>
             <ul className="text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
               {playersList.length > 0 ? (
                 playersList.map((name, index) => {
@@ -420,6 +456,26 @@ export default function GamePage() {
                 </div>
               </div>
             ) : null}
+
+            {/* Room ID with Copy Button */}
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Share Room ID:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm text-indigo-600 font-mono">
+                  {roomId}
+                </code>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(roomId);
+                    // You could add a toast notification here if you want
+                  }}
+                  className="bg-gray-200 hover:bg-gray-300 p-2 rounded transition-colors"
+                  title="Copy Room ID"
+                >
+                  📋
+                </button>
+              </div>
+            </div>
 
             <button
               className={`w-full py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer ${
