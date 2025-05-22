@@ -365,20 +365,21 @@ defmodule ScribblBackend.GameHelper do
             if num_non_eligible_players == num_players - 1 do
               Logger.info("All players have guessed correctly, ending turn #{word}")
 
-              # Set a very short expiration to trigger turn end
-              RedisHelper.expire(room_timer_key, 1)
-
-              # Broadcast turn end event
+              # Broadcast turn_over event
               Phoenix.PubSub.broadcast(
                 ScribblBackend.PubSub,
                 socket.topic,
                 %{
-                  event: "turn_end",
+                  event: "turn_over",
                   payload: %{
-                    "reason" => "all_guessed"
+                    "reason" => "all_guessed",
+                    "word" => word
                   }
                 }
               )
+
+              # Start next turn
+              start(room_id)
             end
           end
 

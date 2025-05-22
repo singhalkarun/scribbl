@@ -4,6 +4,7 @@ defmodule ScribblBackend.TimeoutWatcher do
   """
 
   use GenServer
+  alias ScribblBackend.RedisHelper
   alias ScribblBackend.GameHelper
 
   @lock_ttl_ms 5000
@@ -83,17 +84,29 @@ defmodule ScribblBackend.TimeoutWatcher do
   ## Internal Helpers
 
   defp maybe_handle_expired_key(key) do
-    lock_key = "lock:#{key}"
+    # Extract room_id from the key
+    case Regex.run(~r/^room:\{([^}]+)\}:timer$/, key) do
+      [_, room_id] ->
+        # Get current word from Redis
+        word_key = "room:{#{room_id}}:word"
+        case RedisHelper.get(word_key) do
+          {:ok, word} ->
+            # Create a word-specific lock key
+            lock_key = "lock:#{key}:#{word}"
 
-    case Redix.command(:redix, [
-           "SET",
-           lock_key,
-           node_id(),
-           "NX",
-           "PX",
-           Integer.to_string(@lock_ttl_ms)
-         ]) do
-      {:ok, "OK"} -> handle_timeout_logic(key)
+            case Redix.command(:redix, [
+                   "SET",
+                   lock_key,
+                   node_id(),
+                   "NX",
+                   "PX",
+                   Integer.to_string(@lock_ttl_ms)
+                 ]) do
+              {:ok, "OK"} -> handle_timeout_logic(key)
+              _ -> :noop
+            end
+          _ -> :noop
+        end
       _ -> :noop
     end
   end
@@ -109,28 +122,25 @@ defmodule ScribblBackend.TimeoutWatcher do
       room_id ->
         IO.puts("Room ID: #{room_id}")
 
-        # First send turn_end event
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          "room:#{room_id}",
-          %{
-            event: "turn_end",
-            payload: %{
-              "reason" => "timeout"
-            }
-          }
-        )
+        # Get the current word before starting next turn
+        room_word_key = "room:{#{room_id}}:word"
+        {:ok, word} = RedisHelper.get(room_word_key)
 
-        # Then send turn_over event
+        # Send turn_over event with all necessary information
         Phoenix.PubSub.broadcast(
           ScribblBackend.PubSub,
           "room:#{room_id}",
           %{
             event: "turn_over",
-            payload: %{}
+            payload: %{
+              "reason" => "timeout",
+              "word" => word
+            }
           }
         )
 
+        # Start the next turn
+        IO.puts("Starting next turn for room: #{room_id}")
         GameHelper.start(room_id)
     end
   end
