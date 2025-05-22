@@ -109,6 +109,19 @@ defmodule ScribblBackend.TimeoutWatcher do
       room_id ->
         IO.puts("Room ID: #{room_id}")
 
+        # First send turn_end event
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          "room:#{room_id}",
+          %{
+            event: "turn_end",
+            payload: %{
+              "reason" => "timeout"
+            }
+          }
+        )
+
+        # Then send turn_over event
         Phoenix.PubSub.broadcast(
           ScribblBackend.PubSub,
           "room:#{room_id}",

@@ -404,8 +404,16 @@ defmodule ScribblBackend.RedisHelper do
     Redix.command(:redix, ["DEL", key])
   end
 
-
-
-
+  @doc """
+  Get all keys matching a pattern in Redis.
+  ## Parameters
+    - `pattern`: The pattern to match keys against (e.g., "user:*").
+  ## Examples
+      iex> ScribblBackend.RedisHelper.keys("user:*")
+      {:ok, ["user:1", "user:2"]}
+  """
+  def keys(pattern) do
+    Redix.command(:redix, ["KEYS", pattern])
+  end
 
 end

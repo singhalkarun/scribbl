@@ -37,31 +37,16 @@ defmodule ScribblBackend.GameHelper do
           |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
           |> Enum.into(%{})
 
-        {:ok, room_info}
+        # If room is finished, reset the game state
+        if room_info.status == "finished" do
+          reset_game_state(room_id, opts)
+        else
+          {:ok, room_info}
+        end
 
       {:ok, 0} ->
         # room does not exist, create a new room with default options
-        max_rounds = Keyword.get(opts, :max_rounds, 3)
-
-        RedisHelper.hmset(
-          room_key,
-          %{
-            "max_rounds" => max_rounds,
-            "current_round" => 0,
-            "status" => "waiting",
-            "current_drawer" => ""
-          }
-        )
-
-        # return the new room info
-        {:ok, room_info} = RedisHelper.hgetall(room_key)
-
-        room_info =
-          Enum.chunk_every(room_info, 2)
-          |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
-          |> Enum.into(%{})
-
-        {:ok, room_info}
+        reset_game_state(room_id, opts)
 
       {:error, reason} ->
         # handle error
@@ -117,6 +102,9 @@ defmodule ScribblBackend.GameHelper do
 
     # remove the player from the room in the list of players
     RedisHelper.lrem(room_key, player_id)
+
+    # Check if room is empty and clean up if needed
+    check_and_cleanup_empty_room(room_id)
   end
 
   def start(room_id) do
@@ -142,7 +130,7 @@ defmodule ScribblBackend.GameHelper do
         if String.to_integer(current_round) >= String.to_integer(max_rounds) do
           # end the game
           RedisHelper.hmset(
-            room_id,
+            room_key,
             %{
               "status" => "finished",
               "current_drawer" => ""
@@ -158,6 +146,9 @@ defmodule ScribblBackend.GameHelper do
               payload: %{}
             }
           )
+
+          # Clean up the room state
+          cleanup_room(room_id)
 
           {:error, "Game over"}
         else
@@ -328,9 +319,6 @@ defmodule ScribblBackend.GameHelper do
     {:ok, drawer} = RedisHelper.hget(room_key, "current_drawer")
     {:ok, round} = RedisHelper.hget(room_key, "current_round")
 
-    # print drawer and socket user id
-    Logger.info("Drawer: #{drawer}, Socket User ID: #{user_id}")
-
     if drawer == socket.assigns.user_id do
       # ignore the message
       {:noreply, socket}
@@ -369,8 +357,29 @@ defmodule ScribblBackend.GameHelper do
           {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
           {:ok, num_players} = RedisHelper.llen(players_key)
 
-          if num_non_eligible_players == num_players - 1 do
-            RedisHelper.expire(room_timer_key, 1)
+          Logger.info("Non-eligible players: #{num_non_eligible_players}, Total players: #{num_players}")
+
+          # Only proceed if we have at least 2 players (drawer + 1 guesser)
+          if num_players >= 2 do
+            # Check if all players except the drawer have guessed correctly
+            if num_non_eligible_players == num_players - 1 do
+              Logger.info("All players have guessed correctly, ending turn #{word}")
+
+              # Set a very short expiration to trigger turn end
+              RedisHelper.expire(room_timer_key, 1)
+
+              # Broadcast turn end event
+              Phoenix.PubSub.broadcast(
+                ScribblBackend.PubSub,
+                socket.topic,
+                %{
+                  event: "turn_end",
+                  payload: %{
+                    "reason" => "all_guessed"
+                  }
+                }
+              )
+            end
           end
 
           # increase the drawer score
@@ -428,5 +437,85 @@ defmodule ScribblBackend.GameHelper do
         )
       end
     end
+  end
+
+  @doc """
+  Clean up all Redis keys associated with a room.
+  This should be called when the game is over or all players have left.
+  ## Parameters
+    - `room_id`: The ID of the room to clean up.
+  """
+  def cleanup_room(room_id) do
+    # Get all keys associated with this room
+    room_pattern = "#{@room_prefix}{#{room_id}}:*"
+
+    # Delete all keys matching the pattern EXCEPT the players list
+    case RedisHelper.keys(room_pattern) do
+      {:ok, keys} ->
+        # Filter out the players key
+        keys_to_delete = Enum.reject(keys, fn key ->
+          String.ends_with?(key, ":players")
+        end)
+
+        Enum.each(keys_to_delete, fn key -> RedisHelper.del(key) end)
+      {:error, reason} ->
+        Logger.error("Failed to clean up room #{room_id}: #{reason}")
+    end
+  end
+
+  @doc """
+  Check if a room is empty and clean it up if needed.
+  This should be called when a player leaves the room.
+  ## Parameters
+    - `room_id`: The ID of the room to check.
+  """
+  def check_and_cleanup_empty_room(room_id) do
+    players_key = "#{@room_prefix}{#{room_id}}:players"
+
+    case RedisHelper.llen(players_key) do
+      {:ok, 0} ->
+        # Room is empty, clean it up
+        cleanup_room(room_id)
+        :ok
+      {:ok, _} ->
+        # Room still has players
+        :ok
+      {:error, reason} ->
+        Logger.error("Failed to check room #{room_id}: #{reason}")
+        {:error, reason}
+    end
+  end
+
+  @doc """
+  Reset the game state for a room while keeping the players.
+  This should be called when starting a new game.
+  ## Parameters
+    - `room_id`: The ID of the room to reset.
+    - `opts`: Optional parameters for room initialization (e.g., max_rounds).
+  """
+  def reset_game_state(room_id, opts \\ []) do
+    room_key = "#{@room_prefix}{#{room_id}}:info"
+    max_rounds = Keyword.get(opts, :max_rounds, 3)
+
+    # Reset the room info
+    RedisHelper.hmset(
+      room_key,
+      %{
+        "max_rounds" => max_rounds,
+        "current_round" => 0,
+        "status" => "waiting",
+        "current_drawer" => ""
+      }
+    )
+
+    # Get the updated room info
+    {:ok, room_info} = RedisHelper.hgetall(room_key)
+
+    room_info =
+      Enum.chunk_every(room_info, 2)
+      |> Enum.map(fn [k, v] -> {String.to_atom(k), v} end)
+      |> Enum.into(%{})
+
+    {:ok, room_info}
   end
 end

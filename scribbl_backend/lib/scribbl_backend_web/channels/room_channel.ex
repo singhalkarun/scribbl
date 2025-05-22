@@ -99,6 +99,12 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "turn_end", payload: payload}, socket) do
+    # Push the turn end event to the current socket
+    push(socket, "turn_end", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "correct_guess", payload: payload}, socket) do
     # Push the player joined event to the current socket
     push(socket, "correct_guess", payload)
@@ -226,8 +232,22 @@ defmodule ScribblBackendWeb.RoomChannel do
     # Get the room ID from the socket topic
     room_id = String.split(socket.topic, ":") |> List.last()
 
-    # Start the game
-    GameHelper.start(room_id)
+    # Get current room info to check status
+    case GameHelper.get_or_initialize_room(room_id) do
+      {:ok, room_info} ->
+        # If game is finished, reset the room state
+        if room_info.status == "finished" do
+          # Reset the room with default options
+          {:ok, _} = GameHelper.get_or_initialize_room(room_id, max_rounds: 3)
+        end
+
+        # Start the game
+        GameHelper.start(room_id)
+
+      {:error, reason} ->
+        Logger.error("Failed to start game: #{reason}")
+        push(socket, "error", %{"message" => "Failed to start game"})
+    end
 
     {:noreply, socket}
   end
