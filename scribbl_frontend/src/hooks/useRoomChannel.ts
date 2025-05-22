@@ -19,6 +19,7 @@ export function useRoomChannel() {
     updatePlayers,
     applyPresenceDiff,
     addMessage,
+    updateScore,
   } = usePlayerStore();
 
   const [connectionState, setConnectionState] =
@@ -105,7 +106,20 @@ export function useRoomChannel() {
           addMessage(messageToAdd);
         }
       ),
-      // TODO: Add listeners for game-specific events (e.g., "start_turn", "draw", "game_over")
+      newChannel.on("scores", (payload) => {
+        console.log("[useRoomChannel] Received scores:", payload);
+
+        // The payload should contain a scores object: { scores: { userId1: score1, userId2: score2, ... } }
+        if (payload && payload.scores) {
+          // Update each player's score in the store
+          Object.entries(payload.scores).forEach(([userId, score]) => {
+            console.log(
+              `[useRoomChannel] Updating score for ${userId}: ${score}`
+            );
+            updateScore(userId, score as number);
+          });
+        }
+      }),
     ];
     // --- End Listeners ---
 
@@ -140,9 +154,12 @@ export function useRoomChannel() {
       listeners.forEach((ref, index) => {
         // Check if channel still exists and has 'off' method
         if (newChannel && typeof newChannel.off === "function") {
-          const eventName = ["presence_state", "presence_diff", "new_message"][
-            index
-          ]; // Map index to event name
+          const eventName = [
+            "presence_state",
+            "presence_diff",
+            "new_message",
+            "scores",
+          ][index]; // Map index to event name
           newChannel.off(eventName, ref);
         }
       });
@@ -164,6 +181,7 @@ export function useRoomChannel() {
     applyPresenceDiff,
     addMessage,
     setUserId,
+    updateScore,
   ]); // Dependencies for effect
 
   // Function to send a message
