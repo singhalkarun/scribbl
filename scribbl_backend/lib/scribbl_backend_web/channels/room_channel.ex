@@ -29,19 +29,25 @@ defmodule ScribblBackendWeb.RoomChannel do
     push(socket, "presence_state", current_presences)
 
     # get room info using game helper, only send room_id from topic
-
     room_id = String.split(socket.topic, ":") |> List.last()
 
     case GameHelper.get_or_initialize_room(room_id) do
       {:ok, room_info} ->
         # add player to the room
-
         user_id = socket.assigns.user_id
         GameHelper.add_player(room_id, user_id)
 
         # Push the room info to the current socket
-
         push(socket, "room_info", room_info)
+
+        # If game is active, send all players' scores
+        if room_info.status == "active" do
+          case GameHelper.get_all_player_scores(room_id) do
+            {:ok, scores} ->
+              push(socket, "scores", %{"scores" => scores})
+            _ -> :ok
+          end
+        end
 
       {:error, reason} ->
         # Handle error (e.g., log it)

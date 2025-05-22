@@ -87,6 +87,29 @@ defmodule ScribblBackend.GameHelper do
     RedisHelper.lrange(room_key)
   end
 
+  @doc """
+  Get scores for all players in a room.
+  ## Parameters
+    - `room_id`: The ID of the room to get scores from.
+  ## Returns
+    A map of player IDs to their scores.
+  """
+  def get_all_player_scores(room_id) do
+    case get_players(room_id) do
+      {:ok, players} ->
+        scores = Enum.map(players, fn player_id ->
+          player_score_key = "#{@room_prefix}{#{room_id}}:player:#{player_id}:score"
+          case RedisHelper.get(player_score_key) do
+            {:ok, score} when is_binary(score) -> {player_id, String.to_integer(score)}
+            {:ok, nil} -> {player_id, 0}
+            _ -> {player_id, 0}
+          end
+        end)
+        {:ok, Map.new(scores)}
+      error -> error
+    end
+  end
+
   # function to remove player from the room
   @doc """
   Remove a player from the game room.
@@ -123,6 +146,14 @@ defmodule ScribblBackend.GameHelper do
     # reset the non eligible guessers list at the start of each turn
     non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{current_round}:non_eligible_guessers"
     RedisHelper.del(non_eligible_guessers_key)
+
+    # Set game status to active
+    RedisHelper.hmset(
+      room_key,
+      %{
+        "status" => "active"
+      }
+    )
 
     case RedisHelper.spop(eligible_drawers_key) do
       {:ok, nil} ->
@@ -449,6 +480,15 @@ defmodule ScribblBackend.GameHelper do
   def cleanup_room(room_id) do
     # Get all keys associated with this room
     room_pattern = "#{@room_prefix}{#{room_id}}:*"
+    room_key = "#{@room_prefix}{#{room_id}}:info"
+
+    # Set game status to waiting
+    RedisHelper.hmset(
+      room_key,
+      %{
+        "status" => "waiting"
+      }
+    )
 
     # Delete all keys matching the pattern EXCEPT the players list
     case RedisHelper.keys(room_pattern) do
