@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import BackgroundMusic from "@/components/BackgroundMusic";
 
 export default function JoinPage() {
   const [name, setName] = useState("");
@@ -49,6 +50,8 @@ export default function JoinPage() {
         cursor: "url('/cursor.png') 16 16, auto",
       }}
     >
+      {/* Background Music */}
+      <BackgroundMusic src="/sounds/game-music-loop.mp3" volume={0.2} />
       {/* Decorative elements */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
         <div className="absolute top-10 left-10 w-32 h-32 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>

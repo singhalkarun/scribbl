@@ -6,6 +6,7 @@ import Canvas from "@/components/Canvas";
 import Chat from "@/components/Chat";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
+import { useSoundEffects } from "@/utils/useSoundEffects";
 
 export default function GamePage() {
   const {
@@ -19,6 +20,8 @@ export default function GamePage() {
   } = usePlayerStore();
 
   const { connectionState, sendMessage } = useRoomChannel();
+  // Use a very low volume (0.1 = 10%) for sound effects
+  const { playSound } = useSoundEffects(0.1);
 
   const [guessed, setGuessed] = useState(false);
   const [roomStatus, setRoomStatus] = useState("waiting");
@@ -113,6 +116,8 @@ export default function GamePage() {
             ...prev,
             currentRound: payload.current_round,
           }));
+          // Play new round sound when a game starts
+          playSound("newRound");
         });
 
         // Listen for drawer_assigned event
@@ -170,6 +175,9 @@ export default function GamePage() {
               return prevTime - 1;
             });
           }, 1000);
+
+          // Play new round sound when a turn starts
+          playSound("newRound");
         });
 
         // Listen for turn_over event
@@ -196,6 +204,9 @@ export default function GamePage() {
             clearInterval(timerRef.current);
             timerRef.current = null;
           }
+
+          // Play game over sound
+          playSound("gameOver");
 
           // Show game over message
           setGameJustEnded(true);
@@ -228,6 +239,10 @@ export default function GamePage() {
         const correctGuessRef = channel.on("correct_guess", (payload) => {
           console.log("[GamePage] Received correct_guess:", payload);
           const guesserName = players[payload.user_id] || "Someone";
+
+          // Play correct guess sound for all correct guesses
+          playSound("correctGuess");
+
           // Add a system message about the correct guess
           usePlayerStore.getState().addMessage({
             userId: "system",
