@@ -3,9 +3,9 @@ defmodule ScribblBackendWeb.UserSocket do
 
   channel "room:*", ScribblBackendWeb.RoomChannel
 
-  def connect(_params, socket, _connect_info) do
-    # Assign a unique user ID to the socket
-    user_id = UUID.uuid4()
+  def connect(params, socket, _connect_info) do
+    user_id = Map.get(params, "user_id")
+    user_id = if user_id && user_id != "", do: user_id, else: UUID.uuid4()
     socket = assign(socket, :user_id, user_id)
 
     {:ok, socket}
