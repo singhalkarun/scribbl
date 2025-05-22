@@ -35,6 +35,32 @@ services:
     depends_on:
       - postgres
 
+  scribbl_backend_3:
+    image: ghcr.io/singhalkarun/scribbl-backend:main
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      NODE_NAME: "3"
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB}
+    restart: always
+    depends_on:
+      - postgres
+
+  scribbl_backend_4:
+    image: ghcr.io/singhalkarun/scribbl-backend:main
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      NODE_NAME: "4"
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${REDIS_DB}
+    restart: always
+    depends_on:
+      - postgres
+
   caddy:
     image: caddy:2.10.0-alpine
     volumes:
