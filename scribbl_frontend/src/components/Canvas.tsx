@@ -28,6 +28,14 @@ interface CanvasProps {
   isDrawer: boolean;
 }
 
+interface DrawingData {
+  drawMode: boolean;
+  strokeColor: string;
+  strokeWidth: number;
+  paths: NormalizedPathPoint[];
+  isComplete: boolean;
+}
+
 export default function Canvas({ isDrawer }: CanvasProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -81,42 +89,51 @@ export default function Canvas({ isDrawer }: CanvasProps) {
         const canvasWidth = container?.clientWidth || 1;
         const canvasHeight = container?.clientHeight || 1;
 
-        // Denormalize the coordinates when receiving
-        const denormalizedPaths = denormalizeCoordinates(
-          payload.paths,
-          canvasWidth,
-          canvasHeight
-        );
+        // Handle the new array format with "canvas" key
+        // Server now sends an array of drawing objects in payload.canvas:
+        // - New joiners receive multiple objects in the array
+        // - Existing players receive one object at a time
+        const drawingData = payload.canvas || [];
 
-        const newPath: SketchPath = {
-          drawMode: payload.drawMode,
-          strokeColor: payload.strokeColor,
-          strokeWidth: payload.strokeWidth,
-          paths: denormalizedPaths,
-        };
+        // Process each drawing object in the array
+        drawingData.forEach((data: DrawingData) => {
+          // Denormalize the coordinates when receiving
+          const denormalizedPaths = denormalizeCoordinates(
+            data.paths,
+            canvasWidth,
+            canvasHeight
+          );
 
-        if (payload.isComplete === false) {
-          setPaths((prevPaths) => {
-            if (prevPaths.length > 0) {
-              const lastPath = prevPaths[prevPaths.length - 1];
-              if (
-                lastPath.drawMode === newPath.drawMode &&
-                lastPath.strokeColor === newPath.strokeColor &&
-                lastPath.strokeWidth === newPath.strokeWidth
-              ) {
-                const updatedPaths = [...prevPaths];
-                updatedPaths[updatedPaths.length - 1] = {
-                  ...lastPath,
-                  paths: [...lastPath.paths, ...newPath.paths],
-                };
-                return updatedPaths;
+          const newPath: SketchPath = {
+            drawMode: data.drawMode,
+            strokeColor: data.strokeColor,
+            strokeWidth: data.strokeWidth,
+            paths: denormalizedPaths,
+          };
+
+          if (data.isComplete === false) {
+            setPaths((prevPaths) => {
+              if (prevPaths.length > 0) {
+                const lastPath = prevPaths[prevPaths.length - 1];
+                if (
+                  lastPath.drawMode === newPath.drawMode &&
+                  lastPath.strokeColor === newPath.strokeColor &&
+                  lastPath.strokeWidth === newPath.strokeWidth
+                ) {
+                  const updatedPaths = [...prevPaths];
+                  updatedPaths[updatedPaths.length - 1] = {
+                    ...lastPath,
+                    paths: [...lastPath.paths, ...newPath.paths],
+                  };
+                  return updatedPaths;
+                }
               }
-            }
-            return [...prevPaths, newPath];
-          });
-        } else {
-          setPaths((prevPaths) => [...prevPaths, newPath]);
-        }
+              return [...prevPaths, newPath];
+            });
+          } else {
+            setPaths((prevPaths) => [...prevPaths, newPath]);
+          }
+        });
       }
     });
 
