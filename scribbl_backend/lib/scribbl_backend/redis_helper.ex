@@ -311,10 +311,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def setex(key, ttl, value) do
-    case Redix.command(:redix, ["SETEX", key, ttl, value]) do
-      {:ok, _response} -> IO.puts("Key set successfully")
-      {:error, reason} -> IO.puts("Failed to set key: #{reason}")
-    end
+    Redix.command(:redix, ["SETEX", key, ttl, value])
   end
 
   @doc """

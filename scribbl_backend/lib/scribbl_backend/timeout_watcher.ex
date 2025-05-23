@@ -36,11 +36,11 @@ defmodule ScribblBackend.TimeoutWatcher do
     {:ok, redix_pubsub} = Redix.PubSub.start_link(opts)
 
     case Redix.PubSub.subscribe(redix_pubsub, redis_channel, self()) do
-      {:ok, ref} ->
-        IO.puts("Successfully subscribed! Ref: #{inspect(ref)}")
+      {:ok, _ref} ->
+        :ok
 
-      {:error, reason} ->
-        IO.puts("Failed to subscribe: #{inspect(reason)}")
+      {:error, _reason} ->
+        :ok
     end
 
     {:ok, Map.put(state, :redix_pubsub, redix_pubsub) |> Map.put(:redis_channel, redis_channel)}
@@ -51,15 +51,9 @@ defmodule ScribblBackend.TimeoutWatcher do
         {:redix_pubsub, _pid, _sub, :message, %{channel: channel, payload: key}},
         %{redis_channel: channel} = state
       ) do
-    IO.puts("Received message on channel #{inspect(channel)}: #{inspect(key)}")
-    IO.inspect(state, label: "State")
-
     # Check if the channel in the message matches the redis_channel in the state
     if Regex.match?(~r/^room:\{.+\}:timer$/, key) do
-      IO.puts("Channel matched! Handling expired key...")
       maybe_handle_expired_key(key)
-    else
-      IO.puts("Channel mismatch! Expected: #{state[:redis_channel]}, Got: #{channel}")
     end
 
     {:noreply, state}
@@ -68,16 +62,13 @@ defmodule ScribblBackend.TimeoutWatcher do
   # Handling subscription confirmation message
   @impl true
   def handle_info(
-        {:redix_pubsub, _pid, _sub, :subscribed, %{channel: channel}},
-        %{redis_channel: channel} = state
+        {:redix_pubsub, _pid, _sub, :subscribed, %{channel: _channel}},
+        state
       ) do
-    IO.puts("Successfully subscribed to channel: #{channel}")
     {:noreply, state}
   end
 
-  def handle_info(msg, state) do
-    IO.puts("Unexpected message: #{inspect(msg)}")
-    IO.inspect(state, label: "State on Unexpected Message")
+  def handle_info(_msg, state) do
     {:noreply, state}
   end
 
@@ -112,16 +103,11 @@ defmodule ScribblBackend.TimeoutWatcher do
   end
 
   defp handle_timeout_logic("room:{" <> rest) do
-    IO.puts("Handling timeout logic for key: #{rest}")
-
     case String.trim_trailing(rest, "}:timer") do
       ^rest ->
-        IO.puts("Invalid key format: #{rest}")
         :noop
 
       room_id ->
-        IO.puts("Room ID: #{room_id}")
-
         # Get the current word before starting next turn
         room_word_key = "room:{#{room_id}}:word"
         {:ok, word} = RedisHelper.get(room_word_key)
@@ -140,7 +126,6 @@ defmodule ScribblBackend.TimeoutWatcher do
         )
 
         # Start the next turn
-        IO.puts("Starting next turn for room: #{room_id}")
         GameHelper.start(room_id)
     end
   end

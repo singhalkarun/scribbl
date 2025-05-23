@@ -57,9 +57,8 @@ defmodule ScribblBackendWeb.RoomChannel do
           end
         end
 
-      {:error, reason} ->
-        # Handle error (e.g., log it)
-        IO.puts("Error getting room info: #{reason}")
+      {:error, _reason} ->
+        :ok
     end
 
     {:noreply, socket}
@@ -274,8 +273,7 @@ defmodule ScribblBackendWeb.RoomChannel do
         # Start the game
         GameHelper.start(room_id)
 
-      {:error, reason} ->
-        Logger.error("Failed to start game: #{reason}")
+      {:error, _reason} ->
         push(socket, "error", %{"message" => "Failed to start game"})
     end
 

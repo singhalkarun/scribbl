@@ -6,7 +6,6 @@ defmodule ScribblBackend.GameHelper do
   """
 
   alias ScribblBackend.RedisHelper
-  require Logger
 
   @room_prefix "room:"
 
@@ -442,14 +441,10 @@ defmodule ScribblBackend.GameHelper do
           {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
           {:ok, num_players} = RedisHelper.llen(players_key)
 
-          Logger.info("Non-eligible players: #{num_non_eligible_players}, Total players: #{num_players}")
-
           # Only proceed if we have at least 2 players (drawer + 1 guesser)
           if num_players >= 2 do
             # Check if all players except the drawer have guessed correctly
             if num_non_eligible_players == num_players - 1 do
-              Logger.info("All players have guessed correctly, ending turn #{word}")
-
               # Broadcast turn_over event
               Phoenix.PubSub.broadcast(
                 ScribblBackend.PubSub,
@@ -553,8 +548,8 @@ defmodule ScribblBackend.GameHelper do
         end)
 
         Enum.each(keys_to_delete, fn key -> RedisHelper.del(key) end)
-      {:error, reason} ->
-        Logger.error("Failed to clean up room #{room_id}: #{reason}")
+      {:error, _reason} ->
+        :ok
     end
   end
 
@@ -575,9 +570,8 @@ defmodule ScribblBackend.GameHelper do
       {:ok, _} ->
         # Room still has players
         :ok
-      {:error, reason} ->
-        Logger.error("Failed to check room #{room_id}: #{reason}")
-        {:error, reason}
+      {:error, _reason} ->
+        {:error, "Failed to check room"}
     end
   end
 
