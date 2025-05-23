@@ -304,16 +304,13 @@ defmodule ScribblBackend.GameHelper do
 
   def start_turn(room_id, word) do
     room_word_key = "#{@room_prefix}{#{room_id}}:word"
+    room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
+    room_canvas_key = "#{@room_prefix}{#{room_id}}:canvas"
+
+    # Reset canvas data before starting new turn
+    RedisHelper.del(room_canvas_key)
 
     # set the word in Redis
-
-    RedisHelper.set(
-      room_word_key,
-      word
-    )
-
-    room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
-
     RedisHelper.set(
       room_word_key,
       word
@@ -327,6 +324,63 @@ defmodule ScribblBackend.GameHelper do
     )
 
     {:ok, %{"word_length" => Integer.to_string(String.length(word))}}
+  end
+
+  @doc """
+  Save canvas data for a room.
+  ## Parameters
+    - `room_id`: The ID of the room
+    - `canvas_data`: The canvas data to save
+  """
+  def save_canvas(room_id, %{
+    "drawMode" => _drawMode,
+    "strokeColor" => _strokeColor,
+    "strokeWidth" => _strokeWidth,
+    "paths" => _paths
+  } = canvas_data) do
+    room_canvas_key = "#{@room_prefix}{#{room_id}}:canvas"
+
+    # Get existing canvas data
+    case RedisHelper.get(room_canvas_key) do
+      {:ok, nil} ->
+        # If no existing data, save the new data as is
+        RedisHelper.set(room_canvas_key, Jason.encode!(%{
+          "canvas" => [canvas_data],
+          "lastUpdate" => System.system_time(:millisecond)
+        }))
+
+      {:ok, existing_data} ->
+        # If there's existing data, append the new increment
+        existing = Jason.decode!(existing_data)
+        updated_canvas = existing["canvas"] ++ [canvas_data]
+
+        RedisHelper.set(room_canvas_key, Jason.encode!(%{
+          "canvas" => updated_canvas,
+          "lastUpdate" => System.system_time(:millisecond)
+        }))
+
+      error -> error
+    end
+  end
+
+  @doc """
+  Get canvas data for a room.
+  ## Parameters
+    - `room_id`: The ID of the room
+  ## Returns
+    The canvas array if it exists, nil otherwise
+  """
+  def get_canvas(room_id) do
+    room_canvas_key = "#{@room_prefix}{#{room_id}}:canvas"
+    case RedisHelper.get(room_canvas_key) do
+      {:ok, nil} -> {:ok, nil}
+      {:ok, canvas_data} ->
+        case Jason.decode!(canvas_data) do
+          %{"canvas" => canvas} -> {:ok, canvas}
+          _ -> {:ok, nil}
+        end
+      error -> error
+    end
   end
 
   def get_current_drawer(room_id) do
@@ -558,5 +612,15 @@ defmodule ScribblBackend.GameHelper do
       |> Enum.into(%{})
 
     {:ok, room_info}
+  end
+
+  @doc """
+  Clear canvas data for a room.
+  ## Parameters
+    - `room_id`: The ID of the room
+  """
+  def clear_canvas(room_id) do
+    room_canvas_key = "#{@room_prefix}{#{room_id}}:canvas"
+    RedisHelper.del(room_canvas_key)
   end
 end

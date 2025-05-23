@@ -40,11 +40,19 @@ defmodule ScribblBackendWeb.RoomChannel do
         # Push the room info to the current socket
         push(socket, "room_info", room_info)
 
-        # If game is active, send all players' scores
+        # If game is active, send all players' scores and canvas data
         if room_info.status == "active" do
+          # Send scores
           case GameHelper.get_all_player_scores(room_id) do
             {:ok, scores} ->
               push(socket, "scores", %{"scores" => scores})
+            _ -> :ok
+          end
+
+          # Send canvas data
+          case GameHelper.get_canvas(room_id) do
+            {:ok, canvas} when not is_nil(canvas) ->
+              push(socket, "drawing", %{"canvas" => canvas})
             _ -> :ok
           end
         end
@@ -141,8 +149,14 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
-  # broadcast drawing clear event to all players
+
   def handle_in("drawing_clear", %{}, socket) do
+    # Get the room ID from the socket topic
+    room_id = String.split(socket.topic, ":") |> List.last()
+
+    # Clear the canvas data
+    GameHelper.clear_canvas(room_id)
+
     # Broadcast the drawing clear event to all players in the room
     Phoenix.PubSub.broadcast(
       ScribblBackend.PubSub,
@@ -174,8 +188,18 @@ defmodule ScribblBackendWeb.RoomChannel do
         },
         socket
       ) do
-    # Broadcast the drawing data to all players in the room
+    # Get the room ID from the socket topic
+    room_id = String.split(socket.topic, ":") |> List.last()
 
+    # Save the canvas data
+    GameHelper.save_canvas(room_id, %{
+      "drawMode" => drawMode,
+      "strokeColor" => strokeColor,
+      "strokeWidth" => strokeWidth,
+      "paths" => paths
+    })
+
+    # Broadcast the drawing data to all players in the room
     Phoenix.PubSub.broadcast_from(
       ScribblBackend.PubSub,
       self(),
@@ -183,15 +207,15 @@ defmodule ScribblBackendWeb.RoomChannel do
       %{
         event: "drawing",
         payload: %{
-          "drawMode" => drawMode,
-          "strokeColor" => strokeColor,
-          "strokeWidth" => strokeWidth,
-          "paths" => paths
+          "canvas" => [%{
+            "drawMode" => drawMode,
+            "strokeColor" => strokeColor,
+            "strokeWidth" => strokeWidth,
+            "paths" => paths
+          }]
         }
       }
     )
-
-    # ToDO: Save the drawing data to Redis or any other storage for persistence
 
     {:noreply, socket}
   end
@@ -258,14 +282,13 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
-    # Catch-all to ignore any unhandled events
-    def handle_in(_event, _payload, socket) do
-      {:noreply, socket}
-    end
+  # Catch-all to ignore any unhandled events
+  def handle_in(_event, _payload, socket) do
+    {:noreply, socket}
+  end
 
   def terminate(_reason, socket) do
     # Remove the user from the players list
-
     user_id = socket.assigns.user_id
     room_id = String.split(socket.topic, ":") |> List.last()
 
