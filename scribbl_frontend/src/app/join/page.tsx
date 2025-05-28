@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import BackgroundMusic from "@/components/BackgroundMusic";
 
-export default function JoinPage() {
+// Component to handle URL parameters
+function JoinPageContent() {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
   const [isJoining, setIsJoining] = useState(false);
@@ -134,5 +135,27 @@ export default function JoinPage() {
         </a>
       </div>
     </div>
+  );
+}
+
+// Loading fallback component
+function LoadingJoinPage() {
+  return (
+    <div className="min-h-screen w-screen flex flex-col justify-center items-center p-4 bg-gradient-to-br from-indigo-50 via-white to-cyan-100">
+      <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/20 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Loading...</h1>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main export that wraps the component in Suspense
+export default function JoinPage() {
+  return (
+    <Suspense fallback={<LoadingJoinPage />}>
+      <JoinPageContent />
+    </Suspense>
   );
 }
