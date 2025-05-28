@@ -369,7 +369,10 @@ export default function GamePage() {
       {/* Canvas area - Fixed height on mobile, grows on md+ */}
       <div className="px-1 h-[45vh] md:h-auto md:flex-1 md:p-4">
         <div className="w-full h-full bg-white rounded-xl md:shadow-lg flex flex-col overflow-hidden">
-          <Canvas isDrawer={isCurrentUserDrawing} />
+          <Canvas
+            isDrawer={isCurrentUserDrawing}
+            gameStarted={roomStatus === "started"}
+          />
         </div>
       </div>
 
