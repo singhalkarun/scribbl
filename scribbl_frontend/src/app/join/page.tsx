@@ -107,6 +107,23 @@ export default function JoinPage() {
             : "Create or Join Random Room"}
         </button>
       </div>
+
+      <div className="absolute bottom-4 left-0 right-0 text-center text-sm text-gray-600 z-10">
+        Built with ❤️ by{" "}
+        <a
+          href="https://www.linkedin.com/in/prateek-jakhar-a64a04197"
+          className="underline decoration-1 text-gray-500 hover:text-gray-800 underline-offset-4"
+        >
+          Prateek
+        </a>{" "}
+        and{" "}
+        <a
+          href="https://www.linkedin.com/in/singhalkarun"
+          className="underline decoration-1 text-gray-500 hover:text-gray-800 underline-offset-4"
+        >
+          Karun
+        </a>
+      </div>
     </div>
   );
 }
