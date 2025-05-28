@@ -37,7 +37,13 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameJustEnded, setGameJustEnded] = useState(false);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
+  // New states for turn over modal
+  const [showTurnOverModal, setShowTurnOverModal] = useState(false);
+  const [turnOverWord, setTurnOverWord] = useState("");
+  const [turnOverCountdown, setTurnOverCountdown] = useState(5);
+  const [currentTurnDrawer, setCurrentTurnDrawer] = useState(""); // Track the current turn's drawer
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const router = useRouter();
 
@@ -114,6 +120,7 @@ export default function GamePage() {
             currentDrawer: payload.drawer,
             currentRound: payload.round,
           }));
+          setCurrentTurnDrawer(payload.drawer); // Store the drawer for this turn
         });
 
         // Listen for select_word event (only sent to the drawer)
@@ -151,6 +158,11 @@ export default function GamePage() {
             setShowWordSelection(false);
           }
 
+          // Ensure we have the correct drawer for this turn
+          if (gameInfo.currentDrawer) {
+            setCurrentTurnDrawer(gameInfo.currentDrawer);
+          }
+
           // Start the timer - 60 seconds
           setTimeLeft(60);
 
@@ -185,6 +197,36 @@ export default function GamePage() {
           if (timerRef.current) {
             clearInterval(timerRef.current);
             timerRef.current = null;
+          }
+
+          // Show turn over modal with answer only to players who didn't guess correctly and weren't the drawer
+          if (currentTurnDrawer !== userId && !guessed && payload.word) {
+            setTurnOverWord(payload.word);
+            setShowTurnOverModal(true);
+            setTurnOverCountdown(5);
+
+            // Play a sound for turn over reveal
+            playSound("correctGuess");
+
+            // Start countdown timer
+            if (countdownTimerRef.current) {
+              clearInterval(countdownTimerRef.current);
+            }
+
+            countdownTimerRef.current = setInterval(() => {
+              setTurnOverCountdown((prev) => {
+                if (prev <= 1) {
+                  // If countdown reaches 0, clear the interval and hide modal
+                  if (countdownTimerRef.current) {
+                    clearInterval(countdownTimerRef.current);
+                    countdownTimerRef.current = null;
+                  }
+                  setShowTurnOverModal(false);
+                  return 5; // Reset for next time
+                }
+                return prev - 1;
+              });
+            }, 1000);
           }
 
           // Reset states for the next turn
@@ -269,6 +311,12 @@ export default function GamePage() {
               clearInterval(timerRef.current);
               timerRef.current = null;
             }
+
+            // Clear countdown timer if it exists
+            if (countdownTimerRef.current) {
+              clearInterval(countdownTimerRef.current);
+              countdownTimerRef.current = null;
+            }
           }
         };
       }
@@ -328,6 +376,36 @@ export default function GamePage() {
 
   return (
     <main className="h-screen w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+      {/* Turn Over Modal */}
+      {showTurnOverModal && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
+          <div className="bg-white rounded-xl p-6 shadow-2xl text-center max-w-md w-full mx-4">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              Turn Over!
+            </h2>
+            <p className="text-gray-600 mb-6">
+              The word was:{" "}
+              <span className="font-bold text-indigo-600 text-xl">
+                {turnOverWord}
+              </span>
+            </p>
+            <p className="text-gray-700 mb-2">Next turn starting in:</p>
+            <div className="text-4xl font-bold text-indigo-600 mb-6">
+              {turnOverCountdown}
+            </div>
+            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-500"
+                style={{
+                  width: `${(turnOverCountdown / 5) * 100}%`,
+                  transition: "width 1s linear",
+                }}
+              ></div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Word Selection Overlay */}
       {showWordSelection && isCurrentUserDrawing && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
