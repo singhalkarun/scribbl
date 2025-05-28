@@ -143,26 +143,45 @@ defmodule ScribblBackend.TimeoutWatcher do
         :noop
 
       room_id ->
+        # Get current word from Redis for lock uniqueness
+        word_key = "room:{#{room_id}}:word"
+        case RedisHelper.get(word_key) do
+          {:ok, word} ->
+            # Create a word-specific lock key
+            lock_key = "lock:room:{#{room_id}}:reveal_timer:#{word}"
 
-        # Reveal a letter
-        case ScribblBackend.GameHelper.reveal_next_letter(room_id) do
-          {:ok, revealed_word} ->
-            # Send the letter reveal event
-            Phoenix.PubSub.broadcast(
-              ScribblBackend.PubSub,
-              "room:#{room_id}",
-              %{
-                event: "letter_reveal",
-                payload: %{
-                  "revealed_word" => revealed_word
-                }
-              }
-            )
+            case Redix.command(:redix, [
+                   "SET",
+                   lock_key,
+                   node_id(),
+                   "NX",
+                   "PX",
+                   Integer.to_string(@lock_ttl_ms)
+                 ]) do
+              {:ok, "OK"} ->
+                # Reveal a letter
+                case ScribblBackend.GameHelper.reveal_next_letter(room_id) do
+                  {:ok, revealed_word} ->
+                    # Send the letter reveal event
+                    Phoenix.PubSub.broadcast(
+                      ScribblBackend.PubSub,
+                      "room:#{room_id}",
+                      %{
+                        event: "letter_reveal",
+                        payload: %{
+                          "revealed_word" => revealed_word
+                        }
+                      }
+                    )
 
-            # Start the next reveal timer
-            GameHelper.start_reveal_timer(room_id)
-          _ ->
-            :noop
+                    # Start the next reveal timer
+                    GameHelper.start_reveal_timer(room_id)
+                  _ ->
+                    :noop
+                end
+              _ -> :noop
+            end
+          _ -> :noop
         end
     end
   end
