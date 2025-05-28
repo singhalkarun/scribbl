@@ -404,29 +404,7 @@ defmodule ScribblBackend.GameHelper do
           {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
           {:ok, num_players} = RedisHelper.llen(players_key)
 
-          # Only proceed if we have at least 2 players (drawer + 1 guesser)
-          if num_players >= 2 do
-            # Check if all players except the drawer have guessed correctly
-            if num_non_eligible_players == num_players - 1 do
-              # Broadcast turn_over event
-              Phoenix.PubSub.broadcast(
-                ScribblBackend.PubSub,
-                socket.topic,
-                %{
-                  event: "turn_over",
-                  payload: %{
-                    "reason" => "all_guessed",
-                    "word" => word
-                  }
-                }
-              )
 
-              RedisHelper.del("room:{#{room_id}}:reveal_timer")
-
-              # Start next turn
-              start(room_id)
-            end
-          end
 
           # Drawer Scoring: Award points to the drawer based on how many players have guessed
           # and how quickly this particular player guessed.
@@ -486,6 +464,29 @@ defmodule ScribblBackend.GameHelper do
               }
             }
           )
+          # Only proceed if we have at least 2 players (drawer + 1 guesser)
+          if num_players >= 2 do
+            # Check if all players except the drawer have guessed correctly
+            if num_non_eligible_players == num_players - 1 do
+              # Broadcast turn_over event
+              Phoenix.PubSub.broadcast(
+                ScribblBackend.PubSub,
+                socket.topic,
+                %{
+                  event: "turn_over",
+                  payload: %{
+                    "reason" => "all_guessed",
+                    "word" => word
+                  }
+                }
+              )
+
+              RedisHelper.del("room:{#{room_id}}:reveal_timer")
+
+              # Start next turn
+              start(room_id)
+            end
+          end
         end
       else
         # send the message to all players
