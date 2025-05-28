@@ -36,6 +36,7 @@ export default function GamePage() {
   const [suggestedWords, setSuggestedWords] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameJustEnded, setGameJustEnded] = useState(false);
+  const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const router = useRouter();
@@ -50,21 +51,6 @@ export default function GamePage() {
     });
     return isDrawer;
   }, [gameInfo.currentDrawer, userId]);
-
-  // Handle word selection
-  const handleWordSelect = () => {
-    const channel = usePlayerStore.getState().channel;
-    if (channel) {
-      console.log(
-        "[GamePage] Sending start_turn event with word:",
-        suggestedWords[0]
-      );
-      channel.push("start_turn", { word: suggestedWords[0] });
-      // Set the word to draw for the drawer only
-      setWordToDraw(suggestedWords[0]);
-      setShowWordSelection(false);
-    }
-  };
 
   // Redirect if player info is missing *after* hydration
   useEffect(() => {
@@ -139,6 +125,16 @@ export default function GamePage() {
           setShowWordSelection(true);
         });
 
+        // Listen for letter_reveal event
+        const letterRevealRef = channel.on("letter_reveal", (payload) => {
+          console.log("[GamePage] Received letter_reveal:", payload);
+          if (payload.revealed_word) {
+            setRevealedLetters(payload.revealed_word);
+            // Play letter reveal sound effect
+            playSound("letterReveal");
+          }
+        });
+
         // Listen for turn_started event
         const turnStartedRef = channel.on("turn_started", (payload) => {
           console.log("[GamePage] Received turn_started:", payload);
@@ -148,6 +144,8 @@ export default function GamePage() {
           setWordLength(payload.word_length);
           // Make sure room status is set to "started"
           setRoomStatus("started");
+          // Reset revealed letters for new turn
+          setRevealedLetters([]);
           // If the word selection overlay is showing, hide it
           if (showWordSelection) {
             setShowWordSelection(false);
@@ -193,6 +191,7 @@ export default function GamePage() {
           setTimeLeft(0);
           setWordToDraw("");
           setWordLength(0);
+          setRevealedLetters([]);
         });
 
         // Listen for game_over event
@@ -263,6 +262,7 @@ export default function GamePage() {
             channel.off("game_over", gameOverRef);
             channel.off("score_updated", scoreUpdatedRef);
             channel.off("correct_guess", correctGuessRef);
+            channel.off("letter_reveal", letterRevealRef);
 
             // Clear any running timer
             if (timerRef.current) {
@@ -554,6 +554,10 @@ export default function GamePage() {
                 ? wordToDraw
                 : guessed
                 ? wordToDraw.split("").join(" ")
+                : revealedLetters.length > 0
+                ? revealedLetters
+                    .map((letter, index) => letter || "_")
+                    .join(" ")
                 : wordLength > 0
                 ? Array(
                     typeof wordLength === "string"
