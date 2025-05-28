@@ -26,6 +26,7 @@ interface SketchPath {
 
 interface CanvasProps {
   isDrawer: boolean;
+  gameStarted?: boolean;
 }
 
 interface DrawingData {
@@ -36,7 +37,7 @@ interface DrawingData {
   isComplete: boolean;
 }
 
-export default function Canvas({ isDrawer }: CanvasProps) {
+export default function Canvas({ isDrawer, gameStarted = false }: CanvasProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const { channel } = usePlayerStore();
@@ -515,6 +516,28 @@ export default function Canvas({ isDrawer }: CanvasProps) {
             >
               Clear All
             </button>
+
+            {/* Feedback button */}
+            <div className="relative ml-auto group">
+              <a
+                href="https://forms.gle/iuJVLc5qYkKrxFq38"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                title="Give us feedback"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  className="h-5 w-5"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 1a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a6 6 0 1 1 12 0v6a2.5 2.5 0 0 1-2.5 2.5H9.366a1 1 0 0 1-.866.5h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 .866.5H11.5A1.5 1.5 0 0 0 13 12h-1a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1V6a5 5 0 0 0-5-5z" />
+                </svg>
+              </a>
+            </div>
           </div>
 
           {/* Brush size slider - Position absolutely */}
@@ -546,9 +569,35 @@ export default function Canvas({ isDrawer }: CanvasProps) {
         </div>
       ) : (
         <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
-          <div className="py-2 text-center text-indigo-700 font-medium">
-            {/* Information message for non-drawers */}
-            Waiting for drawer to draw...
+          <div className="flex justify-center items-center relative">
+            <div className="py-2 text-center text-indigo-700 font-medium">
+              {/* Information message for non-drawers */}
+              {gameStarted
+                ? "Waiting for drawer to draw..."
+                : "Game not started yet"}
+            </div>
+
+            {/* Feedback button for non-drawers - absolute positioned to right */}
+            <div className="absolute right-0 group">
+              <a
+                href="https://forms.gle/iuJVLc5qYkKrxFq38"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                title="Give us feedback"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  fill="currentColor"
+                  className="h-5 w-5"
+                  viewBox="0 0 16 16"
+                >
+                  <path d="M8 1a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a6 6 0 1 1 12 0v6a2.5 2.5 0 0 1-2.5 2.5H9.366a1 1 0 0 1-.866.5h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 .866.5H11.5A1.5 1.5 0 0 0 13 12h-1a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1V6a5 5 0 0 0-5-5z" />
+                </svg>
+              </a>
+            </div>
           </div>
         </div>
       )}
