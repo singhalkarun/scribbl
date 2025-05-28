@@ -631,6 +631,32 @@ defmodule ScribblBackend.GameHelper do
   end
 
   @doc """
+  Start the reveal timer for a room.
+  ## Parameters
+    - `room_id`: The ID of the room
+  """
+  def start_reveal_timer(room_id) do
+    room_reveal_timer_key = "#{@room_prefix}{#{room_id}}:reveal_timer"
+
+    # Set the timer basis on the word length
+    word_key = "#{@room_prefix}{#{room_id}}:word"
+    case RedisHelper.get(word_key) do
+      {:ok, word} ->
+        word_length = String.length(word)
+
+        if word_length < 2 do
+          {:error, :word_too_short}
+        else
+          timer_duration = trunc(30 / (word_length / 2))
+          RedisHelper.setex(room_reveal_timer_key, timer_duration, "reveal_letter")
+        end
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  @doc """
   Reveals the next letter of the current word in the game.
   This function is used as a hint mechanism during gameplay.
 

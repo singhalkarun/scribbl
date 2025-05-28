@@ -158,6 +158,9 @@ defmodule ScribblBackend.TimeoutWatcher do
                 }
               }
             )
+
+            # Start the next reveal timer
+            GameHelper.start_reveal_timer(room_id)
           _ ->
             :noop
         end
