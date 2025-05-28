@@ -284,6 +284,12 @@ export default function GamePage() {
     }
   };
 
+  // Function to generate shareable URL with roomId parameter
+  const getShareableLink = () => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/join?roomId=${roomId}`;
+  };
+
   // Display loading/error based on hook state OR if not hydrated
   if (
     !_hasHydrated ||
@@ -380,7 +386,7 @@ export default function GamePage() {
               </h2>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(roomId);
+                  navigator.clipboard.writeText(getShareableLink());
                 }}
                 className="text-gray-500 transition-colors relative group cursor-pointer"
               >
@@ -391,7 +397,7 @@ export default function GamePage() {
                   </span>
                 </p>
                 <span className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
-                  Click to copy room ID
+                  Click to copy invite link
                 </span>
               </button>
             </div>
@@ -482,11 +488,11 @@ export default function GamePage() {
                 </code>
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(roomId);
+                    navigator.clipboard.writeText(getShareableLink());
                     // You could add a toast notification here if you want
                   }}
-                  className="bg-gray-200 hover:bg-gray-300 p-2 rounded transition-colors"
-                  title="Copy Room ID"
+                  className="bg-gray-200 hover:bg-gray-300 p-2 rounded hover:cursor-pointer transition-colors"
+                  title="Copy Invite Link"
                 >
                   📋
                 </button>

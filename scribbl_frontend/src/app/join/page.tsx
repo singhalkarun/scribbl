@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import BackgroundMusic from "@/components/BackgroundMusic";
 
@@ -11,9 +11,18 @@ export default function JoinPage() {
   const [isJoining, setIsJoining] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
   const socket = usePlayerStore((s) => s.socket);
   const setPlayerName = usePlayerStore((s) => s.setPlayerName);
   const setRoomIdGlobal = usePlayerStore((s) => s.setRoomId);
+
+  useEffect(() => {
+    // Check for roomId in URL parameters
+    const roomIdParam = searchParams.get("roomId");
+    if (roomIdParam) {
+      setRoomId(roomIdParam);
+    }
+  }, [searchParams]);
 
   const handleJoin = () => {
     if (!socket) {
