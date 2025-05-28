@@ -3,7 +3,11 @@
 import { useRef, useEffect } from "react";
 
 // Simplified sound effect types
-export type SoundEffectType = "correctGuess" | "gameOver" | "newRound";
+export type SoundEffectType =
+  | "correctGuess"
+  | "gameOver"
+  | "newRound"
+  | "letterReveal";
 
 // Interface for our hook
 export function useSoundEffects(defaultVolume = 0.2) {
@@ -12,6 +16,7 @@ export function useSoundEffects(defaultVolume = 0.2) {
     correctGuess: null,
     gameOver: null,
     newRound: null,
+    letterReveal: null,
   });
 
   // Initialize audio elements
@@ -21,6 +26,7 @@ export function useSoundEffects(defaultVolume = 0.2) {
       correctGuess: "/sounds/correct-guess.mp3",
       gameOver: "/sounds/game-over.mp3",
       newRound: "/sounds/new-round.mp3",
+      letterReveal: "/sounds/letter-reveal.mp3",
     };
 
     // Create audio elements for each sound type
@@ -54,12 +60,24 @@ export function useSoundEffects(defaultVolume = 0.2) {
       // Ensure volume is set to the default value every time before playing
       audio.volume = defaultVolume;
 
-      console.log(`[SoundEffects] Playing ${type} at volume ${audio.volume}`);
+      // For letterReveal, use a higher volume to make it more audible
+      if (type === "letterReveal") {
+        audio.volume = Math.min(defaultVolume * 2, 1.0); // Double volume but cap at 1.0
+        console.log(
+          `[SoundEffects] Setting letterReveal volume to ${audio.volume}`
+        );
+      }
+
+      console.log(
+        `[SoundEffects] Playing ${type} at volume ${audio.volume}, path: ${audio.src}`
+      );
 
       audio.play().catch((error) => {
         // Handle errors, e.g., browser requiring user interaction before audio can play
-        console.error("Error playing sound:", error);
+        console.error(`Error playing ${type} sound:`, error);
       });
+    } else {
+      console.error(`[SoundEffects] Audio for ${type} not found in refs`);
     }
   };
 
