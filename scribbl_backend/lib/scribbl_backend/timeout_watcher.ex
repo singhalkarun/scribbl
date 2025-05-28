@@ -52,8 +52,13 @@ defmodule ScribblBackend.TimeoutWatcher do
         %{redis_channel: channel} = state
       ) do
     # Check if the channel in the message matches the redis_channel in the state
-    if Regex.match?(~r/^room:\{.+\}:timer$/, key) do
-      maybe_handle_expired_key(key)
+    cond do
+      Regex.match?(~r/^room:\{.+\}:timer$/, key) ->
+        maybe_handle_expired_key(key)
+      Regex.match?(~r/^room:\{.+\}:reveal_timer$/, key) ->
+        handle_letter_reveal(key)
+      true ->
+        :noop
     end
 
     {:noreply, state}
@@ -131,6 +136,35 @@ defmodule ScribblBackend.TimeoutWatcher do
   end
 
   defp handle_timeout_logic(_), do: :noop
+
+  defp handle_letter_reveal("room:{" <> rest) do
+    case String.trim_trailing(rest, "}:reveal_timer") do
+      ^rest ->
+        :noop
+
+      room_id ->
+
+        # Reveal a letter
+        case ScribblBackend.GameHelper.reveal_next_letter(room_id) do
+          {:ok, revealed_word} ->
+            # Send the letter reveal event
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              "room:#{room_id}",
+              %{
+                event: "letter_reveal",
+                payload: %{
+                  "revealed_word" => revealed_word
+                }
+              }
+            )
+          _ ->
+            :noop
+        end
+    end
+  end
+
+  defp handle_letter_reveal(_), do: :noop
 
   defp node_id, do: Atom.to_string(Node.self())
 end

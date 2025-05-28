@@ -148,6 +148,11 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "letter_reveal", payload: payload}, socket) do
+    # Push the letter reveal event to the current socket
+    push(socket, "letter_reveal", payload)
+    {:noreply, socket}
+  end
 
   def handle_in("drawing_clear", %{}, socket) do
     # Get the room ID from the socket topic
@@ -251,6 +256,7 @@ defmodule ScribblBackendWeb.RoomChannel do
               payload: turn_info
             }
           )
+
       end
     end
 

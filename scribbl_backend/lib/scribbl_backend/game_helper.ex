@@ -305,9 +305,14 @@ defmodule ScribblBackend.GameHelper do
     room_word_key = "#{@room_prefix}{#{room_id}}:word"
     room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
     room_canvas_key = "#{@room_prefix}{#{room_id}}:canvas"
+    room_reveal_timer_key = "#{@room_prefix}{#{room_id}}:reveal_timer"
 
     # Reset canvas data before starting new turn
     RedisHelper.del(room_canvas_key)
+
+    # Reset revealed indices for the new word
+    revealed_key = "#{@room_prefix}{#{room_id}}:revealed_indices"
+    RedisHelper.del(revealed_key)
 
     # set the word in Redis
     RedisHelper.set(
@@ -320,6 +325,13 @@ defmodule ScribblBackend.GameHelper do
       room_timer_key,
       60,
       "active"
+    )
+
+    # Set a timer for letter reveal halfway through the turn (30 seconds)
+    RedisHelper.setex(
+      room_reveal_timer_key,
+      30,
+      "reveal_letter"
     )
 
     {:ok, %{"word_length" => Integer.to_string(String.length(word))}}
@@ -616,5 +628,61 @@ defmodule ScribblBackend.GameHelper do
   def clear_canvas(room_id) do
     room_canvas_key = "#{@room_prefix}{#{room_id}}:canvas"
     RedisHelper.del(room_canvas_key)
+  end
+
+  @doc """
+  Reveals the next letter of the current word in the game.
+  This function is used as a hint mechanism during gameplay.
+
+  ## Parameters
+    - `room_id`: The ID of the room
+
+  ## Returns
+    - `{:ok, revealed_word}` - A list of characters with revealed letters and underscores for hidden ones
+    - `{:ok, word_graphemes}` - All letters revealed (when all have been revealed)
+    - `{:error, :word_not_found}` - If no word is set for the room
+    - `{:error, error}` - Other errors
+  """
+  def reveal_next_letter(room_id) do
+    word_key = "#{@room_prefix}{#{room_id}}:word"
+    revealed_key = "#{@room_prefix}{#{room_id}}:revealed_indices"
+
+    with {:ok, word} when not is_nil(word) <- RedisHelper.get(word_key),
+         {:ok, revealed_json} <- RedisHelper.get(revealed_key) do
+
+      revealed_indices =
+        case revealed_json do
+          nil -> MapSet.new()
+          _ -> Jason.decode!(revealed_json) |> MapSet.new()
+        end
+
+      word_graphemes = String.graphemes(word)
+      all_indices = 0..(length(word_graphemes) - 1)
+      remaining_indices = Enum.reject(all_indices, &MapSet.member?(revealed_indices, &1))
+
+      case remaining_indices do
+        [] ->
+          {:ok, word_graphemes}
+
+        _ ->
+          index = Enum.random(remaining_indices)
+          updated_set = MapSet.put(revealed_indices, index)
+          updated_json = Jason.encode!(MapSet.to_list(updated_set))
+
+          RedisHelper.set(revealed_key, updated_json)
+
+          revealed_word =
+            word_graphemes
+            |> Enum.with_index()
+            |> Enum.map(fn {ch, i} ->
+              if MapSet.member?(updated_set, i), do: ch, else: "_"
+            end)
+
+          {:ok, revealed_word}
+      end
+    else
+      {:ok, nil} -> {:error, :word_not_found}
+      error -> {:error, error}
+    end
   end
 end
