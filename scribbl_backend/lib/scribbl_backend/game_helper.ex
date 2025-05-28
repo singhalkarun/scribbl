@@ -358,149 +358,168 @@ defmodule ScribblBackend.GameHelper do
   def handle_guess(message, socket) do
     # check if the guess is correct
     room_id = String.split(socket.topic, ":") |> List.last()
-    room_word_key = "#{@room_prefix}{#{room_id}}:word"
     room_key = "#{@room_prefix}{#{room_id}}:info"
-    room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
     user_id = socket.assigns.user_id
-    players_key = "#{@room_prefix}{#{room_id}}:players"
 
-    {:ok, drawer} = RedisHelper.hget(room_key, "current_drawer")
-    {:ok, round} = RedisHelper.hget(room_key, "current_round")
+    # First, check game status
+    {:ok, status} = RedisHelper.hget(room_key, "status")
 
-    if drawer == socket.assigns.user_id do
-      # ignore the message
+    # If game is not active, just broadcast the message
+    if status != "active" do
+      Phoenix.PubSub.broadcast(
+        ScribblBackend.PubSub,
+        socket.topic,
+        %{
+          event: "new_message",
+          payload: %{
+            "message" => message,
+            "userId" => user_id
+          }
+        }
+      )
       {:noreply, socket}
     else
-      # get the word from Redis
-      {:ok, word} = RedisHelper.get(room_word_key)
+      # Game is active, proceed with normal guess handling
+      room_word_key = "#{@room_prefix}{#{room_id}}:word"
+      room_timer_key = "#{@room_prefix}{#{room_id}}:timer"
+      players_key = "#{@room_prefix}{#{room_id}}:players"
 
-      # check if the guess is correct
-      if String.downcase(message) == String.downcase(word) do
-        # check if the user is not eligible to guess
-        non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{round}:non_eligible_guessers"
-        {:ok, is_non_eligible} = RedisHelper.sismember(non_eligible_guessers_key, user_id)
+      {:ok, drawer} = RedisHelper.hget(room_key, "current_drawer")
+      {:ok, round} = RedisHelper.hget(room_key, "current_round")
 
-        if is_non_eligible == 1 do
-          # ignore the message
-          {:noreply, socket}
-        else
-          # send the correct guess event to all players and increase player score basis time when the guess was made
-          # get the current time remaining on the timer
-          {:ok, time_remaining_seconds} = RedisHelper.ttl(room_timer_key)
+      if drawer == socket.assigns.user_id do
+        # ignore the message
+        {:noreply, socket}
+      else
+        # get the word from Redis
+        {:ok, word} = RedisHelper.get(room_word_key)
 
-          # Calculate the score to be awarded for this correct guess.
-          # Score is based on the time remaining. More time left = more points.
-          # Ensure score is not negative.
-          score_awarded_for_this_guess = max(0, time_remaining_seconds)
+        # check if the guess is correct
+        if String.downcase(message) == String.downcase(word) do
+          # check if the user is not eligible to guess
+          non_eligible_guessers_key = "#{@room_prefix}{#{room_id}}:#{round}:non_eligible_guessers"
+          {:ok, is_non_eligible} = RedisHelper.sismember(non_eligible_guessers_key, user_id)
 
-          # Increase the guesser's score.
-          player_score_key = "#{@room_prefix}{#{room_id}}:player:#{user_id}:score"
-          {:ok, guesser_new_total_score} = RedisHelper.incr(player_score_key, score_awarded_for_this_guess)
+          if is_non_eligible == 1 do
+            # ignore the message
+            {:noreply, socket}
+          else
+            # send the correct guess event to all players and increase player score basis time when the guess was made
+            # get the current time remaining on the timer
+            {:ok, time_remaining_seconds} = RedisHelper.ttl(room_timer_key)
 
-          # add the player in non eligible guessers list, sadd takes key and list of values
-          RedisHelper.sadd(non_eligible_guessers_key, List.wrap(user_id))
+            # Calculate the score to be awarded for this correct guess.
+            # Score is based on the time remaining. More time left = more points.
+            # Ensure score is not negative.
+            score_awarded_for_this_guess = max(0, time_remaining_seconds)
 
-          # check if length of non eligible players is equal to total players
-          {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
-          {:ok, num_players} = RedisHelper.llen(players_key)
+            # Increase the guesser's score.
+            player_score_key = "#{@room_prefix}{#{room_id}}:player:#{user_id}:score"
+            {:ok, guesser_new_total_score} = RedisHelper.incr(player_score_key, score_awarded_for_this_guess)
 
+            # add the player in non eligible guessers list, sadd takes key and list of values
+            RedisHelper.sadd(non_eligible_guessers_key, List.wrap(user_id))
 
+            # check if length of non eligible players is equal to total players
+            {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
+            {:ok, num_players} = RedisHelper.llen(players_key)
 
-          # Drawer Scoring: Award points to the drawer based on how many players have guessed
-          # and how quickly this particular player guessed.
-          # The bonus decreases for subsequent guessers.
-          # score_awarded_for_this_guess is the score the current correct guesser received.
-          # num_non_eligible_players is the count of correct guessers so far in this turn (including current one).
-          points_for_drawer_from_this_guess =
-            cond do
-              num_non_eligible_players == 1 -> score_awarded_for_this_guess # 100% for the 1st guesser
-              num_non_eligible_players == 2 -> round(score_awarded_for_this_guess * 0.5) # 50% for the 2nd
-              num_non_eligible_players == 3 -> round(score_awarded_for_this_guess * 0.25) # 25% for the 3rd
-              num_non_eligible_players >= 4 -> round(score_awarded_for_this_guess * 0.10) # 10% for 4th+
-              true -> 0 # Default case
+            # Drawer Scoring: Award points to the drawer based on how many players have guessed
+            # and how quickly this particular player guessed.
+            # The bonus decreases for subsequent guessers.
+            # score_awarded_for_this_guess is the score the current correct guesser received.
+            # num_non_eligible_players is the count of correct guessers so far in this turn (including current one).
+            points_for_drawer_from_this_guess =
+              cond do
+                num_non_eligible_players == 1 -> score_awarded_for_this_guess # 100% for the 1st guesser
+                num_non_eligible_players == 2 -> round(score_awarded_for_this_guess * 0.5) # 50% for the 2nd
+                num_non_eligible_players == 3 -> round(score_awarded_for_this_guess * 0.25) # 25% for the 3rd
+                num_non_eligible_players >= 4 -> round(score_awarded_for_this_guess * 0.10) # 10% for 4th+
+                true -> 0 # Default case
+              end
+
+            # Ensure points are non-negative.
+            actual_points_for_drawer = max(0, points_for_drawer_from_this_guess)
+
+            if actual_points_for_drawer > 0 do
+              drawer_score_key = "#{@room_prefix}{#{room_id}}:player:#{drawer}:score"
+              # Increment the drawer's score by the points calculated for *this specific guess*.
+              {:ok, drawer_new_total_score} = RedisHelper.incr(drawer_score_key, actual_points_for_drawer)
+
+              Phoenix.PubSub.broadcast(
+                ScribblBackend.PubSub,
+                socket.topic,
+                %{
+                  event: "score_updated",
+                  payload: %{
+                    "user_id" => drawer,
+                    "score" => drawer_new_total_score # This is the drawer's new *total* score
+                  }
+                }
+              )
             end
 
-          # Ensure points are non-negative.
-          actual_points_for_drawer = max(0, points_for_drawer_from_this_guess)
-
-          if actual_points_for_drawer > 0 do
-            drawer_score_key = "#{@room_prefix}{#{room_id}}:player:#{drawer}:score"
-            # Increment the drawer's score by the points calculated for *this specific guess*.
-            {:ok, drawer_new_total_score} = RedisHelper.incr(drawer_score_key, actual_points_for_drawer)
-
+            # send the score to all players
             Phoenix.PubSub.broadcast(
               ScribblBackend.PubSub,
               socket.topic,
               %{
                 event: "score_updated",
                 payload: %{
-                  "user_id" => drawer,
-                  "score" => drawer_new_total_score # This is the drawer's new *total* score
+                  "user_id" => user_id,
+                  "score" => guesser_new_total_score
                 }
               }
             )
-          end
 
-          # send the score to all players
-          Phoenix.PubSub.broadcast(
-            ScribblBackend.PubSub,
-            socket.topic,
-            %{
-              event: "score_updated",
-              payload: %{
-                "user_id" => user_id,
-                "score" => guesser_new_total_score
-              }
-            }
-          )
-
-          Phoenix.PubSub.broadcast(
-            ScribblBackend.PubSub,
-            socket.topic,
-            %{
-              event: "correct_guess",
-              payload: %{
-                "user_id" => socket.assigns.user_id
-              }
-            }
-          )
-          # Only proceed if we have at least 2 players (drawer + 1 guesser)
-          if num_players >= 2 do
-            # Check if all players except the drawer have guessed correctly
-            if num_non_eligible_players == num_players - 1 do
-              # Broadcast turn_over event
-              Phoenix.PubSub.broadcast(
-                ScribblBackend.PubSub,
-                socket.topic,
-                %{
-                  event: "turn_over",
-                  payload: %{
-                    "reason" => "all_guessed",
-                    "word" => word
-                  }
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "correct_guess",
+                payload: %{
+                  "user_id" => socket.assigns.user_id
                 }
-              )
+              }
+            )
+            # Only proceed if we have at least 2 players (drawer + 1 guesser)
+            if num_players >= 2 do
+              # Check if all players except the drawer have guessed correctly
+              if num_non_eligible_players == num_players - 1 do
+                # Broadcast turn_over event
+                Phoenix.PubSub.broadcast(
+                  ScribblBackend.PubSub,
+                  socket.topic,
+                  %{
+                    event: "turn_over",
+                    payload: %{
+                      "reason" => "all_guessed",
+                      "word" => word
+                    }
+                  }
+                )
 
-              RedisHelper.del("room:{#{room_id}}:reveal_timer")
+                RedisHelper.del("room:{#{room_id}}:reveal_timer")
 
-              # Start next turn
-              start(room_id)
+                # Start next turn
+                start(room_id)
+              end
             end
           end
-        end
-      else
-        # send the message to all players
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          socket.topic,
-          %{
-            event: "new_message",
-            payload: %{
-              "message" => message,
-              "userId" => user_id
+        else
+          # send the message to all players
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "new_message",
+              payload: %{
+                "message" => message,
+                "userId" => user_id
+              }
             }
-          }
-        )
+          )
+        end
       end
     end
   end
