@@ -154,6 +154,14 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info({:exclude_user, user_id_to_exclude, message}, socket) do
+    # Only push the message to the socket if the user is not the one to exclude
+    if socket.assigns.user_id != user_id_to_exclude do
+      push(socket, message.event, message.payload)
+    end
+    {:noreply, socket}
+  end
+
   def handle_in("drawing_clear", %{}, socket) do
     # Get the room ID from the socket topic
     room_id = String.split(socket.topic, ":") |> List.last()

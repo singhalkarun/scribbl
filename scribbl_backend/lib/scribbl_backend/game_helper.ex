@@ -433,18 +433,17 @@ defmodule ScribblBackend.GameHelper do
           {:noreply, socket}
         else
           # send the correct guess event to all players and increase player score basis time when the guess was made
-          # get the current time
-          {:ok, current_time} = RedisHelper.ttl(room_timer_key)
+          # get the current time remaining on the timer
+          {:ok, time_remaining_seconds} = RedisHelper.ttl(room_timer_key)
 
-          # calculate the score based on the time left and total time
-          # Assuming the total time is 60 seconds
-          total_time = 60
-          time_left = total_time - current_time
-          score = max(0, time_left)
+          # Calculate the score to be awarded for this correct guess.
+          # Score is based on the time remaining. More time left = more points.
+          # Ensure score is not negative.
+          score_awarded_for_this_guess = max(0, time_remaining_seconds)
 
-          # increase the player score using incrby
+          # Increase the guesser's score.
           player_score_key = "#{@room_prefix}{#{room_id}}:player:#{user_id}:score"
-          {:ok, player_score} = RedisHelper.incr(player_score_key, score)
+          {:ok, guesser_new_total_score} = RedisHelper.incr(player_score_key, score_awarded_for_this_guess)
 
           # add the player in non eligible guessers list, sadd takes key and list of values
           RedisHelper.sadd(non_eligible_guessers_key, List.wrap(user_id))
@@ -470,26 +469,47 @@ defmodule ScribblBackend.GameHelper do
                 }
               )
 
+              RedisHelper.del("room:{#{room_id}}:reveal_timer")
+
               # Start next turn
               start(room_id)
             end
           end
 
-          # increase the drawer score
-          drawer_score_key = "#{@room_prefix}{#{room_id}}:player:#{drawer}:score"
-          {:ok, drawer_score} = RedisHelper.incr(drawer_score_key, current_time)
+          # Drawer Scoring: Award points to the drawer based on how many players have guessed
+          # and how quickly this particular player guessed.
+          # The bonus decreases for subsequent guessers.
+          # score_awarded_for_this_guess is the score the current correct guesser received.
+          # num_non_eligible_players is the count of correct guessers so far in this turn (including current one).
+          points_for_drawer_from_this_guess =
+            cond do
+              num_non_eligible_players == 1 -> score_awarded_for_this_guess # 100% for the 1st guesser
+              num_non_eligible_players == 2 -> round(score_awarded_for_this_guess * 0.5) # 50% for the 2nd
+              num_non_eligible_players == 3 -> round(score_awarded_for_this_guess * 0.25) # 25% for the 3rd
+              num_non_eligible_players >= 4 -> round(score_awarded_for_this_guess * 0.10) # 10% for 4th+
+              true -> 0 # Default case
+            end
 
-          Phoenix.PubSub.broadcast(
-            ScribblBackend.PubSub,
-            socket.topic,
-            %{
-              event: "score_updated",
-              payload: %{
-                "user_id" => drawer,
-                "score" => drawer_score
+          # Ensure points are non-negative.
+          actual_points_for_drawer = max(0, points_for_drawer_from_this_guess)
+
+          if actual_points_for_drawer > 0 do
+            drawer_score_key = "#{@room_prefix}{#{room_id}}:player:#{drawer}:score"
+            # Increment the drawer's score by the points calculated for *this specific guess*.
+            {:ok, drawer_new_total_score} = RedisHelper.incr(drawer_score_key, actual_points_for_drawer)
+
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "score_updated",
+                payload: %{
+                  "user_id" => drawer,
+                  "score" => drawer_new_total_score # This is the drawer's new *total* score
+                }
               }
-            }
-          )
+            )
+          end
 
           # send the score to all players
           Phoenix.PubSub.broadcast(
@@ -499,7 +519,7 @@ defmodule ScribblBackend.GameHelper do
               event: "score_updated",
               payload: %{
                 "user_id" => user_id,
-                "score" => player_score
+                "score" => guesser_new_total_score
               }
             }
           )

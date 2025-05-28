@@ -130,6 +130,9 @@ defmodule ScribblBackend.TimeoutWatcher do
           }
         )
 
+        # clear the reveal timer
+        RedisHelper.del("room:{#{room_id}}:reveal_timer")
+
         # Start the next turn
         GameHelper.start(room_id)
     end
@@ -162,16 +165,19 @@ defmodule ScribblBackend.TimeoutWatcher do
                 # Reveal a letter
                 case ScribblBackend.GameHelper.reveal_next_letter(room_id) do
                   {:ok, revealed_word} ->
-                    # Send the letter reveal event
+                    # Get the current drawer
+                    {:ok, current_drawer} = GameHelper.get_current_drawer(room_id)
+
+                    # Send the letter reveal event to all players except the drawer
                     Phoenix.PubSub.broadcast(
                       ScribblBackend.PubSub,
                       "room:#{room_id}",
-                      %{
+                      {:exclude_user, current_drawer, %{
                         event: "letter_reveal",
                         payload: %{
                           "revealed_word" => revealed_word
                         }
-                      }
+                      }}
                     )
 
                     # Start the next reveal timer
