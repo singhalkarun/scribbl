@@ -432,6 +432,7 @@ export default function GamePage() {
               onCorrectGuess={() => setGuessed(true)}
               playerName={playerName}
               sendMessage={sendMessage}
+              isDrawer={isCurrentUserDrawing}
             />
           </div>
         </div>

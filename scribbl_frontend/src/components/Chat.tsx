@@ -9,6 +9,7 @@ interface ChatProps {
   onCorrectGuess: () => void;
   playerName: string;
   sendMessage: (messageText: string) => void;
+  isDrawer?: boolean;
 }
 
 export default function Chat({
@@ -16,6 +17,7 @@ export default function Chat({
   onCorrectGuess,
   playerName,
   sendMessage,
+  isDrawer = false,
 }: ChatProps) {
   const messages = usePlayerStore((state) => state.messages);
   const currentUserId = usePlayerStore((state) => state.userId);
@@ -24,6 +26,14 @@ export default function Chat({
   const [guessedCorrectly, setGuessedCorrectly] = useState(false);
   const endRef = useRef<HTMLDivElement | null>(null);
 
+  const isInputDisabled = isDrawer || guessedCorrectly;
+
+  const disabledMessage = isDrawer
+    ? "The drawer cannot chat during their turn"
+    : guessedCorrectly
+    ? "You've already guessed correctly"
+    : "";
+
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -31,7 +41,7 @@ export default function Chat({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = input.trim();
-    if (!trimmed || guessedCorrectly) return;
+    if (!trimmed || isInputDisabled) return;
 
     sendMessage(trimmed);
 
@@ -84,22 +94,36 @@ export default function Chat({
         <div ref={endRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-2 flex gap-1">
+      <form onSubmit={handleSubmit} className="mt-2 flex gap-1 relative group">
         <input
           type="text"
-          placeholder="Type here"
-          className="border px-2 py-1 rounded text-sm flex-1 min-w-0"
+          placeholder={isDrawer ? "You cannot chat while drawing" : "Type here"}
+          className={`border px-2 py-1 rounded text-sm flex-1 min-w-0 ${
+            isInputDisabled ? "bg-gray-100 cursor-not-allowed" : ""
+          }`}
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          disabled={guessedCorrectly}
+          disabled={isInputDisabled}
+          title={disabledMessage}
         />
         <button
           type="submit"
-          className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:cursor-pointer"
-          disabled={guessedCorrectly}
+          className={`px-3 py-1 ${
+            isInputDisabled
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-500 hover:bg-blue-600"
+          } text-white rounded text-sm`}
+          disabled={isInputDisabled}
+          title={disabledMessage}
         >
           Send
         </button>
+
+        {isInputDisabled && (
+          <div className="absolute -top-10 left-0 right-0 mx-auto w-max bg-gray-800 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none hidden md:block">
+            {disabledMessage}
+          </div>
+        )}
       </form>
     </div>
   );
