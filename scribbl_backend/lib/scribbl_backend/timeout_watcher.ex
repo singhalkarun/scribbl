@@ -5,7 +5,10 @@ defmodule ScribblBackend.TimeoutWatcher do
 
   use GenServer
   alias ScribblBackend.RedisHelper
-  alias ScribblBackend.GameHelper
+  alias ScribblBackend.GameState
+  alias ScribblBackend.GameFlow
+  alias ScribblBackend.WordManager
+  alias ScribblBackend.KeyManager
 
   @lock_ttl_ms 5000
 
@@ -84,11 +87,14 @@ defmodule ScribblBackend.TimeoutWatcher do
     case Regex.run(~r/^room:\{([^}]+)\}:timer$/, key) do
       [_, room_id] ->
         # Get current word from Redis
-        word_key = "room:{#{room_id}}:word"
-        case RedisHelper.get(word_key) do
+        case WordManager.get_current_word(room_id) do
+          {:ok, nil} ->
+            # If no word is set, just start the next turn
+            GameFlow.start(room_id)
+
           {:ok, word} ->
             # Create a word-specific lock key
-            lock_key = "lock:#{key}:#{word}"
+            lock_key = KeyManager.turn_timer_lock(room_id, word)
 
             case Redix.command(:redix, [
                    "SET",
@@ -98,60 +104,50 @@ defmodule ScribblBackend.TimeoutWatcher do
                    "PX",
                    Integer.to_string(@lock_ttl_ms)
                  ]) do
-              {:ok, "OK"} -> handle_timeout_logic(key)
+              {:ok, "OK"} -> handle_timeout_logic(room_id, word)
               _ -> :noop
             end
+
           _ -> :noop
         end
       _ -> :noop
     end
   end
 
-  defp handle_timeout_logic("room:{" <> rest) do
-    case String.trim_trailing(rest, "}:timer") do
-      ^rest ->
-        :noop
+  defp handle_timeout_logic(room_id, word) do
+    # Send turn_over event with all necessary information
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      KeyManager.room_topic(room_id),
+      %{
+        event: "turn_over",
+        payload: %{
+          "reason" => "timeout",
+          "word" => word
+        }
+      }
+    )
 
-      room_id ->
-        # Get the current word before starting next turn
-        room_word_key = "room:{#{room_id}}:word"
-        {:ok, word} = RedisHelper.get(room_word_key)
+    # clear the reveal timer
+    RedisHelper.del(KeyManager.reveal_timer(room_id))
 
-        # Send turn_over event with all necessary information
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          "room:#{room_id}",
-          %{
-            event: "turn_over",
-            payload: %{
-              "reason" => "timeout",
-              "word" => word
-            }
-          }
-        )
-
-        # clear the reveal timer
-        RedisHelper.del("room:{#{room_id}}:reveal_timer")
-
-        # Start the next turn
-        GameHelper.start(room_id)
-    end
+    # Start the next turn
+    GameFlow.start(room_id)
   end
 
-  defp handle_timeout_logic(_), do: :noop
-
-  defp handle_letter_reveal("room:{" <> rest) do
-    case String.trim_trailing(rest, "}:reveal_timer") do
-      ^rest ->
-        :noop
-
-      room_id ->
+  defp handle_letter_reveal(key) do
+    # Extract room_id from the key
+    case Regex.run(~r/^room:\{([^}]+)\}:reveal_timer$/, key) do
+      [_, room_id] ->
         # Get current word from Redis for lock uniqueness
-        word_key = "room:{#{room_id}}:word"
-        case RedisHelper.get(word_key) do
+        case WordManager.get_current_word(room_id) do
+          {:ok, nil} ->
+            # If no word is set, do nothing
+            :noop
+
           {:ok, word} ->
             # Create a word-specific lock key
-            lock_key = "lock:room:{#{room_id}}:reveal_timer:#{word}"
+            lock_key = KeyManager.reveal_timer_lock(room_id, word)
 
             case Redix.command(:redix, [
                    "SET",
@@ -163,15 +159,15 @@ defmodule ScribblBackend.TimeoutWatcher do
                  ]) do
               {:ok, "OK"} ->
                 # Reveal a letter
-                case ScribblBackend.GameHelper.reveal_next_letter(room_id) do
+                case WordManager.reveal_next_letter(room_id) do
                   {:ok, revealed_word} ->
                     # Get the current drawer
-                    {:ok, current_drawer} = GameHelper.get_current_drawer(room_id)
+                    {:ok, current_drawer} = GameState.get_current_drawer(room_id)
 
                     # Send the letter reveal event to all players except the drawer
                     Phoenix.PubSub.broadcast(
                       ScribblBackend.PubSub,
-                      "room:#{room_id}",
+                      KeyManager.room_topic(room_id),
                       {:exclude_user, current_drawer, %{
                         event: "letter_reveal",
                         payload: %{
@@ -181,18 +177,18 @@ defmodule ScribblBackend.TimeoutWatcher do
                     )
 
                     # Start the next reveal timer
-                    GameHelper.start_reveal_timer(room_id)
+                    WordManager.start_reveal_timer(room_id)
                   _ ->
                     :noop
                 end
               _ -> :noop
             end
+
           _ -> :noop
         end
+      _ -> :noop
     end
   end
-
-  defp handle_letter_reveal(_), do: :noop
 
   defp node_id, do: Atom.to_string(Node.self())
 end

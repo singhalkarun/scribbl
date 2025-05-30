@@ -303,15 +303,15 @@ defmodule ScribblBackend.RedisHelper do
   ## Parameters
 
     - `key`: The key to set.
+    - `seconds`: The expiration time in seconds.
     - `value`: The value to set.
-    - `ttl`: The expiration time in seconds.
   ## Examples
 
-      iex> ScribblBackend.RedisHelper.setex("my_key", "my_value", 60)
+      iex> ScribblBackend.RedisHelper.setex("my_key", 60, "my_value")
       :ok
   """
-  def setex(key, ttl, value) do
-    Redix.command(:redix, ["SETEX", key, ttl, value])
+  def setex(key, seconds, value) do
+    Redix.command(:redix, ["SETEX", key, Integer.to_string(seconds), value])
   end
 
   @doc """
