@@ -24,10 +24,6 @@ defmodule ScribblBackend.Application do
        database: (System.get_env("REDIS_DB") || "0") |> String.to_integer()},
       ScribblBackend.TimeoutWatcher,
       ScribblBackendWeb.Presence,
-      # Start the Finch HTTP client for sending emails
-      {Finch, name: ScribblBackend.Finch},
-      # Start a worker by calling: ScribblBackend.Worker.start_link(arg)
-      # {ScribblBackend.Worker, arg},
       # Start to serve requests, typically the last entry
       ScribblBackendWeb.Endpoint
     ]

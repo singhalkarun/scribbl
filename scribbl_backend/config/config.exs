@@ -8,7 +8,6 @@
 import Config
 
 config :scribbl_backend,
-  ecto_repos: [ScribblBackend.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
@@ -21,15 +20,6 @@ config :scribbl_backend, ScribblBackendWeb.Endpoint,
   ],
   pubsub_server: ScribblBackend.PubSub,
   live_view: [signing_salt: "5UcRsMeR"]
-
-# Configures the mailer
-#
-# By default it uses the "Local" adapter which stores the emails
-# locally. You can see the emails in your browser, at "/dev/mailbox".
-#
-# For production it's recommended to configure a different adapter
-# at the `config/runtime.exs`.
-config :scribbl_backend, ScribblBackend.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configures Elixir's Logger
 config :logger, :console,
