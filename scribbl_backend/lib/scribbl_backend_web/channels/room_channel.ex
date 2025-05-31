@@ -59,6 +59,32 @@ defmodule ScribblBackendWeb.RoomChannel do
               push(socket, "drawing", %{"canvas" => canvas})
             _ -> :ok
           end
+
+          # Get current drawer
+          {:ok, current_drawer} = GameState.get_current_drawer(room_id)
+
+          # Send drawer information to the joining player
+          push(socket, "drawer_assigned", %{
+            "round" => room_info.current_round,
+            "drawer" => current_drawer
+          })
+
+          # If the user is not the drawer, send word length, revealed indices, and time remaining
+          if user_id != current_drawer do
+            # Get current word state (length and revealed indices)
+            case WordManager.get_current_word_state(room_id) do
+              {:ok, word_state} ->
+                # Send turn started event with word length and time remaining
+                push(socket, "turn_started", %{
+                  "word_length" => Integer.to_string(word_state.word_length),
+                  "time_remaining" => word_state.time_remaining
+                })
+
+                # Send letter reveal event with revealed word
+                push(socket, "letter_reveal", %{"revealed_word" => word_state.revealed_word})
+              _ -> :ok
+            end
+          end
         end
 
       {:error, _reason} ->

@@ -62,7 +62,7 @@ defmodule ScribblBackend.WordManager do
       "reveal_letter"
     )
 
-    {:ok, %{"word_length" => Integer.to_string(String.length(word))}}
+    {:ok, %{"word_length" => Integer.to_string(String.length(word)), "time_remaining" => 60}}
   end
 
   @doc """
@@ -144,6 +144,63 @@ defmodule ScribblBackend.WordManager do
 
           {:ok, revealed_word}
         end
+
+      error ->
+        # If there's an error getting the word, return the error
+        error
+    end
+  end
+
+  @doc """
+  Get the current word state (word length and revealed indices) for a room.
+  Used when a new player joins an active game.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    - `{:ok, %{word_length: length, revealed_word: revealed_word, time_remaining: seconds}}` - The word length, partially revealed word, and remaining time
+    - `{:error, :word_not_found}` - If no word is set for the room
+    - `{:error, error}` - Other errors
+  """
+  def get_current_word_state(room_id) do
+    revealed_key = KeyManager.revealed_indices(room_id)
+    turn_timer_key = KeyManager.turn_timer(room_id)
+
+    # Get the current word
+    case get_current_word(room_id) do
+      {:ok, nil} ->
+        # If no word is set, return an error
+        {:error, :word_not_found}
+
+      {:ok, word} ->
+        # Get the current revealed indices
+        revealed_indices = case RedisHelper.get(revealed_key) do
+          {:ok, nil} ->
+            MapSet.new()
+          {:ok, revealed_json} ->
+            Jason.decode!(revealed_json) |> MapSet.new()
+          _ ->
+            MapSet.new()
+        end
+
+        # Get the time remaining for the turn
+        {:ok, time_remaining} = RedisHelper.ttl(turn_timer_key)
+
+        word_graphemes = String.graphemes(word)
+
+        # Construct the partially revealed word as a list
+        revealed_word = word_graphemes
+          |> Enum.with_index()
+          |> Enum.map(fn {char, i} ->
+            if MapSet.member?(revealed_indices, i), do: char, else: "_"
+          end)
+
+        {:ok, %{
+          word_length: String.length(word),
+          revealed_word: revealed_word,
+          time_remaining: time_remaining
+        }}
 
       error ->
         # If there's an error getting the word, return the error
