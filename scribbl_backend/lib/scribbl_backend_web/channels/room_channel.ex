@@ -14,7 +14,7 @@ defmodule ScribblBackendWeb.RoomChannel do
     # Track the user's presence via Phoenix Presence
     Presence.track(socket, socket.assigns.user_id, %{
       name: name,
-      joined_at: :os.system_time(:seconds)
+      joined_at: :os.system_time(:milli_seconds)
     })
 
     # add the socket to user specific topic
