@@ -7,6 +7,8 @@ defmodule ScribblBackend.PlayerManager do
   alias ScribblBackend.RedisHelper
   alias ScribblBackend.GameState
   alias ScribblBackend.KeyManager
+  alias ScribblBackend.WordManager
+  alias ScribblBackend.GameFlow
 
   @doc """
   Add a player to the game room.
@@ -54,8 +56,53 @@ defmodule ScribblBackend.PlayerManager do
     room_key = KeyManager.room_players(room_id)
     RedisHelper.lrem(room_key, player_id)
 
+    # Check if the removed player was the drawer
+    {:ok, current_drawer} = GameState.get_current_drawer(room_id)
+    if player_id == current_drawer do
+      handle_drawer_removal(room_id)
+    end
+
     # Check if room is empty and clean up if needed
     GameState.check_and_cleanup_empty_room(room_id)
+  end
+
+  @doc """
+  Handle the scenario when the drawer leaves the game.
+
+  ## Parameters
+    - `room_id`: The ID of the room where the drawer left.
+  """
+  def handle_drawer_removal(room_id) do
+    # Get current word (if any) to end the turn properly
+    case WordManager.get_current_word(room_id) do
+      {:ok, word} when not is_nil(word) ->
+        # End the turn
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          KeyManager.room_topic(room_id),
+          %{
+            event: "turn_over",
+            payload: %{
+              "reason" => "drawer_left",
+              "word" => word
+            }
+          }
+        )
+
+        # Clear any remaining timers
+        RedisHelper.del(KeyManager.turn_timer(room_id))
+        RedisHelper.del(KeyManager.reveal_timer(room_id))
+
+        # clear the current word
+        RedisHelper.del(KeyManager.current_word(room_id))
+        RedisHelper.del(KeyManager.revealed_indices(room_id))
+
+        # Start the next turn
+        GameFlow.start(room_id)
+      _ ->
+        # No word was set yet or there was an error, just start the next turn
+        GameFlow.start(room_id)
+    end
   end
 
   @doc """

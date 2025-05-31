@@ -46,20 +46,6 @@ defmodule ScribblBackendWeb.RoomChannel do
 
         # If game is active, send all players' scores and canvas data
         if room_info.status == "active" do
-          # Send scores
-          case PlayerManager.get_all_player_scores(room_id) do
-            {:ok, scores} ->
-              push(socket, "scores", %{"scores" => scores})
-            _ -> :ok
-          end
-
-          # Send canvas data
-          case CanvasManager.get_canvas(room_id) do
-            {:ok, canvas} when not is_nil(canvas) ->
-              push(socket, "drawing", %{"canvas" => canvas})
-            _ -> :ok
-          end
-
           # Get current drawer
           {:ok, current_drawer} = GameState.get_current_drawer(room_id)
 
@@ -82,6 +68,20 @@ defmodule ScribblBackendWeb.RoomChannel do
 
                 # Send letter reveal event with revealed word
                 push(socket, "letter_reveal", %{"revealed_word" => word_state.revealed_word})
+
+                # Send scores
+                case PlayerManager.get_all_player_scores(room_id) do
+                  {:ok, scores} ->
+                    push(socket, "scores", %{"scores" => scores})
+                  _ -> :ok
+                end
+
+                # Send canvas data
+                case CanvasManager.get_canvas(room_id) do
+                  {:ok, canvas} when not is_nil(canvas) ->
+                    push(socket, "drawing", %{"canvas" => canvas})
+                  _ -> :ok
+                end
               _ -> :ok
             end
           end
@@ -289,6 +289,7 @@ defmodule ScribblBackendWeb.RoomChannel do
     user_id = socket.assigns.user_id
 
     # Remove the player from the room
+    # PlayerManager.remove_player now handles drawer removal internally
     PlayerManager.remove_player(room_id, user_id)
 
     :ok
