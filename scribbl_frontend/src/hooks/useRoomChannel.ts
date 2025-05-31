@@ -81,13 +81,13 @@ export function useRoomChannel() {
       }),
       newChannel.on(
         "new_message",
-        (payload: { userId: string; message: string; system?: boolean }) => {
+        (payload: { user_id: string; message: string; system?: boolean }) => {
           console.log(
             "[useRoomChannel] Received new_message payload:",
             payload
           );
           // Ensure userId is present in the payload
-          if (!payload.userId) {
+          if (!payload.user_id) {
             console.error(
               "[useRoomChannel] Received new_message without userId:",
               payload
@@ -95,7 +95,7 @@ export function useRoomChannel() {
             return; // Don't add messages without a user ID
           }
           const messageToAdd: Message = {
-            userId: payload.userId, // Use userId from payload
+            userId: payload.user_id, // Use userId from payload
             text: payload.message,
             system: payload.system,
           };
