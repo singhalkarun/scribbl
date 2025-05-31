@@ -31,6 +31,7 @@ interface PlayerStore {
   channel: Channel | null;
   socket: Socket | null;
   players: { [userId: string]: string }; // Map of userId to playerName
+  playerTimestamps: { [userId: string]: number }; // Map to track joined_at timestamps
   scores: { [userId: string]: number }; // Add scores state
   messages: Message[]; // Add messages state
   setPlayerName: (name: string) => void;
@@ -58,6 +59,7 @@ export const usePlayerStore = create<PlayerStore>()(
       channel: null,
       socket: null,
       players: {}, // Initial state for players
+      playerTimestamps: {}, // Initialize playerTimestamps
       scores: {}, // Initialize scores
       messages: [], // Initial messages state
       setPlayerName: (name) => set({ playerName: name }),
@@ -73,10 +75,17 @@ export const usePlayerStore = create<PlayerStore>()(
         set((state) => {
           let currentUserId = state.userId; // Keep existing ID if already set
           const newPlayers: { [userId: string]: string } = {};
+          const newTimestamps: { [userId: string]: number } = {};
+
           Object.keys(presenceState).forEach((userId) => {
             if (presenceState[userId].metas.length > 0) {
-              const playerName = presenceState[userId].metas[0].name;
+              const playerMeta = presenceState[userId].metas[0];
+              const playerName = playerMeta.name;
+              const joinedAt = playerMeta.joined_at;
+
               newPlayers[userId] = playerName;
+              newTimestamps[userId] = joinedAt;
+
               // If we haven't found our ID yet, check if this player is us
               if (!currentUserId && playerName === state.playerName) {
                 console.log(
@@ -88,22 +97,58 @@ export const usePlayerStore = create<PlayerStore>()(
           });
           // Update players map BUT NOT the current user's ID here anymore
           // The ID should be set explicitly via setUserId or initial join response
-          return { players: newPlayers }; // Remove userId update from here
+          return {
+            players: newPlayers,
+            playerTimestamps: newTimestamps,
+          };
         }),
       applyPresenceDiff: (diff) =>
         set((state) => {
           const updatedPlayers = { ...state.players };
+          const updatedTimestamps = { ...state.playerTimestamps };
 
           // Handle joins
           Object.keys(diff.joins).forEach((userId) => {
             if (diff.joins[userId].metas.length > 0) {
-              updatedPlayers[userId] = diff.joins[userId].metas[0].name;
+              const newPlayerMeta = diff.joins[userId].metas[0];
+              const newJoinedAt = newPlayerMeta.joined_at;
+              const currentTimestamp = updatedTimestamps[userId] || 0;
+
+              // Only update if this is a newer presence update (higher timestamp)
+              if (newJoinedAt > currentTimestamp) {
+                updatedPlayers[userId] = newPlayerMeta.name;
+                updatedTimestamps[userId] = newJoinedAt;
+                console.log(
+                  `[Store] Added/Updated player ${newPlayerMeta.name} with timestamp ${newJoinedAt}`
+                );
+              } else {
+                console.log(
+                  `[Store] Ignored outdated join for ${newPlayerMeta.name}: ${newJoinedAt} <= ${currentTimestamp}`
+                );
+              }
             }
           });
 
-          // Handle leaves
+          // Handle leaves - only remove if the leave event's timestamp is newer than what we have
           Object.keys(diff.leaves).forEach((userId) => {
-            delete updatedPlayers[userId];
+            if (diff.leaves[userId].metas.length > 0) {
+              const leavePlayerMeta = diff.leaves[userId].metas[0];
+              const leaveJoinedAt = leavePlayerMeta.joined_at;
+              const currentTimestamp = updatedTimestamps[userId] || 0;
+
+              // If we have a newer join timestamp, keep the player (ignore the leave)
+              if (leaveJoinedAt >= currentTimestamp) {
+                delete updatedPlayers[userId];
+                delete updatedTimestamps[userId];
+                console.log(
+                  `[Store] Removed player with userId ${userId}, timestamp ${leaveJoinedAt}`
+                );
+              } else {
+                console.log(
+                  `[Store] Ignored outdated leave for ${userId}: ${leaveJoinedAt} < ${currentTimestamp}`
+                );
+              }
+            }
           });
 
           console.log(
@@ -112,7 +157,10 @@ export const usePlayerStore = create<PlayerStore>()(
             "New state:",
             updatedPlayers
           );
-          return { players: updatedPlayers };
+          return {
+            players: updatedPlayers,
+            playerTimestamps: updatedTimestamps,
+          };
         }),
       addMessage: (message) =>
         set((state) => {

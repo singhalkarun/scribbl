@@ -304,50 +304,6 @@ export default function Canvas({ isDrawer, gameStarted = false }: CanvasProps) {
     // No need to re-run for setShowBrushSlider as it's stable
   }, [isEraser, isDrawer]);
 
-  // Simpler undo handler that should work without sockets
-  const handleUndo = () => {
-    if (!isDrawer || !canvasRef.current) return; // Only drawer can undo
-
-    // Perform the undo operation
-    canvasRef.current.undo();
-
-    // Update our state after a very brief delay
-    setTimeout(() => {
-      if (canvasRef.current) {
-        canvasRef.current
-          .exportPaths()
-          .then((updatedPaths) => {
-            setPaths(updatedPaths);
-          })
-          .catch((err) =>
-            console.error("[Canvas] Error exporting paths after undo:", err)
-          );
-      }
-    }, 10); // Very short delay
-  };
-
-  // Simpler redo handler that should work without sockets
-  const handleRedo = () => {
-    if (!isDrawer || !canvasRef.current) return; // Only drawer can redo
-
-    // Perform the redo operation
-    canvasRef.current.redo();
-
-    // Update our state after a very brief delay
-    setTimeout(() => {
-      if (canvasRef.current) {
-        canvasRef.current
-          .exportPaths()
-          .then((updatedPaths) => {
-            setPaths(updatedPaths);
-          })
-          .catch((err) =>
-            console.error("[Canvas] Error exporting paths after redo:", err)
-          );
-      }
-    }, 10); // Very short delay
-  };
-
   // Add function to normalize coordinates
   const normalizeCoordinates = (
     paths: PathPoint[],
