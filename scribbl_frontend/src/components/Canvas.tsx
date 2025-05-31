@@ -3,6 +3,7 @@
 import { ReactSketchCanvas, ReactSketchCanvasRef } from "react-sketch-canvas";
 import React, { useRef, useState, useEffect } from "react";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import Image from "next/image";
 
 const colors = ["black", "red", "blue", "green", "orange", "purple"];
 
@@ -482,16 +483,13 @@ export default function Canvas({ isDrawer, gameStarted = false }: CanvasProps) {
                 className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
                 title="Give us feedback"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  fill="currentColor"
-                  className="h-5 w-5"
-                  viewBox="0 0 16 16"
-                >
-                  <path d="M8 1a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a6 6 0 1 1 12 0v6a2.5 2.5 0 0 1-2.5 2.5H9.366a1 1 0 0 1-.866.5h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 .866.5H11.5A1.5 1.5 0 0 0 13 12h-1a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1V6a5 5 0 0 0-5-5z" />
-                </svg>
+                <Image
+                  src="/survey.png"
+                  alt="Feedback"
+                  width={25}
+                  height={25}
+                  className="h-6 w-6"
+                />
               </a>
             </div>
           </div>
@@ -542,16 +540,13 @@ export default function Canvas({ isDrawer, gameStarted = false }: CanvasProps) {
                 className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
                 title="Give us feedback"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  fill="currentColor"
-                  className="h-5 w-5"
-                  viewBox="0 0 16 16"
-                >
-                  <path d="M8 1a5 5 0 0 0-5 5v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a6 6 0 1 1 12 0v6a2.5 2.5 0 0 1-2.5 2.5H9.366a1 1 0 0 1-.866.5h-1a1 1 0 1 1 0-2h1a1 1 0 0 1 .866.5H11.5A1.5 1.5 0 0 0 13 12h-1a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1V6a5 5 0 0 0-5-5z" />
-                </svg>
+                <Image
+                  src="/survey.png"
+                  alt="Feedback"
+                  width={25}
+                  height={25}
+                  className="h-6 w-6"
+                />
               </a>
             </div>
           </div>
