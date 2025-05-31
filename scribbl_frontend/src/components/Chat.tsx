@@ -1,8 +1,7 @@
 "use client";
 
-import { getSimilarity } from "@/utils/getSimilarity";
 import { useEffect, useRef, useState } from "react";
-import { usePlayerStore, Message } from "@/store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 interface ChatProps {
   wordToGuess: string;
