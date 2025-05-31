@@ -47,6 +47,24 @@ export default function GamePage() {
 
   const router = useRouter();
 
+  // Clean up timers when component unmounts completely
+  useEffect(() => {
+    // This will only run when the component is unmounted completely
+    return () => {
+      console.log(
+        "[GamePage] Component unmounting completely, clearing all timers"
+      );
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+    };
+  }, []);
+
   // Check if current user is the drawer
   const isCurrentUserDrawing = useMemo(() => {
     const isDrawer = gameInfo.currentDrawer === userId;
@@ -145,14 +163,23 @@ export default function GamePage() {
         // Listen for turn_started event
         const turnStartedRef = channel.on("turn_started", (payload) => {
           console.log("[GamePage] Received turn_started:", payload);
-          // Reset the guessed state for the new turn
-          setGuessed(false);
+
           // Set the word length for displaying blanks
-          setWordLength(payload.word_length);
+          const wordLengthValue =
+            typeof payload.word_length === "string"
+              ? parseInt(payload.word_length)
+              : payload.word_length;
+          console.log(
+            `[GamePage] Setting word length - raw: ${payload.word_length}, parsed: ${wordLengthValue}`
+          );
+          setWordLength(wordLengthValue);
+
           // Make sure room status is set to "started"
           setRoomStatus("started");
+
           // Reset revealed letters for new turn
           setRevealedLetters([]);
+
           // If the word selection overlay is showing, hide it
           if (showWordSelection) {
             setShowWordSelection(false);
@@ -163,31 +190,63 @@ export default function GamePage() {
             setCurrentTurnDrawer(gameInfo.currentDrawer);
           }
 
-          // Start the timer - 60 seconds
-          setTimeLeft(60);
-
-          // Clear any existing timer
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
+          // Check if the current user is not already in the game state of having guessed correctly
+          // Only reset guessed state if this is a new turn starting (not a rejoin)
+          if (!payload.time_remaining) {
+            setGuessed(false);
           }
 
-          // Set up the new timer
-          timerRef.current = setInterval(() => {
-            setTimeLeft((prevTime) => {
-              if (prevTime <= 1) {
-                // If timer reaches 0, clear the interval
-                if (timerRef.current) {
-                  clearInterval(timerRef.current);
-                  timerRef.current = null;
-                }
-                return 0;
-              }
-              return prevTime - 1;
-            });
-          }, 1000);
+          // Check if time_remaining exists in the payload (for rejoining players)
+          // If it does, use that value; otherwise, start with the default 60 seconds
+          const initialTimeLeft = payload.time_remaining
+            ? parseInt(payload.time_remaining)
+            : 60;
+          console.log(
+            `[GamePage] Setting timer - time_remaining: ${payload.time_remaining}, initialTimeLeft: ${initialTimeLeft}`
+          );
 
-          // Play new round sound when a turn starts
-          playSound("newRound");
+          // If timer is already running and this is just a rejoin (payload.time_remaining exists),
+          // we don't need to reset the timer if the times are close
+          const shouldResetTimer =
+            !timerRef.current ||
+            !payload.time_remaining ||
+            Math.abs(timeLeft - initialTimeLeft) > 2; // Only reset if difference > 2 seconds
+
+          if (shouldResetTimer) {
+            console.log(
+              `[GamePage] Resetting timer to ${initialTimeLeft} seconds`
+            );
+            // Clear any existing timer
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+
+            setTimeLeft(initialTimeLeft);
+
+            // Set up the new timer
+            timerRef.current = setInterval(() => {
+              setTimeLeft((prevTime) => {
+                if (prevTime <= 1) {
+                  // If timer reaches 0, clear the interval
+                  if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                    timerRef.current = null;
+                  }
+                  return 0;
+                }
+                return prevTime - 1;
+              });
+            }, 1000);
+
+            // Only play sound if this is a new turn, not a rejoin
+            if (!payload.time_remaining) {
+              playSound("newRound");
+            }
+          } else {
+            console.log(
+              `[GamePage] Not resetting timer, continuing with current timer: ${timeLeft} seconds`
+            );
+          }
         });
 
         // Listen for turn_over event
@@ -306,17 +365,9 @@ export default function GamePage() {
             channel.off("correct_guess", correctGuessRef);
             channel.off("letter_reveal", letterRevealRef);
 
-            // Clear any running timer
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-              timerRef.current = null;
-            }
-
-            // Clear countdown timer if it exists
-            if (countdownTimerRef.current) {
-              clearInterval(countdownTimerRef.current);
-              countdownTimerRef.current = null;
-            }
+            // Don't clear timers on normal cleanup
+            // Only clear timers when specific events trigger it
+            // like turn_over or game_over
           }
         };
       }
@@ -647,13 +698,7 @@ export default function GamePage() {
                     .map((letter, index) => letter || "_")
                     .join(" ")
                 : wordLength > 0
-                ? Array(
-                    typeof wordLength === "string"
-                      ? parseInt(wordLength)
-                      : wordLength
-                  )
-                    .fill("_")
-                    .join(" ")
+                ? Array(wordLength).fill("_").join(" ")
                 : ""}
             </p>
             <p className="text-xs text-gray-500 mt-1">
