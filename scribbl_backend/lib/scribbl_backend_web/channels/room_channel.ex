@@ -1,7 +1,6 @@
 defmodule ScribblBackendWeb.RoomChannel do
   use Phoenix.Channel
   alias ScribblBackendWeb.Presence
-  alias ScribblBackend.GameHelper
   alias ScribblBackend.GameState
   alias ScribblBackend.PlayerManager
   alias ScribblBackend.CanvasManager
@@ -265,22 +264,6 @@ defmodule ScribblBackendWeb.RoomChannel do
 
     # Remove the player from the room
     PlayerManager.remove_player(room_id, user_id)
-
-    # Get current room info to check status
-    case GameHelper.get_or_initialize_room(room_id) do
-      {:ok, room_info} ->
-        # If game is finished, reset the room state
-        if room_info.status == "finished" do
-          # Reset the room with default options
-          {:ok, _} = GameHelper.get_or_initialize_room(room_id, max_rounds: 3)
-        end
-
-        # Start the game
-        GameHelper.start(room_id)
-
-      {:error, _reason} ->
-        push(socket, "error", %{"message" => "Failed to start game"})
-    end
 
     :ok
   end
