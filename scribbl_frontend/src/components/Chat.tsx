@@ -96,7 +96,9 @@ export default function Chat({
       <form onSubmit={handleSubmit} className="mt-2 flex gap-1 relative group">
         <input
           type="text"
-          placeholder={isDrawer ? "You cannot chat while drawing" : "Type here"}
+          placeholder={
+            isDrawer ? "You cannot chat while drawing" : "Guess here"
+          }
           className={`border px-2 py-1 rounded text-sm flex-1 min-w-0 ${
             isInputDisabled ? "bg-gray-100 cursor-not-allowed" : ""
           }`}

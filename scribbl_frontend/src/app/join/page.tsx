@@ -55,7 +55,7 @@ function JoinPageContent() {
 
   return (
     <div
-      className="min-h-screen w-screen flex flex-col justify-center items-center p-4 bg-gradient-to-br from-indigo-50 via-white to-cyan-100 relative overflow-hidden select-none"
+      className="h-[100svh] w-screen flex flex-col justify-center items-center p-4 bg-gradient-to-br from-indigo-50 via-white to-cyan-100 relative overflow-hidden select-none"
       style={{
         cursor: "url('/cursor.png') 16 16, auto",
       }}
