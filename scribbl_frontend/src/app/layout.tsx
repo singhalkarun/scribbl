@@ -56,6 +56,10 @@ export default function RootLayout({
       style={{ fontFamily: "var(--font-outfit)" }}
     >
       <head>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+        />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-1YN078DXYJ"
           strategy="afterInteractive"

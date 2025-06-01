@@ -426,7 +426,7 @@ export default function GamePage() {
   }
 
   return (
-    <main className="h-screen w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+    <main className="h-[100svh] w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
       {/* Turn Over Modal */}
       {showTurnOverModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
@@ -516,7 +516,7 @@ export default function GamePage() {
               <h2 className="font-bold text-lg text-gray-700 flex-shrink-0">
                 Players
               </h2>
-              <button
+              {/* <button
                 onClick={() => {
                   navigator.clipboard.writeText(getShareableLink());
                 }}
@@ -531,7 +531,7 @@ export default function GamePage() {
                 <span className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
                   Click to copy invite link
                 </span>
-              </button>
+              </button> */}
             </div>
             <ul className="text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
               {playersList.length > 0 ? (
@@ -545,13 +545,13 @@ export default function GamePage() {
                       key={index}
                       className="flex items-center justify-between gap-2"
                     >
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">👤</span>
-                        <span>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-lg flex-shrink-0">👤</span>
+                        <span className="truncate">
                           {name === playerName ? <b>{name} (You)</b> : name}
                         </span>
                       </div>
-                      <span className="font-medium text-indigo-600">
+                      <span className="font-medium text-indigo-600 flex-shrink-0">
                         {score} pts
                       </span>
                     </li>
@@ -613,26 +613,82 @@ export default function GamePage() {
 
             {/* Room ID with Copy Button */}
             <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">Share Room ID:</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 bg-gray-100 px-3 py-2 rounded text-sm text-indigo-600 font-mono">
-                  {roomId}
-                </code>
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(getShareableLink());
-                    // You could add a toast notification here if you want
-                  }}
-                  className="bg-gray-200 hover:bg-gray-300 p-2 rounded hover:cursor-pointer transition-colors"
-                  title="Copy Invite Link"
-                >
-                  📋
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  const url = getShareableLink();
+                  // Try the clipboard API first
+                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard
+                      .writeText(url)
+                      .then(() => {
+                        const btn = document.getElementById("copy-btn-text");
+                        if (btn) {
+                          const originalText = btn.innerText;
+                          btn.innerText = "Copied! 👍";
+                          setTimeout(() => {
+                            btn.innerText = originalText;
+                          }, 2000);
+                        }
+                      })
+                      .catch((err) => {
+                        // If clipboard API fails, try fallback method
+                        fallbackCopyTextToClipboard(url);
+                      });
+                  } else {
+                    // Fallback for browsers that don't support clipboard API
+                    fallbackCopyTextToClipboard(url);
+                  }
+
+                  // Fallback copy method using textarea
+                  function fallbackCopyTextToClipboard(text: string) {
+                    const textArea = document.createElement("textarea");
+                    textArea.value = text;
+
+                    // Make the textarea out of viewport
+                    textArea.style.position = "fixed";
+                    textArea.style.left = "-999999px";
+                    textArea.style.top = "-999999px";
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+
+                    let success = false;
+                    try {
+                      success = document.execCommand("copy");
+                    } catch (err) {
+                      console.error("Fallback: Unable to copy", err);
+                    }
+
+                    document.body.removeChild(textArea);
+
+                    // Show feedback
+                    const btn = document.getElementById("copy-btn-text");
+                    if (btn) {
+                      const originalText = btn.innerText;
+                      btn.innerText = success ? "Copied! 👍" : "Copy failed ❌";
+                      setTimeout(() => {
+                        btn.innerText = originalText;
+                      }, 2000);
+                    }
+                  }
+                }}
+                id="copy-btn"
+                className="w-[95%] mx-auto md:w-full relative py-2 px-4 bg-indigo-100 hover:bg-indigo-200 rounded-md font-medium text-indigo-700 transition-colors text-center hover:cursor-pointer"
+              >
+                <div id="copy-btn-text" className="pr-6">
+                  Invite Friends: {roomId}
+                </div>
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  🔗
+                </div>
+              </button>
+              <p className="text-xs text-gray-500 mt-1">
+                Click to copy invite link
+              </p>
             </div>
 
             <button
-              className={`w-full py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer ${
+              className={`w-[95%] py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer md:w-full ${
                 playersList.length >= 2 && !gameInfo.currentDrawer
                   ? "bg-indigo-600 hover:bg-indigo-700"
                   : "bg-gray-400 cursor-not-allowed"
