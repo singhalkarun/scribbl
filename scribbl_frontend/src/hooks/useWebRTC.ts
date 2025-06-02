@@ -55,8 +55,18 @@ export function useWebRTC(
   console.log(
     `[WebRTC] 🔄 useWebRTC called - userId=${currentUserId}, isDrawing=${isCurrentUserDrawing}, connectedUsers=${
       Object.keys(connectedUsers).length
-    }`
+    }`,
+    connectedUsers
   );
+
+  // Add detailed logging for debugging production issues
+  console.log(`[WebRTC] 🔍 DETAILED STATE:`, {
+    currentUserId,
+    connectedUsersCount: Object.keys(connectedUsers).length,
+    connectedUsersList: Object.keys(connectedUsers),
+    channelState: channel?.state,
+    isCurrentUserDrawing,
+  });
 
   const [state, setState] = useState<WebRTCState>({
     isAudioEnabled: true, // Auto-join everyone to voice chat
@@ -296,7 +306,12 @@ export function useWebRTC(
 
         if (!channel || !currentUserId) {
           console.warn(
-            "[WebRTC] Cannot send signal - channel or userId missing"
+            "[WebRTC] ❌ Cannot send signal - channel or userId missing:",
+            {
+              hasChannel: !!channel,
+              channelState: channel?.state,
+              currentUserId,
+            }
           );
           return;
         }
@@ -458,7 +473,12 @@ export function useWebRTC(
 
         if (!channel || !currentUserId) {
           console.warn(
-            "[WebRTC] Cannot send signal - channel or userId missing"
+            "[WebRTC] ❌ Cannot send signal - channel or userId missing:",
+            {
+              hasChannel: !!channel,
+              channelState: channel?.state,
+              currentUserId,
+            }
           );
           return;
         }
@@ -598,7 +618,13 @@ export function useWebRTC(
   // Initialize audio and establish connections with all users
   const initializeAudioAndConnections = useCallback(async () => {
     // Auto-join without microphone permission - just mark as enabled
-    console.log("[WebRTC] Auto-joining voice chat (no mic permission yet)...");
+    console.log(
+      "[WebRTC] 🚀 Auto-joining voice chat (no mic permission yet)..."
+    );
+    console.log(
+      `[WebRTC] 🔍 Connected users for peer creation:`,
+      Object.keys(connectedUsers)
+    );
 
     setState((prev) => ({
       ...prev,
@@ -608,8 +634,18 @@ export function useWebRTC(
 
     // Create peer connections for all other users (without local stream initially)
     Object.keys(connectedUsers).forEach((userId) => {
+      console.log(`[WebRTC] 🔍 Checking user ${userId}:`, {
+        isSelf: userId === currentUserId,
+        alreadyHasPeer: peersRef.current.has(userId),
+        shouldCreatePeer:
+          userId !== currentUserId && !peersRef.current.has(userId),
+      });
+
       if (userId !== currentUserId && !peersRef.current.has(userId)) {
         const isInitiator = currentUserId < userId;
+        console.log(
+          `[WebRTC] 🎯 Creating peer connection with ${userId}, isInitiator: ${isInitiator}`
+        );
 
         // Create peer connection without local stream initially
         const peer = createPeerConnectionWithoutStream(userId, isInitiator);
@@ -621,11 +657,24 @@ export function useWebRTC(
         };
 
         addPeerConnection(userId, peerConnection);
+        console.log(`[WebRTC] ✅ Added peer connection for ${userId}`);
+      } else {
+        console.log(`[WebRTC] ⏭️ Skipping peer creation for ${userId}`);
       }
     });
 
+    const finalPeerCount = peersRef.current.size;
+    console.log(
+      `[WebRTC] 📊 Final peer connections count: ${finalPeerCount}`,
+      Array.from(peersRef.current.keys())
+    );
     console.log("[WebRTC] ✅ Auto-joined voice chat (ready for unmute)");
-  }, [currentUserId, connectedUsers, addPeerConnection]);
+  }, [
+    currentUserId,
+    connectedUsers,
+    addPeerConnection,
+    createPeerConnectionWithoutStream,
+  ]);
 
   // Toggle mute (moved here to access initializeAudioAndConnections)
   const toggleMute = useCallback(async () => {
@@ -672,8 +721,20 @@ export function useWebRTC(
 
         // Add stream to all existing peer connections
         peersRef.current.forEach(({ peer, userId }) => {
-          console.log(`[WebRTC] Adding local stream to peer ${userId}`);
-          peer.addStream(stream);
+          console.log(
+            `[WebRTC] 📡 Adding local stream to existing peer ${userId}`
+          );
+          try {
+            peer.addStream(stream);
+            console.log(
+              `[WebRTC] ✅ Successfully added stream to peer ${userId}`
+            );
+          } catch (error) {
+            console.error(
+              `[WebRTC] ❌ Failed to add stream to peer ${userId}:`,
+              error
+            );
+          }
         });
 
         console.log("[WebRTC] ✅ Microphone permission granted and unmuted");
@@ -731,15 +792,27 @@ export function useWebRTC(
 
   // Auto-join voice chat when users are present
   useEffect(() => {
+    console.log(`[WebRTC] 🔍 Auto-join effect check:`, {
+      hasCurrentUserId: !!currentUserId,
+      connectedUsersCount: Object.keys(connectedUsers).length,
+      isAudioEnabled: state.isAudioEnabled,
+      shouldAutoJoin:
+        currentUserId &&
+        Object.keys(connectedUsers).length > 1 &&
+        !state.isAudioEnabled,
+    });
+
     if (
       currentUserId &&
       Object.keys(connectedUsers).length > 1 &&
       !state.isAudioEnabled // Only auto-join if not already in voice chat
     ) {
       console.log(
-        "[WebRTC] Auto-joining voice chat and establishing connections..."
+        "[WebRTC] ✅ Auto-joining voice chat and establishing connections..."
       );
       initializeAudioAndConnections();
+    } else {
+      console.log("[WebRTC] ❌ Auto-join conditions not met");
     }
   }, [
     currentUserId,
