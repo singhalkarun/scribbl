@@ -182,9 +182,10 @@ export const usePlayerStore = create<PlayerStore>()(
           return { messages: [...state.messages, messageWithSender] };
         }),
       updateScore: (userId, score) =>
-        set((state) => ({
-          scores: { ...state.scores, [userId]: score },
-        })),
+        set((state) => {
+          const newScores = { ...state.scores, [userId]: score };
+          return { scores: newScores };
+        }),
       clearPlayerInfo: () => {
         set({ playerName: "", roomId: "", userId: "" }); // Clear userId too
       },

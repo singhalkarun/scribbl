@@ -109,9 +109,6 @@ export default function OrientationLock() {
         <p className="text-lg text-gray-600 mb-2">
           This app is designed for portrait mode only.
         </p>
-        <p className="text-sm text-gray-500">
-          Please rotate your device to continue playing.
-        </p>
       </div>
     </div>
   );

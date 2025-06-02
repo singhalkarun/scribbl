@@ -40,51 +40,58 @@ export default function GameOverModal({
 
         <div className="mb-6">
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {Object.entries(scores)
-              .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-              .map(([playerId, score], index) => {
-                // Determine medal emoji
-                let medal = "";
-                if (index === 0) medal = "🥇";
-                else if (index === 1) medal = "🥈";
-                else if (index === 2) medal = "🥉";
+            {Object.entries(scores).length > 0 ? (
+              Object.entries(scores)
+                .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+                .map(([playerId, score], index) => {
+                  // Determine medal emoji
+                  let medal = "";
+                  if (index === 0) medal = "🥇";
+                  else if (index === 1) medal = "🥈";
+                  else if (index === 2) medal = "🥉";
 
-                return (
-                  <div
-                    key={playerId}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      index === 0
-                        ? "bg-yellow-100 border border-yellow-300"
-                        : index === 1
-                        ? "bg-gray-100 border border-gray-300"
-                        : index === 2
-                        ? "bg-amber-50 border border-amber-200"
-                        : "bg-white border border-gray-100"
-                    } transition-all hover:shadow-md ${
-                      index < 3 ? "animate-pulse-slow" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-700 w-8">
-                        {medal || `${index + 1}.`}
-                      </span>
-                      <span
-                        className={`font-medium ${
-                          playerId === currentUserId
-                            ? "text-indigo-600 font-bold"
-                            : ""
-                        }`}
-                      >
-                        {players[playerId] || "Unknown"}
-                        {playerId === currentUserId ? " (You)" : ""}
+                  return (
+                    <div
+                      key={playerId}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        index === 0
+                          ? "bg-yellow-100 border border-yellow-300"
+                          : index === 1
+                          ? "bg-gray-100 border border-gray-300"
+                          : index === 2
+                          ? "bg-amber-50 border border-amber-200"
+                          : "bg-white border border-gray-100"
+                      } transition-all hover:shadow-md ${
+                        index < 3 ? "animate-pulse-slow" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-700 w-8">
+                          {medal || `${index + 1}.`}
+                        </span>
+                        <span
+                          className={`font-medium ${
+                            playerId === currentUserId
+                              ? "text-indigo-600 font-bold"
+                              : ""
+                          }`}
+                        >
+                          {players[playerId] || "Unknown"}
+                          {playerId === currentUserId ? " (You)" : ""}
+                        </span>
+                      </div>
+                      <span className="font-bold text-indigo-600">
+                        {score} pts
                       </span>
                     </div>
-                    <span className="font-bold text-indigo-600">
-                      {score} pts
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })
+            ) : (
+              <div className="text-center text-gray-500 py-4">
+                <p>No scores available</p>
+                <p className="text-sm">This might be a technical issue</p>
+              </div>
+            )}
           </div>
         </div>
 
