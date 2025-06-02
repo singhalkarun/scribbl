@@ -15,6 +15,8 @@ export default function GamePage() {
     roomId,
     players,
     userId,
+    adminId,
+    setAdminId,
     _hasHydrated,
     scores,
     updateScore,
@@ -85,6 +87,17 @@ export default function GamePage() {
     return isDrawer;
   }, [gameInfo.currentDrawer, userId]);
 
+  // Check if current user is the admin
+  const isCurrentUserAdmin = useMemo(() => {
+    const isAdmin = adminId === userId && adminId !== "";
+    console.log("[GamePage] Admin check:", {
+      adminId,
+      userId,
+      isAdmin,
+    });
+    return isAdmin;
+  }, [adminId, userId]);
+
   // Redirect if player info is missing *after* hydration
   useEffect(() => {
     // Wait for hydration to finish before checking
@@ -125,6 +138,19 @@ export default function GamePage() {
             currentDrawer: payload.current_drawer,
             currentRound: payload.current_round,
           });
+          // Store the admin_id from room_info
+          if (payload.admin_id) {
+            setAdminId(payload.admin_id);
+          }
+        });
+
+        // Listen for admin_changed events
+        const adminChangedRef = channel.on("admin_changed", (payload) => {
+          console.log("[GamePage] Received admin_changed:", payload);
+          // Update the admin_id when admin changes
+          if (payload.admin_id) {
+            setAdminId(payload.admin_id);
+          }
         });
 
         // Listen for game_started event
@@ -395,6 +421,7 @@ export default function GamePage() {
             channel.off("score_updated", scoreUpdatedRef);
             channel.off("correct_guess", correctGuessRef);
             channel.off("letter_reveal", letterRevealRef);
+            channel.off("admin_changed", adminChangedRef);
 
             // Don't clear timers on normal cleanup
             // Only clear timers when specific events trigger it
@@ -769,11 +796,17 @@ export default function GamePage() {
 
             <button
               className={`w-[95%] py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer md:w-full ${
-                playersList.length >= 2 && !gameInfo.currentDrawer
+                playersList.length >= 2 &&
+                !gameInfo.currentDrawer &&
+                isCurrentUserAdmin
                   ? "bg-indigo-600 hover:bg-indigo-700"
                   : "bg-gray-400 cursor-not-allowed"
               }`}
-              disabled={playersList.length < 2 || !!gameInfo.currentDrawer}
+              disabled={
+                playersList.length < 2 ||
+                !!gameInfo.currentDrawer ||
+                !isCurrentUserAdmin
+              }
               onClick={handleStartGame}
             >
               Start Game
@@ -783,6 +816,8 @@ export default function GamePage() {
                 ? "Need at least 2 players to start"
                 : gameInfo.currentDrawer
                 ? "Waiting for current game to finish..."
+                : !isCurrentUserAdmin
+                ? "Only the room admin can start the game"
                 : "Click to start the game!"}
             </p>
           </div>
