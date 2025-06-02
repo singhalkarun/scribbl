@@ -3,6 +3,7 @@
 import { ReactSketchCanvas, ReactSketchCanvasRef } from "react-sketch-canvas";
 import React, { useRef, useState, useEffect } from "react";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import { VoiceChatControls } from "./VoiceChatControls";
 import Image from "next/image";
 
 const colors = ["black", "red", "blue", "green", "orange", "purple"];
@@ -25,9 +26,34 @@ interface SketchPath {
   paths: PathPoint[];
 }
 
+interface WebRTCInstance {
+  isAudioEnabled: boolean;
+  isMuted: boolean;
+  connectedPeers: string[];
+  speakingUsers: string[];
+  stopVoiceChat: () => void;
+  toggleMute: () => void;
+  handleUserJoined: (userId: string) => void;
+  handleUserLeft: (userId: string) => void;
+  signaling: {
+    sendOffer: (targetUserId: string, offer: any, fromUserId: string) => void;
+    sendAnswer: (targetUserId: string, answer: any, fromUserId: string) => void;
+    sendICECandidate: (
+      targetUserId: string,
+      candidate: any,
+      fromUserId: string
+    ) => void;
+    handleOfferReceived: (fromUserId: string, offer: any) => void;
+    handleAnswerReceived: (fromUserId: string, answer: any) => void;
+    handleICECandidateReceived: (fromUserId: string, candidate: any) => void;
+  };
+}
+
 interface CanvasProps {
   isDrawer: boolean;
   gameStarted?: boolean;
+  webRTC?: WebRTCInstance;
+  players?: { [userId: string]: string };
 }
 
 interface DrawingData {
@@ -38,7 +64,12 @@ interface DrawingData {
   isComplete: boolean;
 }
 
-export default function Canvas({ isDrawer, gameStarted = false }: CanvasProps) {
+export default function Canvas({
+  isDrawer,
+  gameStarted = false,
+  webRTC,
+  players,
+}: CanvasProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const { channel } = usePlayerStore();
@@ -523,29 +554,39 @@ export default function Canvas({ isDrawer, gameStarted = false }: CanvasProps) {
         </div>
       ) : (
         <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
-          <div className="flex justify-center items-center relative">
-            <div className="py-2 text-center text-indigo-700 font-medium">
-              {/* Information message for non-drawers */}
+          <div className="flex justify-center items-center">
+            {/* Center content for non-drawers */}
+            <div className="text-indigo-700 font-medium">
               {gameStarted
                 ? "Waiting for drawer to draw..."
                 : "Game not started yet"}
             </div>
 
-            {/* Feedback button for non-drawers - absolute positioned to right */}
-            <div className="absolute right-0 group">
+            {/* Right side controls - absolute positioned */}
+            <div className="absolute right-2 flex items-center gap-2">
+              {/* Mute button */}
+              {webRTC && players && (
+                <VoiceChatControls
+                  webRTC={webRTC}
+                  players={players}
+                  isCurrentUserDrawing={isDrawer}
+                />
+              )}
+
+              {/* Feedback button */}
               <a
                 href="https://forms.gle/iuJVLc5qYkKrxFq38"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                className="flex items-center justify-center w-8 h-8 text-gray-700 hover:text-indigo-700 rounded-md transition-colors hover:cursor-pointer"
                 title="Give us feedback"
               >
                 <Image
                   src="/survey.png"
                   alt="Feedback"
-                  width={25}
-                  height={25}
-                  className="h-6 w-6"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5"
                 />
               </a>
             </div>
