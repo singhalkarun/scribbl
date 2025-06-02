@@ -198,6 +198,21 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "webrtc_offer_received", payload: payload}, socket) do
+    push(socket, "webrtc_offer_received", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "webrtc_answer_received", payload: payload}, socket) do
+    push(socket, "webrtc_answer_received", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "webrtc_ice_candidate_received", payload: payload}, socket) do
+    push(socket, "webrtc_ice_candidate_received", payload)
+    {:noreply, socket}
+  end
+
   def handle_info({:exclude_user, user_id_to_exclude, message}, socket) do
     # Only push the message to the socket if the user is not the one to exclude
     if socket.assigns.user_id != user_id_to_exclude do
@@ -376,6 +391,59 @@ defmodule ScribblBackendWeb.RoomChannel do
 
     {:noreply, socket}
   end
+
+  # NEW WebRTC Signaling Handlers
+  def handle_in("webrtc_offer", %{"target_user_id" => target_user_id, "offer" => offer_sdp, "from_user_id" => from_user_id}, socket) do
+    Logger.debug("Received webrtc_offer from #{from_user_id} for #{target_user_id}")
+    # Broadcast the offer to the target user's specific topic
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      "user:" <> target_user_id, # Target the specific user's topic
+      %{
+        event: "webrtc_offer_received",
+        payload: %{
+          "from_user_id" => from_user_id,
+          "offer" => offer_sdp
+        }
+      }
+    )
+    {:noreply, socket}
+  end
+
+  def handle_in("webrtc_answer", %{"target_user_id" => target_user_id, "answer" => answer_sdp, "from_user_id" => from_user_id}, socket) do
+    Logger.debug("Received webrtc_answer from #{from_user_id} for #{target_user_id}")
+    # Broadcast the answer to the target user's specific topic
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      "user:" <> target_user_id, # Target the specific user's topic
+      %{
+        event: "webrtc_answer_received",
+        payload: %{
+          "from_user_id" => from_user_id,
+          "answer" => answer_sdp
+        }
+      }
+    )
+    {:noreply, socket}
+  end
+
+  def handle_in("webrtc_ice_candidate", %{"target_user_id" => target_user_id, "candidate" => candidate, "from_user_id" => from_user_id}, socket) do
+    Logger.debug("Received webrtc_ice_candidate from #{from_user_id} for #{target_user_id}")
+    # Broadcast the ICE candidate to the target user's specific topic
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      "user:" <> target_user_id, # Target the specific user's topic
+      %{
+        event: "webrtc_ice_candidate_received",
+        payload: %{
+          "from_user_id" => from_user_id,
+          "candidate" => candidate
+        }
+      }
+    )
+    {:noreply, socket}
+  end
+  # END NEW WebRTC Signaling Handlers
 
   # Catch-all to ignore any unhandled events
   def handle_in(_event, _payload, socket) do
