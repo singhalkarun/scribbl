@@ -14,6 +14,8 @@ export function useRoomChannel() {
     socket,
     playerName,
     roomId,
+    userId,
+    players,
     setChannel,
     setUserId,
     updatePlayers,
@@ -200,5 +202,8 @@ export function useRoomChannel() {
     [connectionState] // Depends on connectionState to ensure channel is joined
   );
 
-  return { connectionState, sendMessage };
+  return {
+    connectionState,
+    sendMessage,
+  };
 }
