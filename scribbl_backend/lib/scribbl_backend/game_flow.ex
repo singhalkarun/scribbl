@@ -101,7 +101,7 @@ defmodule ScribblBackend.GameFlow do
         )
 
         # generate a random word and send to the drawer
-        words = WordManager.generate_words()
+        words = WordManager.generate_words(room_id)
 
         # send the word to the drawer
         Phoenix.PubSub.broadcast(
