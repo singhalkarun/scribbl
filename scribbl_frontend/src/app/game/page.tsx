@@ -5,8 +5,10 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Chat from "@/components/Chat";
 import GameOverModal from "@/components/GameOverModal";
+import { VoiceChatControls } from "@/components/VoiceChatControls";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
+import { useWebRTC } from "@/hooks/useWebRTC";
 import { useSoundEffects } from "@/utils/useSoundEffects";
 
 export default function GamePage() {
@@ -17,6 +19,7 @@ export default function GamePage() {
     userId,
     adminId,
     setAdminId,
+    channel,
     _hasHydrated,
     scores,
     updateScore,
@@ -97,6 +100,16 @@ export default function GamePage() {
     });
     return isAdmin;
   }, [adminId, userId]);
+
+  // Initialize WebRTC after isCurrentUserDrawing is defined
+  const webRTC = useWebRTC(channel, userId, players, isCurrentUserDrawing);
+
+  // Debug speaking users
+  useEffect(() => {
+    if (webRTC.speakingUsers.length > 0) {
+      console.log("[GamePage] Speaking users:", webRTC.speakingUsers);
+    }
+  }, [webRTC.speakingUsers]);
 
   // Redirect if player info is missing *after* hydration
   useEffect(() => {
@@ -408,6 +421,59 @@ export default function GamePage() {
           });
         });
 
+        // WebRTC signaling listeners
+        const webrtcOfferRef = channel.on(
+          "webrtc_offer_received",
+          (payload: { from_user_id: string; offer: any }) => {
+            console.log("[GamePage] Received WebRTC offer:", payload);
+            webRTC.signaling.handleOfferReceived(
+              payload.from_user_id,
+              payload.offer
+            );
+          }
+        );
+
+        const webrtcAnswerRef = channel.on(
+          "webrtc_answer_received",
+          (payload: { from_user_id: string; answer: any }) => {
+            console.log("[GamePage] Received WebRTC answer:", payload);
+            webRTC.signaling.handleAnswerReceived(
+              payload.from_user_id,
+              payload.answer
+            );
+          }
+        );
+
+        const webrtcIceCandidateRef = channel.on(
+          "webrtc_ice_candidate_received",
+          (payload: { from_user_id: string; candidate: any }) => {
+            console.log("[GamePage] Received WebRTC ICE candidate:", payload);
+            webRTC.signaling.handleICECandidateReceived(
+              payload.from_user_id,
+              payload.candidate
+            );
+          }
+        );
+
+        // Handle presence changes for WebRTC
+        const presenceDiffRef = channel.on("presence_diff", (diff) => {
+          console.log("[GamePage] Received presence_diff for WebRTC:", diff);
+
+          // Handle WebRTC peer connections for new users
+          if (diff.joins) {
+            Object.keys(diff.joins).forEach((joinedUserId) => {
+              webRTC.handleUserJoined(joinedUserId);
+            });
+          }
+
+          // Handle WebRTC peer disconnections for leaving users
+          if (diff.leaves) {
+            Object.keys(diff.leaves).forEach((leftUserId) => {
+              webRTC.handleUserLeft(leftUserId);
+            });
+          }
+        });
+
         // Cleanup listeners
         return () => {
           if (channel) {
@@ -422,6 +488,10 @@ export default function GamePage() {
             channel.off("correct_guess", correctGuessRef);
             channel.off("letter_reveal", letterRevealRef);
             channel.off("admin_changed", adminChangedRef);
+            channel.off("webrtc_offer_received", webrtcOfferRef);
+            channel.off("webrtc_answer_received", webrtcAnswerRef);
+            channel.off("webrtc_ice_candidate_received", webrtcIceCandidateRef);
+            channel.off("presence_diff", presenceDiffRef);
 
             // Don't clear timers on normal cleanup
             // Only clear timers when specific events trigger it
@@ -621,6 +691,8 @@ export default function GamePage() {
           <Canvas
             isDrawer={isCurrentUserDrawing}
             gameStarted={roomStatus === "started"}
+            webRTC={webRTC}
+            players={players}
           />
         </div>
       </div>
@@ -670,6 +742,13 @@ export default function GamePage() {
                         <span className="truncate">
                           {name === playerName ? <b>{name} (You)</b> : name}
                         </span>
+                        {/* Speaking indicator */}
+                        {playerId &&
+                          webRTC.speakingUsers.includes(playerId) && (
+                            <span className="text-base animate-pulse ml-1">
+                              🔊
+                            </span>
+                          )}
                       </div>
                       <span className="font-medium text-indigo-600 flex-shrink-0">
                         {score} pts

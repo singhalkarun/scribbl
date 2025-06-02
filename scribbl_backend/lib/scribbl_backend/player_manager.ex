@@ -62,8 +62,53 @@ defmodule ScribblBackend.PlayerManager do
       handle_drawer_removal(room_id)
     end
 
+    # Check if the removed player was the admin
+    {:ok, room_info} = GameState.get_room(room_id)
+
+    # Only check for admin reassignment if the game hasn't started yet
+    if room_info.status == "waiting" && player_id == room_info.admin_id do
+      handle_admin_removal(room_id)
+    end
+
     # Check if room is empty and clean up if needed
     GameState.check_and_cleanup_empty_room(room_id)
+  end
+
+  @doc """
+  Handle the scenario when the admin leaves the game before it starts.
+  Randomly selects a new admin from the remaining players.
+
+  ## Parameters
+    - `room_id`: The ID of the room where the admin left.
+  """
+  def handle_admin_removal(room_id) do
+    # Get the list of remaining players
+    case get_players(room_id) do
+      {:ok, []} ->
+        # No players left, no need to assign new admin
+        :ok
+
+      {:ok, players} ->
+        # Choose a random player as the new admin
+        new_admin = Enum.random(players)
+
+        # Set the new admin
+        GameState.set_room_admin(room_id, new_admin)
+
+        # Broadcast the admin change to all players
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          KeyManager.room_topic(room_id),
+          %{
+            event: "admin_changed",
+            payload: %{
+              "admin_id" => new_admin
+            }
+          }
+        )
+
+      _ -> :ok
+    end
   end
 
   @doc """
