@@ -15,6 +15,16 @@ defmodule ScribblBackend.GameHelper do
   alias ScribblBackend.GameFlow
 
   # get the room info if exists or create a new room
+  @spec get_or_initialize_room(any()) ::
+          {:error,
+           atom()
+           | %{
+               :__exception__ => true,
+               :__struct__ => Redix.ConnectionError | Redix.Error,
+               optional(:message) => binary(),
+               optional(:reason) => atom()
+             }}
+          | {:ok, any()}
   @doc """
   Get or initialize a game room.
   If the room already exists, it returns the room info.
@@ -30,6 +40,67 @@ defmodule ScribblBackend.GameHelper do
   """
   def get_or_initialize_room(room_id, opts \\ []) do
     GameState.get_or_initialize_room(room_id, opts)
+  end
+
+  @doc """
+  Get an existing room.
+  If the room does not exist, it returns an error.
+
+  ## Parameters
+    - `room_id`: The ID of the room to get.
+
+  ## Examples
+      iex> ScribblBackend.GameHelper.get_room("room_1")
+      {:ok, %{max_rounds: "3", current_round: "0", status: "waiting", current_drawer: ""}}
+  """
+  def get_room(room_id) do
+    GameState.get_room(room_id)
+  end
+
+  @doc """
+  Create a new game room with specified options.
+  If the room already exists, it returns an error.
+
+  ## Parameters
+    - `room_id`: The ID of the room to create.
+    - `admin_id`: The ID of the user who will be the room admin.
+    - `opts`: Optional parameters for room creation.
+
+  ## Examples
+      iex> ScribblBackend.GameHelper.create_room("room_1", "user_123", max_rounds: 5)
+      {:ok, %{max_rounds: "5", current_round: "0", status: "waiting", current_drawer: "", admin_id: "user_123"}}
+  """
+  def create_room(room_id, admin_id, opts \\ []) do
+    GameState.create_room(room_id, admin_id, opts)
+  end
+
+  @doc """
+  Get the admin ID of a room.
+
+  ## Parameters
+    - `room_id`: The ID of the room to get the admin from.
+
+  ## Examples
+      iex> ScribblBackend.GameHelper.get_room_admin("room_1")
+      {:ok, "user_123"}
+  """
+  def get_room_admin(room_id) do
+    GameState.get_room_admin(room_id)
+  end
+
+  @doc """
+  Set the admin of a room.
+
+  ## Parameters
+    - `room_id`: The ID of the room to set the admin for.
+    - `admin_id`: The ID of the user to set as the admin.
+
+  ## Examples
+      iex> ScribblBackend.GameHelper.set_room_admin("room_1", "user_456")
+      {:ok, "OK"}
+  """
+  def set_room_admin(room_id, admin_id) do
+    GameState.set_room_admin(room_id, admin_id)
   end
 
   @doc """
@@ -116,11 +187,14 @@ defmodule ScribblBackend.GameHelper do
   @doc """
   Generate random words for the drawing round.
 
+  ## Parameters
+    - `room_id`: The ID of the room.
+
   ## Returns
     A list of 3 random words.
   """
-  def generate_word do
-    WordManager.generate_words()
+  def generate_word(room_id \\ nil) do
+    WordManager.generate_words(room_id)
   end
 
   @doc """
@@ -233,5 +307,27 @@ defmodule ScribblBackend.GameHelper do
   """
   def check_and_cleanup_empty_room(room_id) do
     GameState.check_and_cleanup_empty_room(room_id)
+  end
+
+  @doc """
+  Update the settings of an existing room.
+  Only works if the room is in the "waiting" status.
+
+  ## Parameters
+    - `room_id`: The ID of the room to update.
+    - `settings`: A map containing the settings to update.
+
+  ## Options in settings map
+    - `:max_rounds`: The maximum number of rounds in the game.
+    - `:max_players`: The maximum number of players allowed in the room.
+    - `:turn_time`: The time in seconds for each drawing turn.
+    - `:hints_allowed`: Whether hints (letter reveals) are allowed.
+
+  ## Examples
+      iex> ScribblBackend.GameHelper.update_room_settings("room_1", %{max_rounds: 5})
+      {:ok, %{max_rounds: "5", current_round: "0", status: "waiting", current_drawer: ""}}
+  """
+  def update_room_settings(room_id, settings) do
+    GameState.update_room_settings(room_id, settings)
   end
 end

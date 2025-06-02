@@ -29,6 +29,11 @@ defmodule ScribblBackend.GameFlow do
     room_key = KeyManager.room_info(room_id)
     players_key = KeyManager.room_players(room_id)
 
+    # If this is the first round (0), reset and broadcast all scores to 0
+    if String.to_integer(current_round) == 0 do
+      PlayerManager.reset_and_broadcast_scores(room_id)
+    end
+
     # reset the non eligible guessers list at the start of each turn
     non_eligible_guessers_key = KeyManager.non_eligible_guessers(room_id, current_round)
     RedisHelper.del(non_eligible_guessers_key)
@@ -40,6 +45,9 @@ defmodule ScribblBackend.GameFlow do
       {:ok, nil} ->
         # check if the current round is less than the max rounds
         if String.to_integer(current_round) >= String.to_integer(max_rounds) do
+          # Clear all player scores before ending the game
+          PlayerManager.clear_all_player_scores(room_id)
+
           # end the game
           GameState.set_room_status(room_id, "finished")
           GameState.set_current_drawer(room_id, "")
@@ -55,7 +63,7 @@ defmodule ScribblBackend.GameFlow do
           )
 
           # Clean up the room state
-          GameState.cleanup_room(room_id)
+          GameState.reset_game_state(room_id)
 
           {:error, "Game over"}
         else
@@ -101,7 +109,7 @@ defmodule ScribblBackend.GameFlow do
         )
 
         # generate a random word and send to the drawer
-        words = WordManager.generate_words()
+        words = WordManager.generate_words(room_id)
 
         # send the word to the drawer
         Phoenix.PubSub.broadcast(

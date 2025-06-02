@@ -58,8 +58,10 @@ defmodule ScribblBackend.TimeoutWatcher do
     cond do
       Regex.match?(~r/^room:\{.+\}:timer$/, key) ->
         maybe_handle_expired_key(key)
+
       Regex.match?(~r/^room:\{.+\}:reveal_timer$/, key) ->
         handle_letter_reveal(key)
+
       true ->
         :noop
     end
@@ -108,9 +110,12 @@ defmodule ScribblBackend.TimeoutWatcher do
               _ -> :noop
             end
 
-          _ -> :noop
+          _ ->
+            :noop
         end
-      _ -> :noop
+
+      _ ->
+        :noop
     end
   end
 
@@ -143,58 +148,81 @@ defmodule ScribblBackend.TimeoutWatcher do
     # Extract room_id from the key
     case Regex.run(~r/^room:\{([^}]+)\}:reveal_timer$/, key) do
       [_, room_id] ->
-        # Get current word from Redis for lock uniqueness
-        case WordManager.get_current_word(room_id) do
-          {:ok, nil} ->
-            # If no word is set, do nothing
-            :noop
+        case GameState.get_room(room_id) do
+          {:ok, room_info} ->
+            # Check if hints are allowed
+            hints_allowed =
+              case room_info.hints_allowed do
+                nil -> true
+                "" -> true
+                "false" -> false
+                _ -> true
+              end
 
-          {:ok, word} ->
-            # Create a word-specific lock key
-            lock_key = KeyManager.reveal_timer_lock(room_id, word)
+            if hints_allowed do
+              # Get current word from Redis for lock uniqueness
+              case WordManager.get_current_word(room_id) do
+                {:ok, nil} ->
+                  # If no word is set, do nothing
+                  :noop
 
-            case Redix.command(:redix, [
-                   "SET",
-                   lock_key,
-                   node_id(),
-                   "NX",
-                   "PX",
-                   Integer.to_string(@lock_ttl_ms)
-                 ]) do
-              {:ok, "OK"} ->
-                # Reveal a letter
-                case WordManager.reveal_next_letter(room_id) do
-                  {:ok, revealed_word} ->
-                    # Get the current drawer
-                    case GameState.get_current_drawer(room_id) do
-                      {:ok, current_drawer} when is_binary(current_drawer) and current_drawer != "" ->
-                        # Send the letter reveal event to all players except the drawer
-                        Phoenix.PubSub.broadcast(
-                          ScribblBackend.PubSub,
-                          KeyManager.room_topic(room_id),
-                          {:exclude_user, current_drawer, %{
-                            event: "letter_reveal",
-                            payload: %{
-                              "revealed_word" => revealed_word
-                            }
-                          }}
-                        )
+                {:ok, word} ->
+                  # Create a word-specific lock key
+                  lock_key = KeyManager.reveal_timer_lock(room_id, word)
 
-                        # Start the next reveal timer
-                        WordManager.start_reveal_timer(room_id)
-                      _ ->
-                        # No valid drawer or error fetching drawer, so don't broadcast or start next timer
-                        :noop
-                    end
-                  _ ->
-                    :noop
-                end
-              _ -> :noop
+                  case Redix.command(:redix, [
+                         "SET",
+                         lock_key,
+                         node_id(),
+                         "NX",
+                         "PX",
+                         Integer.to_string(@lock_ttl_ms)
+                       ]) do
+                    {:ok, "OK"} ->
+                      # Reveal a letter
+                      case WordManager.reveal_next_letter(room_id) do
+                        {:ok, revealed_word} ->
+                          # Get the current drawer
+                          case GameState.get_current_drawer(room_id) do
+                            {:ok, current_drawer}
+                            when is_binary(current_drawer) and current_drawer != "" ->
+                              # Send the letter reveal event to all players except the drawer
+                              Phoenix.PubSub.broadcast(
+                                ScribblBackend.PubSub,
+                                KeyManager.room_topic(room_id),
+                                {:exclude_user, current_drawer,
+                                 %{
+                                   event: "letter_reveal",
+                                   payload: %{
+                                     "revealed_word" => revealed_word
+                                   }
+                                 }}
+                              )
+
+                              # Start the next reveal timer
+                              WordManager.start_reveal_timer(room_id)
+
+                            _ ->
+                              # No valid drawer or error fetching drawer, so don't broadcast or start next timer
+                              :noop
+                          end
+
+                        _ ->
+                          :noop
+                      end
+
+                    _ ->
+                      :noop
+                  end
+              end
             end
 
-          _ -> :noop
+          _ ->
+            :noop
         end
-      _ -> :noop
+
+      _ ->
+        :noop
     end
   end
 

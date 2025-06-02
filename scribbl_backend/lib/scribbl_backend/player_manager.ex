@@ -62,8 +62,53 @@ defmodule ScribblBackend.PlayerManager do
       handle_drawer_removal(room_id)
     end
 
+    # Check if the removed player was the admin
+    {:ok, room_info} = GameState.get_room(room_id)
+
+    # Only check for admin reassignment if the game hasn't started yet
+    if room_info.status == "waiting" && player_id == room_info.admin_id do
+      handle_admin_removal(room_id)
+    end
+
     # Check if room is empty and clean up if needed
     GameState.check_and_cleanup_empty_room(room_id)
+  end
+
+  @doc """
+  Handle the scenario when the admin leaves the game before it starts.
+  Randomly selects a new admin from the remaining players.
+
+  ## Parameters
+    - `room_id`: The ID of the room where the admin left.
+  """
+  def handle_admin_removal(room_id) do
+    # Get the list of remaining players
+    case get_players(room_id) do
+      {:ok, []} ->
+        # No players left, no need to assign new admin
+        :ok
+
+      {:ok, players} ->
+        # Choose a random player as the new admin
+        new_admin = Enum.random(players)
+
+        # Set the new admin
+        GameState.set_room_admin(room_id, new_admin)
+
+        # Broadcast the admin change to all players
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          KeyManager.room_topic(room_id),
+          %{
+            event: "admin_changed",
+            payload: %{
+              "admin_id" => new_admin
+            }
+          }
+        )
+
+      _ -> :ok
+    end
   end
 
   @doc """
@@ -182,6 +227,75 @@ defmodule ScribblBackend.PlayerManager do
     case RedisHelper.sismember(non_eligible_guessers_key, player_id) do
       {:ok, 1} -> true
       _ -> false
+    end
+  end
+
+  @doc """
+  Clear all player scores for a room.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Examples
+      iex> ScribblBackend.PlayerManager.clear_all_player_scores("room_1")
+      :ok
+  """
+  def clear_all_player_scores(room_id) do
+    # Get all keys matching the player score pattern for this room
+    player_score_pattern = "#{KeyManager.player_score(room_id, "*")}"
+    case RedisHelper.keys(player_score_pattern) do
+      {:ok, keys} when is_list(keys) and length(keys) > 0 ->
+        # Delete each score key
+        Enum.each(keys, fn key ->
+          RedisHelper.del(key)
+        end)
+        :ok
+      _ ->
+        # No keys found or error
+        :ok
+    end
+  end
+
+  @doc """
+  Reset all player scores to 0 and broadcast them to all players in the room.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Examples
+      iex> ScribblBackend.PlayerManager.reset_and_broadcast_scores("room_1")
+      :ok
+  """
+  def reset_and_broadcast_scores(room_id) do
+    # First clear all existing scores
+    clear_all_player_scores(room_id)
+
+    # Get all players in the room
+    case get_players(room_id) do
+      {:ok, players} when is_list(players) and length(players) > 0 ->
+        # Set each player's score to 0 and broadcast it
+        Enum.each(players, fn player_id ->
+          player_score_key = KeyManager.player_score(room_id, player_id)
+          RedisHelper.set(player_score_key, 0)
+
+          # Broadcast score update for each player
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            KeyManager.room_topic(room_id),
+            %{
+              event: "score_updated",
+              payload: %{
+                "user_id" => player_id,
+                "score" => 0
+              }
+            }
+          )
+        end)
+
+        :ok
+      _ ->
+        # No players found or error
+        :ok
     end
   end
 end
