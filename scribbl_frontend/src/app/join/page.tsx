@@ -10,6 +10,7 @@ function JoinPageContent() {
   const [name, setName] = useState("");
   const [roomId, setRoomId] = useState("");
   const [isJoining, setIsJoining] = useState(false);
+  const [nameError, setNameError] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -30,7 +31,13 @@ function JoinPageContent() {
       console.error("Socket not ready");
       return;
     }
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      // Reset animation by clearing error state first
+      setNameError(false);
+      // Use setTimeout to retrigger animation
+      setTimeout(() => setNameError(true), 10);
+      return;
+    }
 
     setIsJoining(true);
 
@@ -50,6 +57,13 @@ function JoinPageContent() {
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleJoin();
+    }
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    if (nameError) {
+      setNameError(false);
     }
   };
 
@@ -80,10 +94,14 @@ function JoinPageContent() {
         <div className="space-y-4">
           <div className="relative">
             <input
-              className="border border-gray-300 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-200 bg-white/90 pl-10"
+              className={`border px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 transition duration-200 bg-white/90 pl-10 ${
+                nameError
+                  ? "border-red-500 focus:ring-red-400 animate-shake"
+                  : "border-gray-300 focus:ring-blue-400"
+              }`}
               placeholder="Enter your name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={handleNameChange}
               onKeyDown={handleKeyDown}
             />
             <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
