@@ -17,7 +17,7 @@ export default function InstructionsModal({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 bg-gray-100 hover:bg-gray-200 hover:cursor-pointer rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-all duration-200"
+          className="absolute top-4 right-4 w-8 h-8 text-2xl bg-gray-100 hover:bg-gray-200 hover:cursor-pointer rounded-full flex items-center justify-center text-gray-600 hover:text-gray-800 transition-all duration-200"
         >
           ×
         </button>

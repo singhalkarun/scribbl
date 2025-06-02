@@ -4,6 +4,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { useEffect, useState, useMemo, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Chat from "@/components/Chat";
+import GameOverModal from "@/components/GameOverModal";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
 import { useSoundEffects } from "@/utils/useSoundEffects";
@@ -35,13 +36,21 @@ export default function GamePage() {
   const [showWordSelection, setShowWordSelection] = useState(false);
   const [suggestedWords, setSuggestedWords] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [gameJustEnded, setGameJustEnded] = useState(false);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
   // New states for turn over modal
   const [showTurnOverModal, setShowTurnOverModal] = useState(false);
   const [turnOverWord, setTurnOverWord] = useState("");
-  const [turnOverCountdown, setTurnOverCountdown] = useState(5);
+  const [turnOverCountdown, setTurnOverCountdown] = useState(3);
+  const [turnOverReason, setTurnOverReason] = useState(""); // Add reason state
   const [currentTurnDrawer, setCurrentTurnDrawer] = useState(""); // Track the current turn's drawer
+
+  // Game over modal states
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [finalScores, setFinalScores] = useState<{ [key: string]: number }>({});
+  const [finalPlayers, setFinalPlayers] = useState<{ [key: string]: string }>(
+    {}
+  );
+
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -258,11 +267,31 @@ export default function GamePage() {
             timerRef.current = null;
           }
 
-          // Show turn over modal with answer only to players who didn't guess correctly and weren't the drawer
-          if (currentTurnDrawer !== userId && !guessed && payload.word) {
+          // Determine who should see the modal based on the reason
+          let shouldShowModal = false;
+
+          if (payload.reason === "all_guessed") {
+            // Celebratory message - show to everyone except the drawer
+            shouldShowModal = currentTurnDrawer !== userId && payload.word;
+          } else if (payload.reason === "timeout") {
+            // Time's up - only show to players who didn't guess correctly and weren't the drawer
+            shouldShowModal =
+              currentTurnDrawer !== userId && !guessed && payload.word;
+          } else if (payload.reason === "drawer_left") {
+            // Drawer left - show to everyone except the drawer who left
+            shouldShowModal = currentTurnDrawer !== userId && payload.word;
+          } else {
+            // Default behavior for other reasons - show to players who didn't guess
+            shouldShowModal =
+              currentTurnDrawer !== userId && !guessed && payload.word;
+          }
+
+          // Show turn over modal with answer based on the conditions above
+          if (shouldShowModal) {
             setTurnOverWord(payload.word);
+            setTurnOverReason(payload.reason || ""); // Capture the reason
             setShowTurnOverModal(true);
-            setTurnOverCountdown(5);
+            setTurnOverCountdown(3);
 
             // Play a sound for turn over reveal
             playSound("correctGuess");
@@ -281,7 +310,7 @@ export default function GamePage() {
                     countdownTimerRef.current = null;
                   }
                   setShowTurnOverModal(false);
-                  return 5; // Reset for next time
+                  return 3; // Reset for next time
                 }
                 return prev - 1;
               });
@@ -308,8 +337,15 @@ export default function GamePage() {
           // Play game over sound
           playSound("gameOver");
 
-          // Show game over message
-          setGameJustEnded(true);
+          // Get current state directly from store
+          const currentState = usePlayerStore.getState();
+
+          // Preserve final scores and players data
+          setFinalScores(currentState.scores);
+          setFinalPlayers(currentState.players);
+
+          // Show game over modal
+          setShowGameOverModal(true);
 
           // Reset the game state to show the Start Game button again
           setRoomStatus("waiting");
@@ -322,11 +358,6 @@ export default function GamePage() {
           setWordToDraw("");
           setWordLength(0);
           setGuessed(false);
-
-          // Clear the game over message after a few seconds
-          setTimeout(() => {
-            setGameJustEnded(false);
-          }, 5000);
         });
 
         // Listen for score_updated event
@@ -383,6 +414,12 @@ export default function GamePage() {
     }
   };
 
+  // Handle start new game from game over modal
+  const handleStartNewGame = () => {
+    setShowGameOverModal(false);
+    handleStartGame();
+  };
+
   // Function to generate shareable URL with roomId parameter
   const getShareableLink = () => {
     const baseUrl = window.location.origin;
@@ -427,19 +464,75 @@ export default function GamePage() {
 
   return (
     <main className="h-[100svh] w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+      {/* Game Over Modal */}
+      <GameOverModal
+        isOpen={showGameOverModal}
+        onStartNewGame={handleStartNewGame}
+        scores={finalScores}
+        players={finalPlayers}
+        currentUserId={userId}
+        minPlayersRequired={2}
+      />
+
       {/* Turn Over Modal */}
       {showTurnOverModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
           <div className="bg-white rounded-xl p-6 shadow-2xl text-center max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Turn Over!
-            </h2>
-            <p className="text-gray-600 mb-6">
-              The word was:{" "}
-              <span className="font-bold text-indigo-600 text-xl">
-                {turnOverWord}
-              </span>
-            </p>
+            {/* Dynamic title and emoji based on reason */}
+            {turnOverReason === "all_guessed" ? (
+              <>
+                <div className="text-4xl mb-2">🎉</div>
+                <h2 className="text-2xl font-bold text-green-600 mb-4">
+                  Everyone Guessed!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Amazing! All players figured out the word:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            ) : turnOverReason === "timeout" ? (
+              <>
+                <div className="text-4xl mb-2">⏰</div>
+                <h2 className="text-2xl font-bold text-orange-600 mb-4">
+                  Time's Up!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  The time ran out! The word was:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            ) : turnOverReason === "drawer_left" ? (
+              <>
+                <div className="text-4xl mb-2">🚪</div>
+                <h2 className="text-2xl font-bold text-red-600 mb-4">
+                  Drawer Left!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  The drawer left the game. The word was:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl mb-2">🔄</div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                  Turn Over!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  The word was:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            )}
+
             <p className="text-gray-700 mb-2">Next turn starting in:</p>
             <div className="text-4xl font-bold text-indigo-600 mb-6">
               {turnOverCountdown}
@@ -448,7 +541,7 @@ export default function GamePage() {
               <div
                 className="h-full bg-indigo-500"
                 style={{
-                  width: `${(turnOverCountdown / 5) * 100}%`,
+                  width: `${(turnOverCountdown / 3) * 100}%`,
                   transition: "width 1s linear",
                 }}
               ></div>
@@ -578,20 +671,7 @@ export default function GamePage() {
         {/* Conditionally render Word hint or Start Game button */}
         {roomStatus === "waiting" ? (
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-3 md:p-3 text-center flex-shrink-0">
-            {gameJustEnded ? (
-              <div className="mb-3">
-                <h3 className="text-xl font-bold text-indigo-600 mb-1">
-                  Game Over!
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">The game has ended</p>
-                <div className="w-full h-1 bg-indigo-100 rounded mb-4">
-                  <div
-                    className="h-full bg-indigo-500 rounded animate-pulse"
-                    style={{ width: "100%" }}
-                  ></div>
-                </div>
-              </div>
-            ) : gameInfo.currentDrawer ? (
+            {gameInfo.currentDrawer ? (
               <div className="mb-3">
                 <h3 className="text-xl font-bold text-indigo-600 mb-1">
                   Game in Progress
@@ -696,7 +776,7 @@ export default function GamePage() {
               disabled={playersList.length < 2 || !!gameInfo.currentDrawer}
               onClick={handleStartGame}
             >
-              {gameJustEnded ? "Start New Game" : "Start Game"}
+              Start Game
             </button>
             <p className="text-xs text-gray-500 mt-2">
               {playersList.length < 2
