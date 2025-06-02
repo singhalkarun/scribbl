@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import BackgroundMusic from "@/components/BackgroundMusic";
+import InstructionsModal from "@/components/InstructionsModal";
 
 // Component to handle URL parameters
 function JoinPageContent() {
@@ -11,6 +12,7 @@ function JoinPageContent() {
   const [roomId, setRoomId] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [nameError, setNameError] = useState(false);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -84,6 +86,17 @@ function JoinPageContent() {
       </div>
 
       <div className="bg-white/80 backdrop-blur-sm p-8 rounded-2xl shadow-xl w-full max-w-md border border-white/20 relative z-10">
+        {/* Info Button - Top Right Corner */}
+        <button
+          onClick={() => setShowInstructions(true)}
+          className="absolute top-4 right-4 border-2 border-gray-500 hover:cursor-pointer rounded-full transition-all duration-200 hover:scale-105"
+          title="How to Play"
+        >
+          <div className="w-5 h-5 text-gray-500 flex items-center justify-center text-sm font-bold">
+            i
+          </div>
+        </button>
+
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-gray-800 mb-2">
             Welcome to Scribbl
@@ -135,6 +148,14 @@ function JoinPageContent() {
             : "Create or Join Random Room"}
         </button>
       </div>
+
+      {/* Instructions Modal */}
+      {showInstructions && (
+        <InstructionsModal
+          isOpen={showInstructions}
+          onClose={() => setShowInstructions(false)}
+        />
+      )}
 
       <div className="absolute bottom-4 left-0 right-0 text-center text-sm text-gray-600 z-10">
         Built with ❤️ by{" "}
