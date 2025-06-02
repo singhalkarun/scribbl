@@ -28,6 +28,7 @@ interface PlayerStore {
   playerName: string;
   roomId: string;
   userId: string; // Added userId state
+  adminId: string; // Add admin ID state
   channel: Channel | null;
   socket: Socket | null;
   players: { [userId: string]: string }; // Map of userId to playerName
@@ -39,6 +40,7 @@ interface PlayerStore {
   setChannel: (channel: Channel | null) => void;
   setSocket: (socket: Socket) => void;
   setUserId: (userId: string) => void; // Added userId setter
+  setAdminId: (adminId: string) => void; // Add admin ID setter
   updatePlayers: (presenceState: PresenceState) => void; // Action to update players
   applyPresenceDiff: (diff: {
     joins: PresenceState;
@@ -56,6 +58,7 @@ export const usePlayerStore = create<PlayerStore>()(
       playerName: "",
       roomId: "",
       userId: "", // Added userId initial state
+      adminId: "", // Add admin ID initial state
       channel: null,
       socket: null,
       players: {}, // Initial state for players
@@ -70,6 +73,11 @@ export const usePlayerStore = create<PlayerStore>()(
         // Added userId setter implementation + logging
         console.log(`[Store] Setting userId to: ${userId}`);
         set({ userId });
+      },
+      setAdminId: (adminId) => {
+        // Add admin ID setter implementation + logging
+        console.log(`[Store] Setting adminId to: ${adminId}`);
+        set({ adminId });
       },
       updatePlayers: (presenceState) =>
         set((state) => {
@@ -187,7 +195,7 @@ export const usePlayerStore = create<PlayerStore>()(
           return { scores: newScores };
         }),
       clearPlayerInfo: () => {
-        set({ playerName: "", roomId: "", userId: "" }); // Clear userId too
+        set({ playerName: "", roomId: "", userId: "", adminId: "" }); // Clear adminId too
       },
       _hasHydrated: false, // Flag to track hydration state
     }),
@@ -197,6 +205,7 @@ export const usePlayerStore = create<PlayerStore>()(
         playerName: state.playerName,
         roomId: state.roomId,
         userId: state.userId, // Add userId to persisted state
+        adminId: state.adminId, // Add adminId to persisted state
       }),
       // Set hydration flag once storage is read
       onRehydrateStorage: () => (state, error) => {
