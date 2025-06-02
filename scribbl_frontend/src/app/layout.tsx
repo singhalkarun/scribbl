@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono, Outfit } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import SocketInitializer from "@/components/SocketInitializer";
+import OrientationLock from "@/components/OrientationLock";
 
 const outfit = Outfit({
   variable: "--font-outfit",
@@ -75,6 +76,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased">
         <SocketInitializer />
+        <OrientationLock />
         {children}
       </body>
     </html>
