@@ -245,15 +245,44 @@ export function useWebRTC(
         `[WebRTC] Creating peer connection with ${targetUserId}, initiator: ${isInitiator}`
       );
 
+      // Production-ready ICE server configuration
+      const iceServers: RTCIceServer[] = [
+        // Google STUN servers
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
+        // Mozilla STUN servers
+        { urls: "stun:stun.mozilla.org:3478" },
+        // Additional public STUN servers for better reliability
+        { urls: "stun:global.stun.twilio.com:3478" },
+        // Google public TURN servers for better connectivity
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443?transport=tcp",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+      ];
+
       const peer = new SimplePeer({
         initiator: isInitiator,
-        trickle: false, // Disable trickle ICE for simplicity
+        trickle: true, // Enable trickle ICE for better production performance
         stream: localStream,
         config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-          ],
+          iceServers,
+          iceCandidatePoolSize: 10, // Gather more ICE candidates
+          iceTransportPolicy: "all", // Use both STUN and TURN
         },
       });
 
@@ -382,15 +411,44 @@ export function useWebRTC(
         `[WebRTC] Creating peer connection with ${targetUserId} (no local stream), initiator: ${isInitiator}`
       );
 
+      // Production-ready ICE server configuration
+      const iceServers: RTCIceServer[] = [
+        // Google STUN servers
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:stun2.l.google.com:19302" },
+        { urls: "stun:stun3.l.google.com:19302" },
+        { urls: "stun:stun4.l.google.com:19302" },
+        // Mozilla STUN servers
+        { urls: "stun:stun.mozilla.org:3478" },
+        // Additional public STUN servers for better reliability
+        { urls: "stun:global.stun.twilio.com:3478" },
+        // Google public TURN servers for better connectivity
+        {
+          urls: "turn:openrelay.metered.ca:80",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+        {
+          urls: "turn:openrelay.metered.ca:443?transport=tcp",
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+      ];
+
       const peer = new SimplePeer({
         initiator: isInitiator,
-        trickle: false,
+        trickle: true,
         // No stream initially - will be added when user unmutes
         config: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-          ],
+          iceServers,
+          iceCandidatePoolSize: 10,
+          iceTransportPolicy: "all",
         },
       });
 
