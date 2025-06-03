@@ -162,22 +162,26 @@ defmodule ScribblBackend.TimeoutWatcher do
                 case WordManager.reveal_next_letter(room_id) do
                   {:ok, revealed_word} ->
                     # Get the current drawer
-                    {:ok, current_drawer} = GameState.get_current_drawer(room_id)
+                    case GameState.get_current_drawer(room_id) do
+                      {:ok, current_drawer} when is_binary(current_drawer) and current_drawer != "" ->
+                        # Send the letter reveal event to all players except the drawer
+                        Phoenix.PubSub.broadcast(
+                          ScribblBackend.PubSub,
+                          KeyManager.room_topic(room_id),
+                          {:exclude_user, current_drawer, %{
+                            event: "letter_reveal",
+                            payload: %{
+                              "revealed_word" => revealed_word
+                            }
+                          }}
+                        )
 
-                    # Send the letter reveal event to all players except the drawer
-                    Phoenix.PubSub.broadcast(
-                      ScribblBackend.PubSub,
-                      KeyManager.room_topic(room_id),
-                      {:exclude_user, current_drawer, %{
-                        event: "letter_reveal",
-                        payload: %{
-                          "revealed_word" => revealed_word
-                        }
-                      }}
-                    )
-
-                    # Start the next reveal timer
-                    WordManager.start_reveal_timer(room_id)
+                        # Start the next reveal timer
+                        WordManager.start_reveal_timer(room_id)
+                      _ ->
+                        # No valid drawer or error fetching drawer, so don't broadcast or start next timer
+                        :noop
+                    end
                   _ ->
                     :noop
                 end
