@@ -27,7 +27,8 @@ export interface Message {
 interface PlayerStore {
   playerName: string;
   roomId: string;
-  userId: string; // Added userId state
+  userId: string;
+  adminId: string;
   channel: Channel | null;
   socket: Socket | null;
   players: { [userId: string]: string }; // Map of userId to playerName
@@ -38,7 +39,8 @@ interface PlayerStore {
   setRoomId: (roomId: string) => void;
   setChannel: (channel: Channel | null) => void;
   setSocket: (socket: Socket) => void;
-  setUserId: (userId: string) => void; // Added userId setter
+  setUserId: (userId: string) => void;
+  setAdminId: (adminId: string) => void;
   updatePlayers: (presenceState: PresenceState) => void; // Action to update players
   applyPresenceDiff: (diff: {
     joins: PresenceState;
@@ -55,7 +57,8 @@ export const usePlayerStore = create<PlayerStore>()(
     (set, get) => ({
       playerName: "",
       roomId: "",
-      userId: "", // Added userId initial state
+      userId: "",
+      adminId: "",
       channel: null,
       socket: null,
       players: {}, // Initial state for players
@@ -70,6 +73,11 @@ export const usePlayerStore = create<PlayerStore>()(
         // Added userId setter implementation + logging
         console.log(`[Store] Setting userId to: ${userId}`);
         set({ userId });
+      },
+      setAdminId: (adminId) => {
+        // Add admin ID setter implementation + logging
+        console.log(`[Store] Setting adminId to: ${adminId}`);
+        set({ adminId });
       },
       updatePlayers: (presenceState) =>
         set((state) => {
@@ -186,7 +194,7 @@ export const usePlayerStore = create<PlayerStore>()(
           scores: { ...state.scores, [userId]: score },
         })),
       clearPlayerInfo: () => {
-        set({ playerName: "", roomId: "", userId: "" }); // Clear userId too
+        set({ playerName: "", roomId: "", userId: "", adminId: "" });
       },
       _hasHydrated: false, // Flag to track hydration state
     }),
@@ -195,7 +203,8 @@ export const usePlayerStore = create<PlayerStore>()(
       partialize: (state) => ({
         playerName: state.playerName,
         roomId: state.roomId,
-        userId: state.userId, // Add userId to persisted state
+        userId: state.userId,
+        adminId: state.adminId,
       }),
       // Set hydration flag once storage is read
       onRehydrateStorage: () => (state, error) => {
