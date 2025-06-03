@@ -4,6 +4,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { useEffect, useState, useMemo, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Chat from "@/components/Chat";
+import GameOverModal from "@/components/GameOverModal";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
 import { useSoundEffects } from "@/utils/useSoundEffects";
@@ -42,8 +43,15 @@ export default function GamePage() {
   // New states for turn over modal
   const [showTurnOverModal, setShowTurnOverModal] = useState(false);
   const [turnOverWord, setTurnOverWord] = useState("");
-  const [turnOverCountdown, setTurnOverCountdown] = useState(5);
+  const [turnOverCountdown, setTurnOverCountdown] = useState(3);
+  const [turnOverReason, setTurnOverReason] = useState("");
   const [currentTurnDrawer, setCurrentTurnDrawer] = useState(""); // Track the current turn's drawer
+  // Game over modal states
+  const [showGameOverModal, setShowGameOverModal] = useState(false);
+  const [finalScores, setFinalScores] = useState<{ [key: string]: number }>({});
+  const [finalPlayers, setFinalPlayers] = useState<{ [key: string]: string }>(
+    {}
+  );
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -78,7 +86,7 @@ export default function GamePage() {
     return isDrawer;
   }, [gameInfo.currentDrawer, userId]);
 
-  // Check if current user is the adminAdd commentMore actions
+  // Check if current user is the admin
   const isCurrentUserAdmin = useMemo(() => {
     const isAdmin = adminId === userId && adminId !== "";
     console.log("[GamePage] Admin check:", {
@@ -129,7 +137,7 @@ export default function GamePage() {
             currentDrawer: payload.current_drawer,
             currentRound: payload.current_round,
           });
-          // Store the admin_id from room_infoAdd commentMore actions
+          // Store the admin_id from room_info
           if (payload.admin_id) {
             setAdminId(payload.admin_id);
           }
@@ -144,18 +152,6 @@ export default function GamePage() {
           }
         });
 
-        // Listen for game_started event
-        const gameStartedRef = channel.on("game_started", (payload) => {
-          console.log("[GamePage] Received game_started:", payload);
-          setRoomStatus(payload.status);
-          setGameInfo((prev) => ({
-            ...prev,
-            currentRound: payload.current_round,
-          }));
-          // Play new round sound when a game starts
-          playSound("newRound");
-        });
-
         // Listen for drawer_assigned event
         const drawerAssignedRef = channel.on("drawer_assigned", (payload) => {
           console.log("[GamePage] Received drawer_assigned:", payload);
@@ -165,6 +161,10 @@ export default function GamePage() {
             currentRound: payload.round,
           }));
           setCurrentTurnDrawer(payload.drawer); // Store the drawer for this turn
+
+          // Always hide game over modal when a new drawer is assigned (new game/turn started)
+          console.log("[GamePage] Hiding GameOverModal - new drawer assigned");
+          setShowGameOverModal(false);
         });
 
         // Listen for select_word event (only sent to the drawer)
@@ -284,11 +284,12 @@ export default function GamePage() {
             timerRef.current = null;
           }
 
-          // Show turn over modal with answer only to players who didn't guess correctly and weren't the drawer
-          if (currentTurnDrawer !== userId && !guessed && payload.word) {
+          // Show turn over modal to everyone when turn ends
+          if (payload.word) {
             setTurnOverWord(payload.word);
+            setTurnOverReason(payload.reason || ""); // Capture the reason
             setShowTurnOverModal(true);
-            setTurnOverCountdown(5);
+            setTurnOverCountdown(3);
 
             // Play a sound for turn over reveal
             playSound("correctGuess");
@@ -307,7 +308,7 @@ export default function GamePage() {
                     countdownTimerRef.current = null;
                   }
                   setShowTurnOverModal(false);
-                  return 5; // Reset for next time
+                  return 3; // Reset for next time
                 }
                 return prev - 1;
               });
@@ -334,8 +335,15 @@ export default function GamePage() {
           // Play game over sound
           playSound("gameOver");
 
-          // Show game over message
-          setGameJustEnded(true);
+          // Get current state directly from store
+          const currentState = usePlayerStore.getState();
+
+          // Preserve final scores and players data
+          setFinalScores(currentState.scores);
+          setFinalPlayers(currentState.players);
+
+          // Show game over modal
+          setShowGameOverModal(true);
 
           // Reset the game state to show the Start Game button again
           setRoomStatus("waiting");
@@ -348,11 +356,6 @@ export default function GamePage() {
           setWordToDraw("");
           setWordLength(0);
           setGuessed(false);
-
-          // Clear the game over message after a few seconds
-          setTimeout(() => {
-            setGameJustEnded(false);
-          }, 5000);
         });
 
         // Listen for score_updated event
@@ -381,7 +384,6 @@ export default function GamePage() {
         return () => {
           if (channel) {
             channel.off("room_info", roomInfoRef);
-            channel.off("game_started", gameStartedRef);
             channel.off("drawer_assigned", drawerAssignedRef);
             channel.off("select_word", selectWordRef);
             channel.off("turn_started", turnStartedRef);
@@ -408,6 +410,11 @@ export default function GamePage() {
       console.log("[GamePage] Sending start_game event");
       channel.push("start_game", {});
     }
+  };
+
+  // Handle close game over modal
+  const handleCloseGameOverModal = () => {
+    setShowGameOverModal(false);
   };
 
   // Function to generate shareable URL with roomId parameter
@@ -454,19 +461,72 @@ export default function GamePage() {
 
   return (
     <main className="h-[100svh] w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+      {/* Game Over Modal */}
+      <GameOverModal
+        isOpen={showGameOverModal}
+        onClose={handleCloseGameOverModal}
+        scores={finalScores}
+        players={finalPlayers}
+        currentUserId={userId}
+      />
       {/* Turn Over Modal */}
       {showTurnOverModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
           <div className="bg-white rounded-xl p-6 shadow-2xl text-center max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Turn Over!
-            </h2>
-            <p className="text-gray-600 mb-6">
-              The word was:{" "}
-              <span className="font-bold text-indigo-600 text-xl">
-                {turnOverWord}
-              </span>
-            </p>
+            {/* Dynamic title and emoji based on reason */}
+            {turnOverReason === "all_guessed" ? (
+              <>
+                <div className="text-4xl mb-2">🎉</div>
+                <h2 className="text-2xl font-bold text-green-600 mb-4">
+                  Everyone Guessed!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  Amazing! All players figured out the word:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            ) : turnOverReason === "timeout" ? (
+              <>
+                <div className="text-4xl mb-2">⏰</div>
+                <h2 className="text-2xl font-bold text-orange-600 mb-4">
+                  Time's Up!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  The time ran out! The word was:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            ) : turnOverReason === "drawer_left" ? (
+              <>
+                <div className="text-4xl mb-2">🚪</div>
+                <h2 className="text-2xl font-bold text-red-600 mb-4">
+                  Drawer Left!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  The drawer left the game. The word was:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl mb-2">🔄</div>
+                <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                  Turn Over!
+                </h2>
+                <p className="text-gray-600 mb-6">
+                  The word was:{" "}
+                  <span className="font-bold text-indigo-600 text-xl">
+                    {turnOverWord}
+                  </span>
+                </p>
+              </>
+            )}
             <p className="text-gray-700 mb-2">Next turn starting in:</p>
             <div className="text-4xl font-bold text-indigo-600 mb-6">
               {turnOverCountdown}
@@ -475,7 +535,7 @@ export default function GamePage() {
               <div
                 className="h-full bg-indigo-500"
                 style={{
-                  width: `${(turnOverCountdown / 5) * 100}%`,
+                  width: `${(turnOverCountdown / 3) * 100}%`,
                   transition: "width 1s linear",
                 }}
               ></div>
@@ -483,7 +543,6 @@ export default function GamePage() {
           </div>
         </div>
       )}
-
       {/* Word Selection Overlay */}
       {showWordSelection && isCurrentUserDrawing && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
@@ -521,7 +580,6 @@ export default function GamePage() {
           </div>
         </div>
       )}
-
       {/* Canvas area - Fixed height on mobile, grows on md+ */}
       <div className="px-1 h-[45vh] md:h-auto md:flex-1 md:p-4">
         <div className="w-full h-full bg-white rounded-xl md:shadow-lg flex flex-col overflow-hidden">
@@ -531,7 +589,6 @@ export default function GamePage() {
           />
         </div>
       </div>
-
       {/* Sidebar Area - Takes remaining space on mobile, fixed width on md+ */}
       <aside className="flex-1 flex flex-col gap-2 p-1 min-h-0 md:w-80 lg:w-96 md:flex-none md:p-4 md:h-screen md:border-l md:border-gray-200 md:bg-transparent">
         {/* Players & Chat Container - Row on mobile, Col on md+ */}
@@ -605,20 +662,7 @@ export default function GamePage() {
         {/* Conditionally render Word hint or Start Game button */}
         {roomStatus === "waiting" ? (
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-3 md:p-3 text-center flex-shrink-0">
-            {gameJustEnded ? (
-              <div className="mb-3">
-                <h3 className="text-xl font-bold text-indigo-600 mb-1">
-                  Game Over!
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">The game has ended</p>
-                <div className="w-full h-1 bg-indigo-100 rounded mb-4">
-                  <div
-                    className="h-full bg-indigo-500 rounded animate-pulse"
-                    style={{ width: "100%" }}
-                  ></div>
-                </div>
-              </div>
-            ) : gameInfo.currentDrawer ? (
+            {gameInfo.currentDrawer ? (
               <div className="mb-3">
                 <h3 className="text-xl font-bold text-indigo-600 mb-1">
                   Game in Progress
@@ -729,7 +773,7 @@ export default function GamePage() {
               }
               onClick={handleStartGame}
             >
-              {gameJustEnded ? "Start New Game" : "Start Game"}
+              Start Game
             </button>
             <p className="text-xs text-gray-500 mt-2">
               {playersList.length < 2

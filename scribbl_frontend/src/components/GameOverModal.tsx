@@ -2,26 +2,25 @@ import React from "react";
 
 interface GameOverModalProps {
   isOpen: boolean;
-  onStartNewGame: () => void;
+  onClose: () => void;
   scores: { [key: string]: number };
   players: { [key: string]: string };
   currentUserId: string;
-  minPlayersRequired: number;
 }
 
 export default function GameOverModal({
   isOpen,
-  onStartNewGame,
+  onClose,
   scores,
   players,
   currentUserId,
-  minPlayersRequired = 2,
 }: GameOverModalProps) {
   if (!isOpen) return null;
 
-  // Get the number of players
-  const playerCount = Object.keys(players).length;
-  const canStartNewGame = playerCount >= minPlayersRequired;
+  // Filter scores to only include current players (avoid showing "Unknown" for players who left)
+  const filteredScores = Object.fromEntries(
+    Object.entries(scores).filter(([playerId]) => players[playerId])
+  );
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[1000]">
@@ -40,51 +39,58 @@ export default function GameOverModal({
 
         <div className="mb-6">
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {Object.entries(scores)
-              .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-              .map(([playerId, score], index) => {
-                // Determine medal emoji
-                let medal = "";
-                if (index === 0) medal = "🥇";
-                else if (index === 1) medal = "🥈";
-                else if (index === 2) medal = "🥉";
+            {Object.entries(filteredScores).length > 0 ? (
+              Object.entries(filteredScores)
+                .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+                .map(([playerId, score], index) => {
+                  // Determine medal emoji
+                  let medal = "";
+                  if (index === 0) medal = "🥇";
+                  else if (index === 1) medal = "🥈";
+                  else if (index === 2) medal = "🥉";
 
-                return (
-                  <div
-                    key={playerId}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      index === 0
-                        ? "bg-yellow-100 border border-yellow-300"
-                        : index === 1
-                        ? "bg-gray-100 border border-gray-300"
-                        : index === 2
-                        ? "bg-amber-50 border border-amber-200"
-                        : "bg-white border border-gray-100"
-                    } transition-all hover:shadow-md ${
-                      index < 3 ? "animate-pulse-slow" : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-gray-700 w-8">
-                        {medal || `${index + 1}.`}
-                      </span>
-                      <span
-                        className={`font-medium ${
-                          playerId === currentUserId
-                            ? "text-indigo-600 font-bold"
-                            : ""
-                        }`}
-                      >
-                        {players[playerId] || "Unknown"}
-                        {playerId === currentUserId ? " (You)" : ""}
+                  return (
+                    <div
+                      key={playerId}
+                      className={`flex items-center justify-between p-3 rounded-lg ${
+                        index === 0
+                          ? "bg-yellow-100 border border-yellow-300"
+                          : index === 1
+                          ? "bg-gray-100 border border-gray-300"
+                          : index === 2
+                          ? "bg-amber-50 border border-amber-200"
+                          : "bg-white border border-gray-100"
+                      } transition-all hover:shadow-md ${
+                        index < 3 ? "animate-pulse-slow" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-700 w-8">
+                          {medal || `${index + 1}.`}
+                        </span>
+                        <span
+                          className={`font-medium ${
+                            playerId === currentUserId
+                              ? "text-indigo-600 font-bold"
+                              : ""
+                          }`}
+                        >
+                          {players[playerId] || "Unknown"}
+                          {playerId === currentUserId ? " (You)" : ""}
+                        </span>
+                      </div>
+                      <span className="font-bold text-indigo-600">
+                        {score} pts
                       </span>
                     </div>
-                    <span className="font-bold text-indigo-600">
-                      {score} pts
-                    </span>
-                  </div>
-                );
-              })}
+                  );
+                })
+            ) : (
+              <div className="text-center text-gray-500 py-4">
+                <p>No scores to display</p>
+                <p className="text-sm">All players may have left the game</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -96,30 +102,20 @@ export default function GameOverModal({
             ✏️
           </div>
           <button
-            className={`w-full py-3 px-4 rounded-lg font-semibold text-white ${
-              canStartNewGame
-                ? "bg-indigo-600 hover:bg-indigo-700"
-                : "bg-gray-400 cursor-not-allowed"
-            } transition-colors`}
-            onClick={onStartNewGame}
-            disabled={!canStartNewGame}
+            className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
+            onClick={onClose}
           >
-            Start New Game
+            Close
           </button>
-          {!canStartNewGame && (
-            <p className="text-xs text-red-500 mt-2">
-              Need at least {minPlayersRequired} players to start
-            </p>
-          )}
 
           {/* For development/preview only - remove in production */}
           {process.env.NODE_ENV === "development" && (
             <button
               className="mt-4 w-full py-2 px-4 rounded-lg font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors border border-gray-300"
               onClick={() => {
-                // This is a no-op in the component - parent must handle via onStartNewGame
+                // This is a no-op in the component - parent must handle via onClose
                 console.log("[GameOverModal] Preview close button clicked");
-                onStartNewGame();
+                onClose();
               }}
             >
               Close Preview
