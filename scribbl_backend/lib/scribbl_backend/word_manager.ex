@@ -78,13 +78,46 @@ defmodule ScribblBackend.WordManager do
 
   @doc """
   Start a timer for letter reveal.
+  The timer duration is calculated based on the length of the current word.
+  Shorter words get longer per-letter reveal times, longer words get shorter.
+  The overall goal is that roughly half the word should be revealed by the main turn timer's halfway point (30s).
+  Minimum timer duration is 1 second.
 
   ## Parameters
     - `room_id`: The ID of the room.
+
+  ## Returns
+    - `{:ok, "OK"}` if the timer was set successfully.
+    - `{:error, :word_too_short}` if the word length is less than 2.
+    - `{:error, :word_not_found}` if no word is set for the room or word is empty.
+    - `{:error, reason}` for other Redis errors.
   """
   def start_reveal_timer(room_id) do
     room_reveal_timer_key = KeyManager.reveal_timer(room_id)
-    RedisHelper.setex(room_reveal_timer_key, 15, "reveal_letter")
+    word_key = KeyManager.current_word(room_id)
+
+    case RedisHelper.get(word_key) do
+      {:ok, word} when is_binary(word) and word != "" ->
+        word_length = String.length(word)
+
+        if word_length < 2 do
+          {:error, :word_too_short}
+        else
+          # Formula: trunc( (total_reveal_time / (num_letters_to_reveal_by_half_time) ) )
+          # total_reveal_time = 30 (half of main turn timer)
+          # num_letters_to_reveal_by_half_time = word_length / 2 (approximately)
+          # So, duration_per_letter = 30 / (word_length / 2) = 60 / word_length
+          # We ensure a minimum duration of 1 second.
+          timer_duration = max(1, trunc(60 / word_length))
+          RedisHelper.setex(room_reveal_timer_key, timer_duration, "reveal_letter")
+        end
+
+      {:ok, _} -> # Handles nil or empty word from Redis get
+        {:error, :word_not_found}
+
+      {:error, reason} -> # Handles Redis command errors
+        {:error, reason}
+    end
   end
 
   @doc """
