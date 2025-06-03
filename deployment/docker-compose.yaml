@@ -75,6 +75,8 @@ services:
     depends_on:
       - scribbl_backend_1
       - scribbl_backend_2
+      - scribbl_backend_3
+      - scribbl_backend_4
 
   redis:
     image: redis:7.4.3-alpine
