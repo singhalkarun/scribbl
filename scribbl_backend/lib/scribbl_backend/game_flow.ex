@@ -346,6 +346,10 @@ defmodule ScribblBackend.GameFlow do
         }
       )
 
+      # Clear current word and revealed indices for the completed turn
+      RedisHelper.del(KeyManager.current_word(room_id))
+      RedisHelper.del(KeyManager.revealed_indices(room_id))
+
       # Clear any remaining timers
       RedisHelper.del(KeyManager.turn_timer(room_id))
       RedisHelper.del(KeyManager.reveal_timer(room_id))
