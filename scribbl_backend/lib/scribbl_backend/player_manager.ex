@@ -70,6 +70,30 @@ defmodule ScribblBackend.PlayerManager do
       handle_admin_removal(room_id)
     end
 
+    # Check if only one player remains in an active game
+    {:ok, remaining_players} = get_players(room_id)
+    if length(remaining_players) == 1 && room_info.status == "active" do
+      # End the game since only one player remains
+      GameState.set_room_status(room_id, "finished")
+      GameState.set_current_drawer(room_id, "")
+
+      # Clear all player scores before ending the game
+      clear_all_player_scores(room_id)
+
+      # send the game over event to all players
+      Phoenix.PubSub.broadcast(
+        ScribblBackend.PubSub,
+        KeyManager.room_topic(room_id),
+        %{
+          event: "game_over",
+          payload: %{}
+        }
+      )
+
+      # Clean up the room state
+      GameState.reset_game_state(room_id)
+    end
+
     # Check if room is empty and clean up if needed
     GameState.check_and_cleanup_empty_room(room_id)
   end
