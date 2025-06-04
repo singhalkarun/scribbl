@@ -192,17 +192,7 @@ defmodule ScribblBackend.GameFlow do
 
               if already_guessed do
                 # broadcast the message
-                Phoenix.PubSub.broadcast(
-                  ScribblBackend.PubSub,
-                  socket.topic,
-                  %{
-                    event: "new_message",
-                    payload: %{
-                      "message" => message,
-                      "user_id" => user_id
-                    }
-                  }
-                )
+
               else
                 # add user to non eligible guessers list
                 PlayerManager.mark_player_guessed_correctly(room_id, user_id, round)
