@@ -5,8 +5,11 @@ defmodule ScribblBackendWeb.Router do
     plug :accepts, ["json"]
   end
 
-  scope "/api", ScribblBackendWeb do
+    scope "/api", ScribblBackendWeb do
     pipe_through :api
+
+    # Room management endpoints
+    get "/rooms/join-random", RoomController, :join_random
   end
 
   # Enable LiveDashboard in development

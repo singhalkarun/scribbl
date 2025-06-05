@@ -62,10 +62,11 @@ defmodule ScribblBackend.GameState do
     - `:turn_time`: The time in seconds for each drawing turn. Default: 80.
     - `:hints_allowed`: Whether hints (letter reveals) are allowed. Default: true.
     - `:difficulty`: The difficulty level of words ("easy", "medium", "hard"). Default: "medium".
+    - `:room_type`: The room type ("public" or "private"). Default: "public".
 
   ## Examples
-      iex> ScribblBackend.GameState.create_room("room_1", "user_123", max_rounds: 5, max_players: 6)
-      {:ok, %{max_rounds: "5", current_round: "0", status: "waiting", current_drawer: "", admin_id: "user_123", max_players: "6", turn_time: "80", hints_allowed: "true", difficulty: "medium"}}
+      iex> ScribblBackend.GameState.create_room("room_1", "user_123", max_rounds: 5, max_players: 6, room_type: "private")
+      {:ok, %{max_rounds: "5", current_round: "0", status: "waiting", current_drawer: "", admin_id: "user_123", max_players: "6", turn_time: "80", hints_allowed: "true", difficulty: "medium", room_type: "private"}}
   """
   def create_room(room_id, admin_id, opts \\ []) do
     room_key = KeyManager.room_info(room_id)
@@ -83,6 +84,7 @@ defmodule ScribblBackend.GameState do
         turn_time = Keyword.get(opts, :turn_time, 60)
         hints_allowed = Keyword.get(opts, :hints_allowed, true)
         difficulty = Keyword.get(opts, :difficulty, "medium")
+        room_type = Keyword.get(opts, :room_type, "public")
 
         # Create room with specified values
         {:ok, _} = RedisHelper.hmset(
@@ -96,9 +98,15 @@ defmodule ScribblBackend.GameState do
             "max_players" => max_players,
             "turn_time" => turn_time,
             "hints_allowed" => hints_allowed,
-            "difficulty" => difficulty
+            "difficulty" => difficulty,
+            "room_type" => room_type
           }
         )
+
+        # If room is public, add it to the public rooms set
+        if room_type == "public" do
+          add_to_public_rooms(room_id)
+        end
 
         # Return the room info
         {:ok, %{
@@ -110,7 +118,8 @@ defmodule ScribblBackend.GameState do
           max_players: "#{max_players}",
           turn_time: "#{turn_time}",
           hints_allowed: "#{hints_allowed}",
-          difficulty: "#{difficulty}"
+          difficulty: "#{difficulty}",
+          room_type: "#{room_type}"
         }}
 
       {:error, reason} ->
@@ -201,6 +210,11 @@ defmodule ScribblBackend.GameState do
       _ -> {:ok, "medium"}
     end
 
+    {:ok, room_type} = RedisHelper.hget(KeyManager.room_info(room_id), "room_type") |> case do
+      {:ok, value} when value != nil and value != "" -> {:ok, value}
+      _ -> {:ok, "public"}
+    end
+
     room_key = KeyManager.room_info(room_id)
 
     # Create room with preserved values
@@ -215,9 +229,15 @@ defmodule ScribblBackend.GameState do
         "max_players" => max_players,
         "turn_time" => turn_time,
         "hints_allowed" => hints_allowed,
-        "difficulty" => difficulty
+        "difficulty" => difficulty,
+        "room_type" => room_type
       }
     )
+
+    # If room is public, make sure it's in the public rooms set
+    if room_type == "public" do
+      add_to_public_rooms(room_id)
+    end
 
     # Return the room info
     {:ok, %{
@@ -229,7 +249,8 @@ defmodule ScribblBackend.GameState do
       max_players: "#{max_players}",
       turn_time: "#{turn_time}",
       hints_allowed: "#{hints_allowed}",
-      difficulty: "#{difficulty}"
+      difficulty: "#{difficulty}",
+      room_type: "#{room_type}"
     }}
   end
 
@@ -312,6 +333,9 @@ defmodule ScribblBackend.GameState do
     # Clear all player scores first
     PlayerManager.clear_all_player_scores(room_id)
 
+    # Remove from public rooms set
+    remove_from_public_rooms(room_id)
+
     # Delete the room info key
     room_info_key = KeyManager.room_info(room_id)
     RedisHelper.del(room_info_key)
@@ -350,6 +374,7 @@ defmodule ScribblBackend.GameState do
     - `:turn_time`: The time in seconds for each drawing turn.
     - `:hints_allowed`: Whether hints (letter reveals) are allowed.
     - `:difficulty`: The difficulty level of words ("easy", "medium", "hard").
+    - `:room_type`: The room type ("public" or "private").
 
   ## Examples
       iex> ScribblBackend.GameState.update_room_settings("room_1", %{max_rounds: 5, max_players: 6})
@@ -398,12 +423,36 @@ defmodule ScribblBackend.GameState do
             updates
           end
 
+          updates = if Map.has_key?(settings, :room_type) do
+            Map.put(updates, "room_type", settings.room_type)
+          else
+            updates
+          end
+
           if updates == %{} do
             # No changes
             {:ok, room_info}
           else
+            # Handle room_type change for public/private rooms
+            old_room_type = room_info.room_type
+            new_room_type = Map.get(updates, "room_type", old_room_type)
+
             # Apply updates
             {:ok, _} = RedisHelper.hmset(room_key, updates)
+
+            # Update public rooms set if room_type changed
+            if old_room_type != new_room_type do
+              if new_room_type == "public" do
+                add_to_public_rooms(room_id)
+              else
+                remove_from_public_rooms(room_id)
+              end
+            end
+
+            # Also check if max_players changed, which might affect room availability
+            if Map.has_key?(updates, "max_players") do
+              PlayerManager.check_and_update_public_room_availability(room_id)
+            end
 
             # Return updated room info
             get_room(room_id)
@@ -414,4 +463,50 @@ defmodule ScribblBackend.GameState do
         error
     end
   end
+
+  @doc """
+  Add a room to the public rooms set.
+
+  ## Parameters
+    - `room_id`: The ID of the room to add to public rooms.
+  """
+  def add_to_public_rooms(room_id) do
+    public_rooms_key = KeyManager.public_rooms()
+    RedisHelper.sadd(public_rooms_key, room_id)
+  end
+
+  @doc """
+  Remove a room from the public rooms set.
+
+  ## Parameters
+    - `room_id`: The ID of the room to remove from public rooms.
+  """
+  def remove_from_public_rooms(room_id) do
+    public_rooms_key = KeyManager.public_rooms()
+    RedisHelper.srem(public_rooms_key, room_id)
+  end
+
+  @doc """
+  Find a random public room that has available slots.
+  The public_rooms set only contains rooms that have available slots, so we can just pick randomly.
+
+  ## Returns
+    {:ok, room_id} if a suitable room is found, {:error, reason} otherwise.
+  """
+  def find_random_public_room() do
+    public_rooms_key = KeyManager.public_rooms()
+
+    case RedisHelper.srandmember(public_rooms_key) do
+      {:ok, nil} ->
+        {:error, "No public rooms available"}
+
+      {:ok, room_id} ->
+        {:ok, room_id}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+
 end

@@ -24,6 +24,9 @@ defmodule ScribblBackend.PlayerManager do
   def add_player(room_id, player_id) do
     room_key = KeyManager.room_players(room_id)
     RedisHelper.rpush(room_key, player_id)
+
+    # Check if room is now full and remove from public rooms if needed
+    check_and_update_public_room_availability(room_id)
   end
 
   @doc """
@@ -93,6 +96,9 @@ defmodule ScribblBackend.PlayerManager do
       # Clean up the room state
       GameState.reset_game_state(room_id)
     end
+
+    # Check if room now has available slots and add back to public rooms if needed
+    check_and_update_public_room_availability(room_id)
 
     # Check if room is empty and clean up if needed
     GameState.check_and_cleanup_empty_room(room_id)
@@ -320,6 +326,37 @@ defmodule ScribblBackend.PlayerManager do
       _ ->
         # No players found or error
         :ok
+    end
+  end
+
+  @doc """
+  Check if a room's availability has changed and update the public rooms set accordingly.
+  This should be called whenever players join or leave a room.
+
+  ## Parameters
+    - `room_id`: The ID of the room to check.
+  """
+  def check_and_update_public_room_availability(room_id) do
+    case GameState.get_room(room_id) do
+      {:ok, room_info} ->
+        # Only manage public rooms
+        if room_info.room_type == "public" do
+          case get_players(room_id) do
+            {:ok, players} ->
+              max_players = String.to_integer(room_info.max_players)
+              current_players = length(players)
+
+              if current_players >= max_players do
+                # Room is full, remove from public rooms
+                GameState.remove_from_public_rooms(room_id)
+              else
+                # Room has available slots, add to public rooms
+                GameState.add_to_public_rooms(room_id)
+              end
+            _ -> :ok
+          end
+        end
+      _ -> :ok
     end
   end
 end

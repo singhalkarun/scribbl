@@ -210,16 +210,23 @@ defmodule ScribblBackend.RedisHelper do
   ## Parameters
 
     - `key`: The key to add to.
-    - `members`: The members to add.
+    - `members`: The members to add (can be a single value or a list).
   ## Examples
 
       iex> ScribblBackend.RedisHelper.sadd("my_key", ["member1", "member2"])
       :ok
+
+      iex> ScribblBackend.RedisHelper.sadd("my_key", "member1")
+      :ok
   """
-  def sadd(key, members) do
+  def sadd(key, members) when is_list(members) do
     # Convert the list to a flat list of arguments
     members_list = Enum.flat_map(members, fn member -> [member] end)
     Redix.command(:redix, ["SADD", key | members_list])
+  end
+
+  def sadd(key, member) do
+    Redix.command(:redix, ["SADD", key, member])
   end
 
   @doc """
@@ -227,16 +234,23 @@ defmodule ScribblBackend.RedisHelper do
   ## Parameters
 
     - `key`: The key to remove from.
-    - `members`: The members to remove.
+    - `members`: The members to remove (can be a single value or a list).
   ## Examples
 
       iex> ScribblBackend.RedisHelper.srem("my_key", ["member1", "member2"])
       :ok
+
+      iex> ScribblBackend.RedisHelper.srem("my_key", "member1")
+      :ok
   """
-  def srem(key, members) do
+  def srem(key, members) when is_list(members) do
     # Convert the list to a flat list of arguments
     members_list = Enum.flat_map(members, fn member -> [member] end)
     Redix.command(:redix, ["SREM", key | members_list])
+  end
+
+  def srem(key, member) do
+    Redix.command(:redix, ["SREM", key, member])
   end
 
   @doc """
