@@ -178,4 +178,12 @@ defmodule ScribblBackend.KeyManager do
     The PubSub topic for the user.
   """
   def user_topic(user_id), do: "user:#{user_id}"
+
+  @doc """
+  Get the key for the set of public rooms.
+
+  ## Returns
+    The Redis key for the public rooms set.
+  """
+  def public_rooms(), do: "public_rooms"
 end

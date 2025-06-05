@@ -42,7 +42,7 @@ defmodule ScribblBackendWeb.RoomChannel do
         # Room exists, return room info
         {:ok, info}
 
-      {:error, "Room not found"} ->
+            {:error, "Room not found"} ->
         # Room doesn't exist, create a new one with default settings
         # and make the first player the admin
         GameState.create_room(room_id, user_id)
@@ -267,15 +267,22 @@ defmodule ScribblBackendWeb.RoomChannel do
     "turn_time" => turn_time,
     "hints_allowed" => hints_allowed,
     "difficulty" => difficulty
-  }, socket) do
+  } = params, socket) do
+    IO.inspect(params)
     room_id = String.split(socket.topic, ":") |> List.last()
     user_id = socket.assigns.user_id
+
+    IO.puts("room_id: #{inspect(room_id)}")
+    IO.puts("user_id: #{inspect(user_id)}")
 
     # Check if user is admin
     case GameState.get_room_admin(room_id) do
       {:ok, admin_id} when admin_id == user_id ->
         # User is the admin, validate and update settings
         {:ok, current_players} = PlayerManager.get_players(room_id)
+
+        IO.puts("current_players: #{inspect(current_players)}")
+        IO.puts("max_players: #{inspect(max_players)}")
 
         # Validate settings
         cond do
@@ -295,15 +302,29 @@ defmodule ScribblBackendWeb.RoomChannel do
             # Ensure valid difficulty level
             push(socket, "error", %{"message" => "Difficulty must be easy, medium, or hard"})
 
+          Map.has_key?(params, "room_type") and params["room_type"] not in ["public", "private"] ->
+            # Ensure valid room type if provided
+            push(socket, "error", %{"message" => "Room type must be public or private"})
+
           true ->
             # All validations passed, update settings
-            GameState.update_room_settings(room_id, %{
+            settings = %{
               max_players: max_players,
               max_rounds: max_rounds,
               turn_time: turn_time,
               hints_allowed: hints_allowed,
               difficulty: difficulty
-            })
+            }
+
+            # Add room_type if provided
+            settings = if Map.has_key?(params, "room_type") do
+              Map.put(settings, :room_type, params["room_type"])
+            else
+              settings
+            end
+            IO.puts("settings: #{inspect(settings)}")
+
+            GameState.update_room_settings(room_id, settings)
 
             # Get updated room info
             {:ok, updated_room_info} = GameState.get_room(room_id)
