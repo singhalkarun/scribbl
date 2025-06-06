@@ -266,10 +266,10 @@ export default function GamePage() {
           }
 
           // Check if time_remaining exists in the payload (for rejoining players)
-          // If it does, use that value; otherwise, start with the default 60 seconds
+          // If it does, use that value; otherwise, use the room's turn time setting
           const initialTimeLeft = payload.time_remaining
             ? parseInt(payload.time_remaining)
-            : 60;
+            : parseInt(roomSettings.turnTime);
           console.log(
             `[GamePage] Setting timer - time_remaining: ${payload.time_remaining}, initialTimeLeft: ${initialTimeLeft}`
           );
@@ -661,7 +661,7 @@ export default function GamePage() {
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
           {roomStatus === "waiting" && isCurrentUserAdmin && (
-            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl select-none">
               <div className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto">
                 <div className="text-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-800">
@@ -805,13 +805,18 @@ export default function GamePage() {
 
           {/* View-Only Room Settings Modal */}
           {showViewOnlySettings && (
-            <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-20">
-              <div className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto">
+            <div
+              className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-20"
+              onClick={() => setShowViewOnlySettings(false)}
+            >
+              <div
+                className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="text-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-800">
                     Current Room Settings
                   </h2>
-                  <p className="text-sm text-gray-600 mt-1">View-only mode</p>
                 </div>
 
                 <div className="space-y-4">
@@ -899,7 +904,7 @@ export default function GamePage() {
         {/* Takes most of the space in aside, leaving room for Word Hint */}
         <div className="flex-1 flex flex-row gap-2 min-h-0 md:flex-col md:gap-4">
           {/* Players - Takes half width on mobile */}
-          <div className="w-1/2 bg-white border border-gray-200 rounded-lg shadow-sm p-3 flex flex-col md:w-auto min-h-0">
+          <div className="w-1/2 bg-white border border-gray-200 rounded-lg shadow-sm p-3 flex flex-col md:w-auto min-h-0 select-none">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-bold text-lg text-gray-700 flex-shrink-0">
                 Players
