@@ -33,6 +33,16 @@ export default function GamePage() {
     currentDrawer: "",
     currentRound: "0",
   });
+  // Room settings state
+  const [roomSettings, setRoomSettings] = useState({
+    maxPlayers: "8",
+    maxRounds: "3",
+    turnTime: "60",
+    hintsAllowed: "true",
+    difficulty: "medium",
+    roomType: "public",
+  });
+
   const [wordToDraw, setWordToDraw] = useState("");
   const [wordLength, setWordLength] = useState(0);
   const [showWordSelection, setShowWordSelection] = useState(false);
@@ -52,6 +62,8 @@ export default function GamePage() {
   const [finalPlayers, setFinalPlayers] = useState<{ [key: string]: string }>(
     {}
   );
+  // New state for view-only settings modal
+  const [showViewOnlySettings, setShowViewOnlySettings] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -137,6 +149,15 @@ export default function GamePage() {
             currentDrawer: payload.current_drawer,
             currentRound: payload.current_round,
           });
+          // Store room settings from room_info
+          setRoomSettings({
+            maxPlayers: payload.max_players || "8",
+            maxRounds: payload.max_rounds || "3",
+            turnTime: payload.turn_time || "60",
+            hintsAllowed: payload.hints_allowed || "true",
+            difficulty: payload.difficulty || "medium",
+            roomType: payload.room_type || "public",
+          });
           // Store the admin_id from room_info
           if (payload.admin_id) {
             setAdminId(payload.admin_id);
@@ -151,6 +172,28 @@ export default function GamePage() {
             setAdminId(payload.admin_id);
           }
         });
+
+        // Listen for room_settings_updated events
+        const roomSettingsUpdatedRef = channel.on(
+          "room_settings_updated",
+          (payload) => {
+            console.log("[GamePage] Received room_settings_updated:", payload);
+            // Update room settings state
+            setRoomSettings({
+              maxPlayers: payload.max_players || "8",
+              maxRounds: payload.max_rounds || "3",
+              turnTime: payload.turn_time || "60",
+              hintsAllowed: payload.hints_allowed || "true",
+              difficulty: payload.difficulty || "medium",
+              roomType: payload.room_type || "public",
+            });
+            // Update gameInfo maxRounds as well
+            setGameInfo((prev) => ({
+              ...prev,
+              maxRounds: payload.max_rounds || "3",
+            }));
+          }
+        );
 
         // Listen for drawer_assigned event
         const drawerAssignedRef = channel.on("drawer_assigned", (payload) => {
@@ -393,6 +436,7 @@ export default function GamePage() {
             channel.off("correct_guess", correctGuessRef);
             channel.off("letter_reveal", letterRevealRef);
             channel.off("admin_changed", adminChangedRef);
+            channel.off("room_settings_updated", roomSettingsUpdatedRef);
 
             // Don't clear timers on normal cleanup
             // Only clear timers when specific events trigger it
@@ -409,6 +453,31 @@ export default function GamePage() {
     if (channel) {
       console.log("[GamePage] Sending start_game event");
       channel.push("start_game", {});
+    }
+  };
+
+  // Handle room settings update
+  const handleUpdateRoomSettings = (updatedSettings: typeof roomSettings) => {
+    const channel = usePlayerStore.getState().channel;
+    if (channel) {
+      console.log(
+        "[GamePage] Sending update_room_settings event",
+        updatedSettings
+      );
+      const payload: any = {
+        max_players: updatedSettings.maxPlayers,
+        max_rounds: updatedSettings.maxRounds,
+        turn_time: updatedSettings.turnTime,
+        hints_allowed: updatedSettings.hintsAllowed,
+        difficulty: updatedSettings.difficulty,
+      };
+
+      // Only include room_type if it's set
+      if (updatedSettings.roomType) {
+        payload.room_type = updatedSettings.roomType;
+      }
+
+      channel.push("update_room_settings", payload);
     }
   };
 
@@ -580,13 +649,248 @@ export default function GamePage() {
           </div>
         </div>
       )}
+
       {/* Canvas area - Fixed height on mobile, grows on md+ */}
-      <div className="px-1 h-[45vh] md:h-auto md:flex-1 md:p-4">
+      <div className="px-1 h-[45vh] md:h-auto md:flex-1 md:p-4 relative">
         <div className="w-full h-full bg-white rounded-xl md:shadow-lg flex flex-col overflow-hidden">
           <Canvas
             isDrawer={isCurrentUserDrawing}
             gameStarted={roomStatus === "started"}
+            onShowSettings={() => setShowViewOnlySettings(true)}
           />
+
+          {/* Room Settings Overlay - Only show to admin when game hasn't started */}
+          {roomStatus === "waiting" && isCurrentUserAdmin && (
+            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+              <div className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto">
+                <div className="text-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Room Settings
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Configure game settings before starting
+                  </p>
+                </div>
+
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const formData = new FormData(e.currentTarget);
+                    const updatedSettings = {
+                      maxPlayers: formData.get("maxPlayers") as string,
+                      maxRounds: formData.get("maxRounds") as string,
+                      turnTime: formData.get("turnTime") as string,
+                      hintsAllowed: formData.get("hintsAllowed") as string,
+                      difficulty: formData.get("difficulty") as string,
+                      roomType: formData.get("roomType") as string,
+                    };
+                    handleUpdateRoomSettings(updatedSettings);
+                  }}
+                  className="space-y-4"
+                >
+                  {/* Max Players */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Max Players
+                    </label>
+                    <select
+                      name="maxPlayers"
+                      defaultValue={roomSettings.maxPlayers}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="2">2 Players</option>
+                      <option value="3">3 Players</option>
+                      <option value="4">4 Players</option>
+                      <option value="5">5 Players</option>
+                      <option value="6">6 Players</option>
+                      <option value="8">8 Players</option>
+                    </select>
+                  </div>
+
+                  {/* Max Rounds */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Max Rounds
+                    </label>
+                    <select
+                      name="maxRounds"
+                      defaultValue={roomSettings.maxRounds}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="1">1 Round</option>
+                      <option value="2">2 Rounds</option>
+                      <option value="3">3 Rounds</option>
+                      <option value="5">5 Rounds</option>
+                      <option value="10">10 Rounds</option>
+                    </select>
+                  </div>
+
+                  {/* Turn Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Turn Time (seconds)
+                    </label>
+                    <select
+                      name="turnTime"
+                      defaultValue={roomSettings.turnTime}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="30">30 seconds</option>
+                      <option value="45">45 seconds</option>
+                      <option value="60">60 seconds</option>
+                      <option value="90">90 seconds</option>
+                      <option value="120">120 seconds</option>
+                    </select>
+                  </div>
+
+                  {/* Hints Allowed */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hints Allowed
+                    </label>
+                    <select
+                      name="hintsAllowed"
+                      defaultValue={roomSettings.hintsAllowed}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="true">Yes</option>
+                      <option value="false">No</option>
+                    </select>
+                  </div>
+
+                  {/* Difficulty */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Difficulty
+                    </label>
+                    <select
+                      name="difficulty"
+                      defaultValue={roomSettings.difficulty}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+
+                  {/* Room Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Room Type
+                    </label>
+                    <select
+                      name="roomType"
+                      defaultValue={roomSettings.roomType}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
+                    </select>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="submit"
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium hover:cursor-pointer"
+                    >
+                      Update Settings
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* View-Only Room Settings Modal */}
+          {showViewOnlySettings && (
+            <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-20">
+              <div className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto">
+                <div className="text-center mb-4">
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Current Room Settings
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">View-only mode</p>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Max Players */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Max Players
+                    </label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
+                      {roomSettings.maxPlayers} Players
+                    </div>
+                  </div>
+
+                  {/* Max Rounds */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Max Rounds
+                    </label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
+                      {roomSettings.maxRounds}{" "}
+                      {roomSettings.maxRounds === "1" ? "Round" : "Rounds"}
+                    </div>
+                  </div>
+
+                  {/* Turn Time */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Turn Time
+                    </label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
+                      {roomSettings.turnTime} seconds
+                    </div>
+                  </div>
+
+                  {/* Hints Allowed */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Hints Allowed
+                    </label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
+                      {roomSettings.hintsAllowed === "true" ? "Yes" : "No"}
+                    </div>
+                  </div>
+
+                  {/* Difficulty */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Difficulty
+                    </label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
+                      {roomSettings.difficulty.charAt(0).toUpperCase() +
+                        roomSettings.difficulty.slice(1)}
+                    </div>
+                  </div>
+
+                  {/* Room Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Room Type
+                    </label>
+                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
+                      {roomSettings.roomType.charAt(0).toUpperCase() +
+                        roomSettings.roomType.slice(1)}
+                    </div>
+                  </div>
+
+                  {/* Close Button */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setShowViewOnlySettings(false)}
+                      className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium hover:cursor-pointer"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {/* Sidebar Area - Takes remaining space on mobile, fixed width on md+ */}
