@@ -20,6 +20,19 @@ if System.get_env("PHX_SERVER") do
   config :scribbl_backend, ScribblBackendWeb.Endpoint, server: true
 end
 
+# CORS Configuration
+cors_origins =
+  case System.get_env("CORS_ALLOWED_ORIGINS") do
+    nil -> ["http://localhost:3000"]  # Default for development
+    origins_string ->
+      origins_string
+      |> String.split(",")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+  end
+
+config :scribbl_backend, :cors_allowed_origins, cors_origins
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

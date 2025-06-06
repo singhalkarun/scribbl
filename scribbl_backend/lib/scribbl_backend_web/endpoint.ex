@@ -1,6 +1,10 @@
 defmodule ScribblBackendWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :scribbl_backend
 
+  def cors_origins do
+    Application.get_env(:scribbl_backend, :cors_allowed_origins, ["http://localhost:3000"])
+  end
+
   # The session will be stored in the cookie and signed,
   # this means its contents can be read but not tampered with.
   # Set :encryption_salt if you would also like to encrypt it.
@@ -43,6 +47,12 @@ defmodule ScribblBackendWeb.Endpoint do
 
   plug Plug.RequestId
   plug Plug.Telemetry, event_prefix: [:phoenix, :endpoint]
+
+  # CORS Configuration
+  plug CORSPlug,
+    origin: &ScribblBackendWeb.Endpoint.cors_origins/0,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    headers: ["Content-Type", "Authorization", "Accept", "Origin", "User-Agent", "DNT", "Cache-Control", "X-Mx-ReqToken", "Keep-Alive", "X-Requested-With", "If-Modified-Since"]
 
   plug Plug.Parsers,
     parsers: [:urlencoded, :multipart, :json],

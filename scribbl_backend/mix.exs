@@ -42,7 +42,8 @@ defmodule ScribblBackend.MixProject do
       {:bandit, "~> 1.5"},
       {:phoenix_pubsub_redis, "~> 3.0"},
       {:uuid, "~> 1.1"},
-      {:redix, "~> 1.5"}
+      {:redix, "~> 1.5"},
+      {:cors_plug, "~> 3.0"}
     ]
   end
 
