@@ -9,22 +9,43 @@ defmodule ScribblBackendWeb.RoomChannel do
   require Logger
   require IO
 
-  def join("room:" <> _room_id, %{"name" => name}, socket) do
-    # Track the user's presence via Phoenix Presence
-    Presence.track(socket, socket.assigns.user_id, %{
-      name: name,
-      joined_at: :os.system_time(:milli_seconds)
-    })
-
-    # add the socket to user specific topic
+  def join("room:" <> room_id, %{"name" => name}, socket) do
     user_id = socket.assigns.user_id
-    topic = "user:#{user_id}"
-    Phoenix.PubSub.subscribe(ScribblBackend.PubSub, topic)
 
-    # Schedule actions after the socket has finished joining
-    send(self(), :after_join)
+    # Get or create the room first
+    {:ok, room_info} = case GameState.get_room(room_id) do
+      {:ok, info} ->
+        # Room exists, return room info
+        {:ok, info}
+      {:error, "Room not found"} ->
+        # Room doesn't exist, create a new one with default settings
+        # and make the first player the admin
+        GameState.create_room(room_id, user_id)
+    end
 
-    {:ok, socket}
+    # Check if the room is full BEFORE allowing join
+    {:ok, players} = PlayerManager.get_players(room_id)
+
+    if length(players) >= String.to_integer(room_info.max_players) && !Enum.member?(players, user_id) do
+      # Room is full, reject the join completely
+      {:error, %{reason: "Room is full"}}
+    else
+      # Room has space, allow the join
+      # Track the user's presence via Phoenix Presence
+      Presence.track(socket, socket.assigns.user_id, %{
+        name: name,
+        joined_at: :os.system_time(:milli_seconds)
+      })
+
+      # add the socket to user specific topic
+      topic = "user:#{user_id}"
+      Phoenix.PubSub.subscribe(ScribblBackend.PubSub, topic)
+
+      # Schedule actions after the socket has finished joining
+      send(self(), :after_join)
+
+      {:ok, socket}
+    end
   end
 
   def handle_info(:after_join, socket) do
@@ -36,71 +57,54 @@ defmodule ScribblBackendWeb.RoomChannel do
     room_id = String.split(socket.topic, ":") |> List.last()
     user_id = socket.assigns.user_id
 
-    # Get or create the room
-    {:ok, room_info} = case GameState.get_room(room_id) do
-      {:ok, info} ->
-        # Room exists, return room info
-        {:ok, info}
+    # Get room info (room should already exist since join/3 created it)
+    {:ok, room_info} = GameState.get_room(room_id)
 
-            {:error, "Room not found"} ->
-        # Room doesn't exist, create a new one with default settings
-        # and make the first player the admin
-        GameState.create_room(room_id, user_id)
-    end
+    # Add player to the room (capacity was already checked in join/3)
+    PlayerManager.add_player(room_id, user_id)
 
-    # Check if the room is full
-    {:ok, players} = PlayerManager.get_players(room_id)
+    # Push the room info to the current socket
+    push(socket, "room_info", room_info)
 
-    if length(players) >= String.to_integer(room_info.max_players) && !Enum.member?(players, user_id) do
-      # Room is full, send error
-      push(socket, "error", %{"message" => "Room is full"})
-    else
-      # Add player to the room
-      PlayerManager.add_player(room_id, user_id)
+    # If game is active, send all players' scores and canvas data
+    if room_info.status == "active" do
+      # Get current drawer
+      {:ok, current_drawer} = GameState.get_current_drawer(room_id)
 
-      # Push the room info to the current socket
-      push(socket, "room_info", room_info)
+      # Send drawer information to the joining player
+      push(socket, "drawer_assigned", %{
+        "round" => room_info.current_round,
+        "drawer" => current_drawer
+      })
 
-      # If game is active, send all players' scores and canvas data
-      if room_info.status == "active" do
-        # Get current drawer
-        {:ok, current_drawer} = GameState.get_current_drawer(room_id)
+      # If the user is not the drawer, send word length, revealed indices, and time remaining
+      if user_id != current_drawer do
+        # Get current word state (length and revealed indices)
+        case WordManager.get_current_word_state(room_id) do
+          {:ok, word_state} ->
+            # Send turn started event with word length and time remaining
+            push(socket, "turn_started", %{
+              "word_length" => Integer.to_string(word_state.word_length),
+              "time_remaining" => word_state.time_remaining
+            })
 
-        # Send drawer information to the joining player
-        push(socket, "drawer_assigned", %{
-          "round" => room_info.current_round,
-          "drawer" => current_drawer
-        })
+            # Send letter reveal event with revealed word
+            push(socket, "letter_reveal", %{"revealed_word" => word_state.revealed_word})
 
-        # If the user is not the drawer, send word length, revealed indices, and time remaining
-        if user_id != current_drawer do
-          # Get current word state (length and revealed indices)
-          case WordManager.get_current_word_state(room_id) do
-            {:ok, word_state} ->
-              # Send turn started event with word length and time remaining
-              push(socket, "turn_started", %{
-                "word_length" => Integer.to_string(word_state.word_length),
-                "time_remaining" => word_state.time_remaining
-              })
+            # Send scores
+            case PlayerManager.get_all_player_scores(room_id) do
+              {:ok, scores} ->
+                push(socket, "scores", %{"scores" => scores})
+              _ -> :ok
+            end
 
-              # Send letter reveal event with revealed word
-              push(socket, "letter_reveal", %{"revealed_word" => word_state.revealed_word})
-
-              # Send scores
-              case PlayerManager.get_all_player_scores(room_id) do
-                {:ok, scores} ->
-                  push(socket, "scores", %{"scores" => scores})
-                _ -> :ok
-              end
-
-              # Send canvas data
-              case CanvasManager.get_canvas(room_id) do
-                {:ok, canvas} when not is_nil(canvas) ->
-                  push(socket, "drawing", %{"canvas" => canvas})
-                _ -> :ok
-              end
-            _ -> :ok
-          end
+            # Send canvas data
+            case CanvasManager.get_canvas(room_id) do
+              {:ok, canvas} when not is_nil(canvas) ->
+                push(socket, "drawing", %{"canvas" => canvas})
+              _ -> :ok
+            end
+          _ -> :ok
         end
       end
     end
