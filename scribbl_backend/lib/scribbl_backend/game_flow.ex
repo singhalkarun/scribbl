@@ -79,8 +79,8 @@ defmodule ScribblBackend.GameFlow do
           # set the eligible drawers for the next round
           eligible_drawers_key = KeyManager.eligible_drawers(room_id, next_round)
 
-          # get the list of players in the room
-          {:ok, players} = RedisHelper.lrange(players_key)
+          # get the set of players in the room
+          {:ok, players} = RedisHelper.smembers(players_key)
 
           # add players to the eligible drawers set
           RedisHelper.sadd(eligible_drawers_key, players)
@@ -269,7 +269,7 @@ defmodule ScribblBackend.GameFlow do
                 )
 
                 # Check if all players have guessed correctly
-                {:ok, num_players} = RedisHelper.llen(players_key)
+                {:ok, num_players} = RedisHelper.scard(players_key)
 
                 # Only proceed if we have at least 2 players (drawer + 1 guesser)
                 if num_players >= 2 do
@@ -320,7 +320,7 @@ defmodule ScribblBackend.GameFlow do
     non_eligible_guessers_key = KeyManager.non_eligible_guessers(room_id, round)
 
     # Get all players except the drawer
-    {:ok, all_players} = RedisHelper.lrange(players_key)
+    {:ok, all_players} = RedisHelper.smembers(players_key)
     non_drawer_players = all_players -- [drawer]
 
     # Get all players who have guessed correctly

@@ -21,9 +21,11 @@ defmodule ScribblBackend.PlayerManager do
       iex> ScribblBackend.PlayerManager.add_player("room_1", "player_1")
       :ok
   """
-  def add_player(room_id, player_id) do
+    def add_player(room_id, player_id) do
     room_key = KeyManager.room_players(room_id)
-    RedisHelper.rpush(room_key, player_id)
+
+    # Use Redis set - automatically prevents duplicates
+    RedisHelper.sadd(room_key, player_id)
 
     # Check if room is now full and remove from public rooms if needed
     check_and_update_public_room_availability(room_id)
@@ -41,7 +43,7 @@ defmodule ScribblBackend.PlayerManager do
   """
   def get_players(room_id) do
     room_key = KeyManager.room_players(room_id)
-    RedisHelper.lrange(room_key)
+    RedisHelper.smembers(room_key)
   end
 
   @doc """
@@ -57,7 +59,7 @@ defmodule ScribblBackend.PlayerManager do
   """
   def remove_player(room_id, player_id) do
     room_key = KeyManager.room_players(room_id)
-    RedisHelper.lrem(room_key, player_id)
+    RedisHelper.srem(room_key, player_id)
 
     # Check if the removed player was the drawer
     {:ok, current_drawer} = GameState.get_current_drawer(room_id)
@@ -329,7 +331,7 @@ defmodule ScribblBackend.PlayerManager do
     end
   end
 
-  @doc """
+    @doc """
   Check if a room's availability has changed and update the public rooms set accordingly.
   This should be called whenever players join or leave a room.
 
@@ -341,10 +343,10 @@ defmodule ScribblBackend.PlayerManager do
       {:ok, room_info} ->
         # Only manage public rooms
         if room_info.room_type == "public" do
-          case get_players(room_id) do
-            {:ok, players} ->
+          room_key = KeyManager.room_players(room_id)
+          case RedisHelper.scard(room_key) do
+            {:ok, current_players} ->
               max_players = String.to_integer(room_info.max_players)
-              current_players = length(players)
 
               if current_players >= max_players do
                 # Room is full, remove from public rooms

@@ -350,7 +350,7 @@ defmodule ScribblBackend.GameState do
   def check_and_cleanup_empty_room(room_id) do
     players_key = KeyManager.room_players(room_id)
 
-    case RedisHelper.llen(players_key) do
+    case RedisHelper.scard(players_key) do
       {:ok, 0} ->
         # Room is empty, clean up
         cleanup_room(room_id)

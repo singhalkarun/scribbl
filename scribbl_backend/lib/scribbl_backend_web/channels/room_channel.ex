@@ -6,6 +6,8 @@ defmodule ScribblBackendWeb.RoomChannel do
   alias ScribblBackend.CanvasManager
   alias ScribblBackend.GameFlow
   alias ScribblBackend.WordManager
+  alias ScribblBackend.KeyManager
+  alias ScribblBackend.RedisHelper
   require Logger
   require IO
 
@@ -24,9 +26,11 @@ defmodule ScribblBackendWeb.RoomChannel do
     end
 
     # Check if the room is full BEFORE allowing join
-    {:ok, players} = PlayerManager.get_players(room_id)
+    room_players_key = KeyManager.room_players(room_id)
+    {:ok, current_player_count} = RedisHelper.scard(room_players_key)
+    {:ok, is_already_member} = RedisHelper.sismember(room_players_key, user_id)
 
-    if length(players) >= String.to_integer(room_info.max_players) && !Enum.member?(players, user_id) do
+    if current_player_count >= String.to_integer(room_info.max_players) && is_already_member != 1 do
       # Room is full, reject the join completely
       {:error, %{reason: "Room is full"}}
     else
