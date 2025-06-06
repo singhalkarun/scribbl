@@ -9,10 +9,10 @@ import InstructionsModal from "@/components/InstructionsModal";
 // Component to handle URL parameters
 function JoinPageContent() {
   const [name, setName] = useState("");
-  const [roomId, setRoomId] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [nameError, setNameError] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
+  const [joinMode, setJoinMode] = useState<"play" | "create" | null>(null);
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -20,15 +20,10 @@ function JoinPageContent() {
   const setPlayerName = usePlayerStore((s) => s.setPlayerName);
   const setRoomIdGlobal = usePlayerStore((s) => s.setRoomId);
 
-  useEffect(() => {
-    // Check for roomId in URL parameters
-    const roomIdParam = searchParams.get("roomId");
-    if (roomIdParam) {
-      setRoomId(roomIdParam);
-    }
-  }, [searchParams]);
+  // Check if there's a room ID in URL params (from invite link)
+  const inviteRoomId = searchParams.get("roomId");
 
-  const handleJoin = () => {
+  const handleJoin = async (mode: "play" | "create") => {
     if (!socket) {
       console.error("Socket not ready");
       return;
@@ -42,23 +37,98 @@ function JoinPageContent() {
     }
 
     setIsJoining(true);
+    setJoinMode(mode);
 
-    const finalRoomId =
-      roomId.trim() || Math.random().toString(36).substring(2, 8);
+    try {
+      let finalRoomId = "";
 
-    console.log(
-      `[JoinPage] Setting player name: ${name.trim()} and room ID: ${finalRoomId}`
-    );
-    setPlayerName(name.trim());
-    setRoomIdGlobal(finalRoomId);
+      if (inviteRoomId) {
+        // If there's a room ID in URL params (invite link), use that directly
+        finalRoomId = inviteRoomId;
+      } else if (mode === "play") {
+        // Join a random existing room
+        const response = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/api/rooms/join-random",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
-    console.log("[JoinPage] Navigating to /game");
-    router.push("/game");
+        if (response.ok) {
+          const data = await response.json();
+          finalRoomId = data.room_id;
+        } else if (response.status === 404) {
+          // No public rooms available, create a new one instead
+          console.log("No public rooms available, creating new room...");
+          const createResponse = await fetch(
+            process.env.NEXT_PUBLIC_BACKEND_URL + "/api/rooms/generate-id",
+            {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+              },
+            }
+          );
+
+          if (createResponse.ok) {
+            const data = await createResponse.json();
+            finalRoomId = data.room_id;
+          } else {
+            console.error("Failed to create room after no public rooms found");
+            setIsJoining(false);
+            setJoinMode(null);
+            return;
+          }
+        } else {
+          console.error("Failed to join random room");
+          setIsJoining(false);
+          setJoinMode(null);
+          return;
+        }
+      } else if (mode === "create") {
+        // Generate a new room
+        const response = await fetch(
+          process.env.NEXT_PUBLIC_BACKEND_URL + "/api/rooms/generate-id",
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          finalRoomId = data.room_id;
+        } else {
+          console.error("Failed to generate room ID");
+          setIsJoining(false);
+          setJoinMode(null);
+          return;
+        }
+      }
+
+      console.log(
+        `[JoinPage] Setting player name: ${name.trim()} and room ID: ${finalRoomId}`
+      );
+      setPlayerName(name.trim());
+      setRoomIdGlobal(finalRoomId);
+
+      console.log("[JoinPage] Navigating to /game");
+      router.push("/game");
+    } catch (error) {
+      console.error("Error joining room:", error);
+      setIsJoining(false);
+      setJoinMode(null);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
-      handleJoin();
+      handleJoin("play");
     }
   };
 
@@ -121,32 +191,41 @@ function JoinPageContent() {
               <span className="text-gray-400">👤</span>
             </div>
           </div>
-
-          <div className="relative">
-            <input
-              className="border border-gray-300 px-4 py-3 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400 transition duration-200 bg-white/90 pl-10"
-              placeholder="Enter room ID (optional)"
-              value={roomId}
-              onChange={(e) => setRoomId(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-              <span className="text-gray-400">🏠</span>
-            </div>
-          </div>
         </div>
 
-        <button
-          onClick={handleJoin}
-          disabled={!socket || isJoining}
-          className="mt-8 w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
-        >
-          {isJoining
-            ? "Joining..."
-            : roomId.trim()
-            ? "Join Room"
-            : "Create or Join Random Room"}
-        </button>
+        {inviteRoomId ? (
+          <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-blue-800 text-sm text-center">
+              You've been invited to join room: <strong>{inviteRoomId}</strong>
+            </p>
+          </div>
+        ) : null}
+
+        <div className="mt-8 space-y-3">
+          <button
+            onClick={() => handleJoin("play")}
+            disabled={!socket || isJoining}
+            className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {isJoining && joinMode === "play"
+              ? "Joining..."
+              : inviteRoomId
+              ? `Join Room ${inviteRoomId}`
+              : "Play (Join Random Game)"}
+          </button>
+
+          {!inviteRoomId && (
+            <button
+              onClick={() => handleJoin("create")}
+              disabled={!socket || isJoining}
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
+            >
+              {isJoining && joinMode === "create"
+                ? "Creating..."
+                : "Create Room"}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Instructions Modal */}

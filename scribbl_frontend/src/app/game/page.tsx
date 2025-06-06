@@ -600,22 +600,6 @@ export default function GamePage() {
               <h2 className="font-bold text-lg text-gray-700 flex-shrink-0">
                 Players
               </h2>
-              {/* <button
-                onClick={() => {
-                  navigator.clipboard.writeText(getShareableLink());
-                }}
-                className="text-gray-500 transition-colors relative group cursor-pointer"
-              >
-                <p className="text-sm">
-                  Room ID:{" "}
-                  <span className="text-sm text-indigo-600 font-mono">
-                    {roomId}
-                  </span>
-                </p>
-                <span className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 whitespace-nowrap transition-opacity">
-                  Click to copy invite link
-                </span>
-              </button> */}
             </div>
             <ul className="text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
               {playersList.length > 0 ? (
