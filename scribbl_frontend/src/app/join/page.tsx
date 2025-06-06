@@ -211,7 +211,7 @@ function JoinPageContent() {
               ? "Joining..."
               : inviteRoomId
               ? `Join Room ${inviteRoomId}`
-              : "Play (Join Random Game)"}
+              : "Join Game"}
           </button>
 
           {!inviteRoomId && (
@@ -220,9 +220,7 @@ function JoinPageContent() {
               disabled={!socket || isJoining}
               className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
             >
-              {isJoining && joinMode === "create"
-                ? "Creating..."
-                : "Create Room"}
+              {isJoining && joinMode === "create" ? "Creating..." : "Host Game"}
             </button>
           )}
         </div>
