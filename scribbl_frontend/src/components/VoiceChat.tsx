@@ -112,7 +112,7 @@ export default function VoiceChat() {
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           )}
           <span className="text-sm text-gray-600">
-            {connectedUsers.length} / {voiceChatUsersList.length} connected
+            {voiceChatUsersList.length} connected
           </span>
         </div>
       </div>
@@ -293,13 +293,13 @@ export default function VoiceChat() {
           </div>
         )}
 
-        {!audioEnabled && (
+        {/* {!audioEnabled && (
           <div className="text-center py-4">
             <p className="text-sm text-gray-500">
               Start voice chat to talk with other players
             </p>
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );

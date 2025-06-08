@@ -1196,11 +1196,18 @@ export default function GamePage() {
                 <span>Round {gameInfo.currentRound}</span>
                 <span className="font-medium">
                   {gameInfo.currentDrawer && players[gameInfo.currentDrawer]
-                    ? `${players[gameInfo.currentDrawer]}${
-                        players[gameInfo.currentDrawer] === playerName
-                          ? " (You)"
-                          : ""
-                      } is drawing`
+                    ? showWordSelection &&
+                      players[gameInfo.currentDrawer] === playerName
+                      ? "You are choosing a word..."
+                      : showWordSelection
+                      ? `${
+                          players[gameInfo.currentDrawer]
+                        } is choosing a word...`
+                      : `${players[gameInfo.currentDrawer]}${
+                          players[gameInfo.currentDrawer] === playerName
+                            ? " (You)"
+                            : ""
+                        } is drawing`
                     : "Waiting for drawer..."}
                 </span>
               </div>
@@ -1227,7 +1234,11 @@ export default function GamePage() {
             )}
 
             <p className="text-xl md:text-2xl font-mono tracking-widest text-indigo-600">
-              {isCurrentUserDrawing
+              {showWordSelection && isCurrentUserDrawing
+                ? "Choose your word..."
+                : showWordSelection
+                ? "Waiting for word selection..."
+                : isCurrentUserDrawing
                 ? wordToDraw
                 : guessed
                 ? wordToDraw.split("").join(" ")
@@ -1240,7 +1251,13 @@ export default function GamePage() {
                 : ""}
             </p>
             <p className="text-xs text-gray-500 mt-1">
-              {isCurrentUserDrawing ? "Draw this word!" : "Guess the word!"}
+              {showWordSelection && isCurrentUserDrawing
+                ? "Select a word from the modal above"
+                : showWordSelection
+                ? "Drawer is selecting a word..."
+                : isCurrentUserDrawing
+                ? "Draw this word!"
+                : "Guess the word!"}
             </p>
           </div>
         )}
