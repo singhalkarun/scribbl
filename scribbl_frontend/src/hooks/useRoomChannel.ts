@@ -46,7 +46,16 @@ export function useRoomChannel() {
     console.log(`[useRoomChannel] Attempting to join room:${roomId}`);
     setConnectionState("connecting");
 
-    const newChannel = socket.channel(`room:${roomId}`, { name: playerName });
+    // Check if room_type is stored in sessionStorage for private rooms
+    const roomType = sessionStorage.getItem("roomType");
+    const channelParams: any = { name: playerName };
+    if (roomType) {
+      channelParams.room_type = roomType;
+      // Clear the room type from session storage after use
+      sessionStorage.removeItem("roomType");
+    }
+
+    const newChannel = socket.channel(`room:${roomId}`, channelParams);
     channelRef.current = newChannel; // Store instance in ref
 
     // --- Setup Listeners ---

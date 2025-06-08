@@ -42,6 +42,9 @@ export default function GamePage() {
     difficulty: "medium",
     roomType: "public",
   });
+  
+  // Settings update feedback state
+  const [settingsUpdateStatus, setSettingsUpdateStatus] = useState<"idle" | "updating" | "success">("idle");
 
   const [wordToDraw, setWordToDraw] = useState("");
   const [wordLength, setWordLength] = useState(0);
@@ -143,6 +146,7 @@ export default function GamePage() {
       if (channel) {
         const roomInfoRef = channel.on("room_info", (payload) => {
           console.log("[GamePage] Received room_info:", payload);
+          console.log("[GamePage] room_type from room_info:", payload.room_type);
           setRoomStatus(payload.status);
           setGameInfo({
             maxRounds: payload.max_rounds,
@@ -150,14 +154,16 @@ export default function GamePage() {
             currentRound: payload.current_round,
           });
           // Store room settings from room_info
-          setRoomSettings({
+          const newRoomSettings = {
             maxPlayers: payload.max_players || "8",
             maxRounds: payload.max_rounds || "3",
             turnTime: payload.turn_time || "60",
             hintsAllowed: payload.hints_allowed || "true",
             difficulty: payload.difficulty || "medium",
             roomType: payload.room_type || "public",
-          });
+          };
+          console.log("[GamePage] Setting roomSettings to:", newRoomSettings);
+          setRoomSettings(newRoomSettings);
           // Store the admin_id from room_info
           if (payload.admin_id) {
             setAdminId(payload.admin_id);
@@ -192,6 +198,14 @@ export default function GamePage() {
               ...prev,
               maxRounds: payload.max_rounds || "3",
             }));
+            
+            // Show success feedback
+            setSettingsUpdateStatus("success");
+            
+            // Reset to idle after 2 seconds
+            setTimeout(() => {
+              setSettingsUpdateStatus("idle");
+            }, 2000);
           }
         );
 
@@ -460,6 +474,8 @@ export default function GamePage() {
   const handleUpdateRoomSettings = (updatedSettings: typeof roomSettings) => {
     const channel = usePlayerStore.getState().channel;
     if (channel) {
+      setSettingsUpdateStatus("updating");
+      
       console.log(
         "[GamePage] Sending update_room_settings event",
         updatedSettings
@@ -695,7 +711,8 @@ export default function GamePage() {
                     </label>
                     <select
                       name="maxPlayers"
-                      defaultValue={roomSettings.maxPlayers}
+                      value={roomSettings.maxPlayers}
+                      onChange={(e) => setRoomSettings(prev => ({ ...prev, maxPlayers: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="2">2 Players</option>
@@ -714,7 +731,8 @@ export default function GamePage() {
                     </label>
                     <select
                       name="maxRounds"
-                      defaultValue={roomSettings.maxRounds}
+                      value={roomSettings.maxRounds}
+                      onChange={(e) => setRoomSettings(prev => ({ ...prev, maxRounds: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="1">1 Round</option>
@@ -732,7 +750,8 @@ export default function GamePage() {
                     </label>
                     <select
                       name="turnTime"
-                      defaultValue={roomSettings.turnTime}
+                      value={roomSettings.turnTime}
+                      onChange={(e) => setRoomSettings(prev => ({ ...prev, turnTime: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="30">30 seconds</option>
@@ -750,7 +769,8 @@ export default function GamePage() {
                     </label>
                     <select
                       name="hintsAllowed"
-                      defaultValue={roomSettings.hintsAllowed}
+                      value={roomSettings.hintsAllowed}
+                      onChange={(e) => setRoomSettings(prev => ({ ...prev, hintsAllowed: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="true">Yes</option>
@@ -765,7 +785,8 @@ export default function GamePage() {
                     </label>
                     <select
                       name="difficulty"
-                      defaultValue={roomSettings.difficulty}
+                      value={roomSettings.difficulty}
+                      onChange={(e) => setRoomSettings(prev => ({ ...prev, difficulty: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="easy">Easy</option>
@@ -781,7 +802,8 @@ export default function GamePage() {
                     </label>
                     <select
                       name="roomType"
-                      defaultValue={roomSettings.roomType}
+                      value={roomSettings.roomType}
+                      onChange={(e) => setRoomSettings(prev => ({ ...prev, roomType: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="public">Public</option>
@@ -793,9 +815,47 @@ export default function GamePage() {
                   <div className="flex gap-3 pt-4">
                     <button
                       type="submit"
-                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium hover:cursor-pointer"
+                      disabled={settingsUpdateStatus === "updating"}
+                      className={`w-full px-4 py-2 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-2 ${
+                        settingsUpdateStatus === "success"
+                          ? "bg-green-600 text-white"
+                          : settingsUpdateStatus === "updating"
+                          ? "bg-gray-400 text-white cursor-not-allowed"
+                          : "bg-indigo-600 text-white hover:bg-indigo-700"
+                      }`}
                     >
-                      Update Settings
+                      {settingsUpdateStatus === "updating" && (
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                      )}
+                      {settingsUpdateStatus === "success" && (
+                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M5 13l4 4L19 7"
+                          />
+                        </svg>
+                      )}
+                      {settingsUpdateStatus === "updating"
+                        ? "Updating..."
+                        : settingsUpdateStatus === "success"
+                        ? "Settings Updated!"
+                        : "Update Settings"}
                     </button>
                   </div>
                 </form>

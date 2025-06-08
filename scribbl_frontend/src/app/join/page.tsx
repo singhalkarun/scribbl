@@ -23,7 +23,7 @@ function JoinPageContent() {
   // Check if there's a room ID in URL params (from invite link)
   const inviteRoomId = searchParams.get("roomId");
 
-  const handleJoin = async (mode: "play" | "create") => {
+  const handleJoin = async (mode: "play" | "create", roomType?: "private") => {
     if (!socket) {
       console.error("Socket not ready");
       return;
@@ -116,6 +116,12 @@ function JoinPageContent() {
       );
       setPlayerName(name.trim());
       setRoomIdGlobal(finalRoomId);
+
+      // Store room type if it's private so we can pass it to the socket connection
+      if (roomType === "private") {
+        // Store in sessionStorage so it can be accessed when joining the room
+        sessionStorage.setItem("roomType", "private");
+      }
 
       console.log("[JoinPage] Navigating to /game");
       router.push("/game");
@@ -211,16 +217,16 @@ function JoinPageContent() {
               ? "Joining..."
               : inviteRoomId
               ? `Join Room ${inviteRoomId}`
-              : "Join Game"}
+              : "Join Public Game"}
           </button>
 
           {!inviteRoomId && (
             <button
-              onClick={() => handleJoin("create")}
+              onClick={() => handleJoin("create", "private")}
               disabled={!socket || isJoining}
               className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-3 rounded-lg font-semibold transition duration-200 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg hover:cursor-pointer transform hover:scale-[1.02] active:scale-[0.98]"
             >
-              {isJoining && joinMode === "create" ? "Creating..." : "Host Game"}
+              {isJoining && joinMode === "create" ? "Creating..." : "Host Private Game"}
             </button>
           )}
         </div>
