@@ -1046,7 +1046,7 @@ export default function GamePage() {
           </div>
 
           {/* Chat - Takes 1/2 width on mobile, flex-1 on md+ */}
-          <div className="w-1/2 md:flex-1 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0">
+          <div className="w-1/2 md:w-full md:flex-1 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0">
             <Chat
               wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
               onCorrectGuess={() => setGuessed(true)}

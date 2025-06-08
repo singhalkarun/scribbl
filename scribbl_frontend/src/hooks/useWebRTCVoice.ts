@@ -6,6 +6,7 @@ interface WebRTCConnection {
   peerConnection: RTCPeerConnection;
   remoteStream: MediaStream | null;
   userId: string;
+  pendingIceCandidates?: RTCIceCandidateInit[];
 }
 
 interface WebRTCVoiceState {
@@ -41,6 +42,41 @@ export function useWebRTCVoice() {
 
   const connectionsRef = useRef<Map<string, WebRTCConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
+  const voiceChatUsersRef = useRef<Set<string>>(new Set());
+
+  // Process queued ICE candidates after remote description is set
+  const processQueuedIceCandidates = useCallback(
+    async (connection: WebRTCConnection, fromUserId: string) => {
+      if (
+        connection.pendingIceCandidates &&
+        connection.pendingIceCandidates.length > 0
+      ) {
+        console.log(
+          `[WebRTC] Processing ${connection.pendingIceCandidates.length} queued ICE candidates for ${fromUserId}`
+        );
+
+        for (const candidate of connection.pendingIceCandidates) {
+          try {
+            await connection.peerConnection.addIceCandidate(
+              new RTCIceCandidate(candidate)
+            );
+            console.log(
+              `[WebRTC] Added queued ICE candidate for ${fromUserId}`
+            );
+          } catch (error) {
+            console.error(
+              `[WebRTC] Failed to add queued ICE candidate for ${fromUserId}:`,
+              error
+            );
+          }
+        }
+
+        // Clear the queue
+        connection.pendingIceCandidates = [];
+      }
+    },
+    []
+  );
 
   // Initialize local media stream
   const initializeMedia = useCallback(async () => {
@@ -143,6 +179,15 @@ export function useWebRTCVoice() {
     async (targetUserId: string) => {
       if (!channel || !userId) return;
 
+      // Check if we already have a connection
+      const existingConnection = connectionsRef.current.get(targetUserId);
+      if (existingConnection) {
+        console.log(
+          `[WebRTC] Connection to ${targetUserId} already exists, state: ${existingConnection.peerConnection.signalingState}`
+        );
+        return;
+      }
+
       console.log(`[WebRTC] Creating offer for ${targetUserId}`);
 
       const peerConnection = createPeerConnection(targetUserId);
@@ -166,6 +211,8 @@ export function useWebRTCVoice() {
           `[WebRTC] Failed to create offer for ${targetUserId}:`,
           error
         );
+        // Clean up failed connection
+        connectionsRef.current.delete(targetUserId);
       }
     },
     [channel, userId, createPeerConnection]
@@ -183,6 +230,39 @@ export function useWebRTCVoice() {
 
       console.log(`[WebRTC] Handling offer from ${fromUserId}`);
 
+      // Check if we already have a connection
+      const existingConnection = connectionsRef.current.get(fromUserId);
+      if (existingConnection) {
+        console.log(
+          `[WebRTC] Connection to ${fromUserId} already exists, state: ${existingConnection.peerConnection.signalingState}`
+        );
+
+        // Handle glare (simultaneous offers) - use user ID comparison to decide who backs off
+        if (
+          existingConnection.peerConnection.signalingState ===
+          "have-local-offer"
+        ) {
+          if (userId < fromUserId) {
+            console.log(
+              `[WebRTC] Glare detected with ${fromUserId}, we back off (lower ID)`
+            );
+            // Close existing connection and handle the incoming offer
+            existingConnection.peerConnection.close();
+            connectionsRef.current.delete(fromUserId);
+          } else {
+            console.log(
+              `[WebRTC] Glare detected with ${fromUserId}, they should back off (higher ID)`
+            );
+            return; // Ignore their offer
+          }
+        } else {
+          console.log(
+            `[WebRTC] Ignoring offer, connection already in progress`
+          );
+          return;
+        }
+      }
+
       const peerConnection = createPeerConnection(fromUserId);
       connectionsRef.current.set(fromUserId, {
         peerConnection,
@@ -194,6 +274,13 @@ export function useWebRTCVoice() {
         await peerConnection.setRemoteDescription(
           new RTCSessionDescription(offer)
         );
+
+        // Process any queued ICE candidates now that remote description is set
+        const connection = connectionsRef.current.get(fromUserId);
+        if (connection) {
+          await processQueuedIceCandidates(connection, fromUserId);
+        }
+
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
 
@@ -207,23 +294,53 @@ export function useWebRTCVoice() {
           `[WebRTC] Failed to handle offer from ${fromUserId}:`,
           error
         );
+        // Clean up failed connection
+        connectionsRef.current.delete(fromUserId);
       }
     },
-    [channel, userId, createPeerConnection, state.audioEnabled]
+    [
+      channel,
+      userId,
+      createPeerConnection,
+      state.audioEnabled,
+      processQueuedIceCandidates,
+    ]
   );
 
   // Handle incoming answer
   const handleAnswer = useCallback(
     async (fromUserId: string, answer: RTCSessionDescriptionInit) => {
       const connection = connectionsRef.current.get(fromUserId);
-      if (!connection) return;
+      if (!connection) {
+        console.log(
+          `[WebRTC] No connection found for answer from ${fromUserId}`
+        );
+        return;
+      }
 
       console.log(`[WebRTC] Handling answer from ${fromUserId}`);
+      console.log(
+        `[WebRTC] Current signaling state: ${connection.peerConnection.signalingState}`
+      );
+
+      // Only process answer if we're in the correct state
+      if (connection.peerConnection.signalingState !== "have-local-offer") {
+        console.warn(
+          `[WebRTC] Ignoring answer from ${fromUserId}, wrong state: ${connection.peerConnection.signalingState}`
+        );
+        return;
+      }
 
       try {
         await connection.peerConnection.setRemoteDescription(
           new RTCSessionDescription(answer)
         );
+        console.log(
+          `[WebRTC] Successfully set remote answer from ${fromUserId}`
+        );
+
+        // Process any queued ICE candidates now that remote description is set
+        await processQueuedIceCandidates(connection, fromUserId);
       } catch (error) {
         console.error(
           `[WebRTC] Failed to handle answer from ${fromUserId}:`,
@@ -238,13 +355,47 @@ export function useWebRTCVoice() {
   const handleIceCandidate = useCallback(
     async (fromUserId: string, candidate: RTCIceCandidateInit) => {
       const connection = connectionsRef.current.get(fromUserId);
-      if (!connection) return;
+      if (!connection) {
+        console.log(
+          `[WebRTC] No connection found for ICE candidate from ${fromUserId}`
+        );
+        return;
+      }
 
       console.log(`[WebRTC] Handling ICE candidate from ${fromUserId}`);
+      console.log(
+        `[WebRTC] Connection state: ${connection.peerConnection.connectionState}, signaling state: ${connection.peerConnection.signalingState}`
+      );
+
+      // Check if remote description is set
+      if (!connection.peerConnection.remoteDescription) {
+        console.log(
+          `[WebRTC] Remote description not set yet for ${fromUserId}, queueing ICE candidate`
+        );
+
+        // Queue the ICE candidate for later processing
+        if (!connection.pendingIceCandidates) {
+          connection.pendingIceCandidates = [];
+        }
+        connection.pendingIceCandidates.push(candidate);
+        return;
+      }
+
+      // Check if connection is in a valid state for ICE candidates
+      const validStates = ["have-remote-offer", "have-local-offer", "stable"];
+      if (!validStates.includes(connection.peerConnection.signalingState)) {
+        console.warn(
+          `[WebRTC] Invalid signaling state for ICE candidate from ${fromUserId}: ${connection.peerConnection.signalingState}`
+        );
+        return;
+      }
 
       try {
         await connection.peerConnection.addIceCandidate(
           new RTCIceCandidate(candidate)
+        );
+        console.log(
+          `[WebRTC] Successfully added ICE candidate from ${fromUserId}`
         );
       } catch (error) {
         console.error(
@@ -261,19 +412,15 @@ export function useWebRTCVoice() {
     try {
       await initializeMedia();
 
-      // Add current user to voice chat users
-      setState((prev) => ({
-        ...prev,
-        voiceChatUsers: new Set([...prev.voiceChatUsers, userId]),
-      }));
+      // Voice chat users will be updated via voice_state_changed event from backend
 
-      // Announce that this user joined voice chat
+      // Join the voice room
       if (channel) {
-        channel.push("voice_chat_joined", { user_id: userId });
+        channel.push("voice_join", {});
       }
 
       // Create offers for other users who are already in voice chat
-      const otherVoiceUsers = Array.from(state.voiceChatUsers).filter(
+      const otherVoiceUsers = Array.from(voiceChatUsersRef.current).filter(
         (id) => id !== userId
       );
       for (const targetUserId of otherVoiceUsers) {
@@ -285,13 +432,13 @@ export function useWebRTCVoice() {
       console.error("[WebRTC] Failed to start voice chat:", error);
       throw error;
     }
-  }, [initializeMedia, createOffer, channel, userId, state.voiceChatUsers]);
+  }, [initializeMedia, createOffer, channel, userId]);
 
   // Stop voice chat
   const stopVoiceChat = useCallback(() => {
-    // Announce that this user left voice chat
+    // Leave the voice room
     if (channel) {
-      channel.push("voice_chat_left", { user_id: userId });
+      channel.push("voice_leave", {});
     }
 
     // Close all peer connections
@@ -313,9 +460,7 @@ export function useWebRTCVoice() {
       localStream: null,
       connections: new Map(),
       audioEnabled: false,
-      voiceChatUsers: new Set(
-        [...prev.voiceChatUsers].filter((id) => id !== userId)
-      ),
+      // voiceChatUsers will be updated via voice_state_changed event from backend
     }));
 
     console.log("[WebRTC] Voice chat stopped");
@@ -355,38 +500,104 @@ export function useWebRTCVoice() {
           handleIceCandidate(from_user_id, candidate);
         }
       ),
-      channel.on("voice_chat_joined", ({ user_id }) => {
-        console.log(`[WebRTC] User ${user_id} joined voice chat`);
-        setState((prev) => ({
-          ...prev,
-          voiceChatUsers: new Set([...prev.voiceChatUsers, user_id]),
-        }));
+      channel.on(
+        "voice_state_changed",
+        ({
+          action,
+          user_id,
+          voice_members,
+        }: {
+          action: "joined" | "left" | "state";
+          user_id?: string;
+          voice_members?: string[];
+        }) => {
+          console.log(`[WebRTC] Voice state changed:`, {
+            action,
+            user_id,
+            voice_members,
+          });
 
-        // If we're also in voice chat, create an offer to the new user
-        if (state.audioEnabled && user_id !== userId) {
-          createOffer(user_id);
-        }
-      }),
-      channel.on("voice_chat_left", ({ user_id }) => {
-        console.log(`[WebRTC] User ${user_id} left voice chat`);
-        setState((prev) => ({
-          ...prev,
-          voiceChatUsers: new Set(
-            [...prev.voiceChatUsers].filter((id) => id !== user_id)
-          ),
-        }));
+          if (action === "joined" && user_id) {
+            // Someone joined voice chat - add them to our local state
+            const newVoiceChatUsers = new Set([
+              ...voiceChatUsersRef.current,
+              user_id,
+            ]);
+            voiceChatUsersRef.current = newVoiceChatUsers;
+            setState((prev) => ({
+              ...prev,
+              voiceChatUsers: newVoiceChatUsers,
+            }));
 
-        // Close connection to user who left
-        const connection = connectionsRef.current.get(user_id);
-        if (connection) {
-          connection.peerConnection.close();
-          connectionsRef.current.delete(user_id);
-          setState((prev) => ({
-            ...prev,
-            connections: new Map(connectionsRef.current),
-          }));
+            // If we're also in voice chat and it's not us, create an offer
+            if (state.audioEnabled && user_id !== userId) {
+              // Only create offer if we don't already have a connection in progress
+              const existingConnection = connectionsRef.current.get(user_id);
+              if (!existingConnection) {
+                console.log(
+                  `[WebRTC] User ${user_id} joined voice chat, creating offer`
+                );
+                createOffer(user_id);
+              } else {
+                console.log(
+                  `[WebRTC] Connection to ${user_id} already exists, skipping offer`
+                );
+              }
+            }
+          } else if (action === "left" && user_id) {
+            // Someone left voice chat - remove them from our local state
+            const newVoiceChatUsers = new Set(
+              [...voiceChatUsersRef.current].filter((id) => id !== user_id)
+            );
+            voiceChatUsersRef.current = newVoiceChatUsers;
+            setState((prev) => ({
+              ...prev,
+              voiceChatUsers: newVoiceChatUsers,
+            }));
+
+            // Close their connection if we have one
+            if (user_id !== userId) {
+              console.log(
+                `[WebRTC] User ${user_id} left voice chat, closing connection`
+              );
+              const connection = connectionsRef.current.get(user_id);
+              if (connection) {
+                connection.peerConnection.close();
+                connectionsRef.current.delete(user_id);
+                setState((prev) => ({
+                  ...prev,
+                  connections: new Map(connectionsRef.current),
+                }));
+              }
+            }
+          } else if (action === "state" && voice_members) {
+            // Full state update - use authoritative voice_members array
+            const newVoiceChatUsers = new Set(voice_members);
+            voiceChatUsersRef.current = newVoiceChatUsers;
+            setState((prev) => ({
+              ...prev,
+              voiceChatUsers: newVoiceChatUsers,
+            }));
+
+            // Connect to all voice chat users if we're also in voice chat
+            if (state.audioEnabled) {
+              const otherVoiceUsers = voice_members.filter(
+                (id) => id !== userId
+              );
+              console.log(
+                `[WebRTC] Voice state update, connecting to users:`,
+                otherVoiceUsers
+              );
+              otherVoiceUsers.forEach((targetUserId) => {
+                // Only create offer if we don't already have a connection
+                if (!connectionsRef.current.has(targetUserId)) {
+                  createOffer(targetUserId);
+                }
+              });
+            }
+          }
         }
-      }),
+      ),
     ];
 
     return () => {
@@ -394,8 +605,7 @@ export function useWebRTCVoice() {
         "webrtc_offer_received",
         "webrtc_answer_received",
         "webrtc_ice_candidate_received",
-        "voice_chat_joined",
-        "voice_chat_left",
+        "voice_state_changed",
       ];
       listeners.forEach((listener, index) => {
         channel.off(eventNames[index], listener);
