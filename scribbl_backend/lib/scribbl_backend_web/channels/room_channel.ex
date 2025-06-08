@@ -11,7 +11,7 @@ defmodule ScribblBackendWeb.RoomChannel do
   require Logger
   require IO
 
-  def join("room:" <> room_id, %{"name" => name}, socket) do
+  def join("room:" <> room_id, %{"name" => name} = params, socket) do
     user_id = socket.assigns.user_id
 
     # Get or create the room first
@@ -20,9 +20,13 @@ defmodule ScribblBackendWeb.RoomChannel do
         # Room exists, return room info
         {:ok, info}
       {:error, "Room not found"} ->
-        # Room doesn't exist, create a new one with default settings
+        # Room doesn't exist, create a new one with specified or default settings
         # and make the first player the admin
-        GameState.create_room(room_id, user_id)
+        opts = case Map.get(params, "room_type") do
+          nil -> []
+          room_type -> [room_type: room_type]
+        end
+        GameState.create_room(room_id, user_id, opts)
     end
 
     # Check if the room is full BEFORE allowing join
