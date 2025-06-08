@@ -4,6 +4,7 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import { useEffect, useState, useMemo, useRef } from "react";
 import Canvas from "@/components/Canvas";
 import Chat from "@/components/Chat";
+import VoiceChat from "@/components/VoiceChat";
 import GameOverModal from "@/components/GameOverModal";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
@@ -42,9 +43,11 @@ export default function GamePage() {
     difficulty: "medium",
     roomType: "public",
   });
-  
+
   // Settings update feedback state
-  const [settingsUpdateStatus, setSettingsUpdateStatus] = useState<"idle" | "updating" | "success">("idle");
+  const [settingsUpdateStatus, setSettingsUpdateStatus] = useState<
+    "idle" | "updating" | "success"
+  >("idle");
 
   const [wordToDraw, setWordToDraw] = useState("");
   const [wordLength, setWordLength] = useState(0);
@@ -146,7 +149,10 @@ export default function GamePage() {
       if (channel) {
         const roomInfoRef = channel.on("room_info", (payload) => {
           console.log("[GamePage] Received room_info:", payload);
-          console.log("[GamePage] room_type from room_info:", payload.room_type);
+          console.log(
+            "[GamePage] room_type from room_info:",
+            payload.room_type
+          );
           setRoomStatus(payload.status);
           setGameInfo({
             maxRounds: payload.max_rounds,
@@ -198,10 +204,10 @@ export default function GamePage() {
               ...prev,
               maxRounds: payload.max_rounds || "3",
             }));
-            
+
             // Show success feedback
             setSettingsUpdateStatus("success");
-            
+
             // Reset to idle after 2 seconds
             setTimeout(() => {
               setSettingsUpdateStatus("idle");
@@ -475,7 +481,7 @@ export default function GamePage() {
     const channel = usePlayerStore.getState().channel;
     if (channel) {
       setSettingsUpdateStatus("updating");
-      
+
       console.log(
         "[GamePage] Sending update_room_settings event",
         updatedSettings
@@ -712,7 +718,12 @@ export default function GamePage() {
                     <select
                       name="maxPlayers"
                       value={roomSettings.maxPlayers}
-                      onChange={(e) => setRoomSettings(prev => ({ ...prev, maxPlayers: e.target.value }))}
+                      onChange={(e) =>
+                        setRoomSettings((prev) => ({
+                          ...prev,
+                          maxPlayers: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="2">2 Players</option>
@@ -732,7 +743,12 @@ export default function GamePage() {
                     <select
                       name="maxRounds"
                       value={roomSettings.maxRounds}
-                      onChange={(e) => setRoomSettings(prev => ({ ...prev, maxRounds: e.target.value }))}
+                      onChange={(e) =>
+                        setRoomSettings((prev) => ({
+                          ...prev,
+                          maxRounds: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="1">1 Round</option>
@@ -751,7 +767,12 @@ export default function GamePage() {
                     <select
                       name="turnTime"
                       value={roomSettings.turnTime}
-                      onChange={(e) => setRoomSettings(prev => ({ ...prev, turnTime: e.target.value }))}
+                      onChange={(e) =>
+                        setRoomSettings((prev) => ({
+                          ...prev,
+                          turnTime: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="30">30 seconds</option>
@@ -770,7 +791,12 @@ export default function GamePage() {
                     <select
                       name="hintsAllowed"
                       value={roomSettings.hintsAllowed}
-                      onChange={(e) => setRoomSettings(prev => ({ ...prev, hintsAllowed: e.target.value }))}
+                      onChange={(e) =>
+                        setRoomSettings((prev) => ({
+                          ...prev,
+                          hintsAllowed: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="true">Yes</option>
@@ -786,7 +812,12 @@ export default function GamePage() {
                     <select
                       name="difficulty"
                       value={roomSettings.difficulty}
-                      onChange={(e) => setRoomSettings(prev => ({ ...prev, difficulty: e.target.value }))}
+                      onChange={(e) =>
+                        setRoomSettings((prev) => ({
+                          ...prev,
+                          difficulty: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="easy">Easy</option>
@@ -803,7 +834,12 @@ export default function GamePage() {
                     <select
                       name="roomType"
                       value={roomSettings.roomType}
-                      onChange={(e) => setRoomSettings(prev => ({ ...prev, roomType: e.target.value }))}
+                      onChange={(e) =>
+                        setRoomSettings((prev) => ({
+                          ...prev,
+                          roomType: e.target.value,
+                        }))
+                      }
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="public">Public</option>
@@ -825,7 +861,11 @@ export default function GamePage() {
                       }`}
                     >
                       {settingsUpdateStatus === "updating" && (
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
                           <circle
                             className="opacity-25"
                             cx="12"
@@ -842,7 +882,12 @@ export default function GamePage() {
                         </svg>
                       )}
                       {settingsUpdateStatus === "success" && (
-                        <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg
+                          className="h-4 w-4"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -960,11 +1005,11 @@ export default function GamePage() {
       </div>
       {/* Sidebar Area - Takes remaining space on mobile, fixed width on md+ */}
       <aside className="flex-1 flex flex-col gap-2 p-1 min-h-0 md:w-80 lg:w-96 md:flex-none md:p-4 md:h-screen md:border-l md:border-gray-200 md:bg-transparent">
-        {/* Players & Chat Container - Row on mobile, Col on md+ */}
+        {/* Players, Voice Chat & Chat Container - Row on mobile, Col on md+ */}
         {/* Takes most of the space in aside, leaving room for Word Hint */}
         <div className="flex-1 flex flex-row gap-2 min-h-0 md:flex-col md:gap-4">
-          {/* Players - Takes half width on mobile */}
-          <div className="w-1/2 bg-white border border-gray-200 rounded-lg shadow-sm p-3 flex flex-col md:w-auto min-h-0 select-none">
+          {/* Players - Takes 1/2 width on mobile, full width on md+ */}
+          <div className="w-1/2 md:w-auto bg-white border border-gray-200 rounded-lg shadow-sm p-3 flex flex-col min-h-0 select-none">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-bold text-lg text-gray-700 flex-shrink-0">
                 Players
@@ -1000,8 +1045,8 @@ export default function GamePage() {
             </ul>
           </div>
 
-          {/* Chat - Takes half width on mobile */}
-          <div className="w-1/2 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0 md:w-auto md:flex-1">
+          {/* Chat - Takes 1/2 width on mobile, flex-1 on md+ */}
+          <div className="w-1/2 md:flex-1 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0">
             <Chat
               wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
               onCorrectGuess={() => setGuessed(true)}
@@ -1010,6 +1055,11 @@ export default function GamePage() {
               isDrawer={isCurrentUserDrawing}
             />
           </div>
+        </div>
+
+        {/* Voice Chat - Full width, between Players/Chat and Game Info */}
+        <div className="flex-shrink-0">
+          <VoiceChat />
         </div>
 
         {/* Conditionally render Word hint or Start Game button */}
