@@ -105,29 +105,31 @@ export default function VoiceChat() {
   );
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4 max-w-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-800">Voice Chat</h3>
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 lg:p-3">
+      <div className="flex items-center justify-between mb-2 lg:mb-3">
+        <h3 className="text-sm lg:text-lg font-semibold text-gray-800">
+          Voice Chat
+        </h3>
         <div className="flex items-center space-x-1">
           {isConnected && (
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
           )}
-          <span className="text-sm text-gray-600">
+          <span className="text-xs lg:text-sm text-gray-600">
             {voiceChatUsersList.length} connected
           </span>
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-2 lg:space-y-3">
         {/* Voice chat controls */}
         <div className="flex space-x-2">
           {!audioEnabled ? (
             <button
               onClick={handleStartVoice}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-2 lg:px-4 py-1.5 lg:py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center space-x-1 lg:space-x-2"
             >
               <svg
-                className="w-5 h-5"
+                className="w-4 h-4 lg:w-5 lg:h-5"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -139,13 +141,13 @@ export default function VoiceChat() {
                   d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
                 />
               </svg>
-              <span>Start Voice</span>
+              <span className="text-xs lg:text-sm">Start Voice</span>
             </button>
           ) : (
             <>
               <button
                 onClick={toggleMute}
-                className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center space-x-2 ${
+                className={`flex-1 px-2 lg:px-4 py-1.5 lg:py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center space-x-1 lg:space-x-2 ${
                   isMuted
                     ? "bg-red-500 hover:bg-red-600 text-white"
                     : "bg-blue-500 hover:bg-blue-600 text-white"
@@ -153,7 +155,7 @@ export default function VoiceChat() {
               >
                 {isMuted ? (
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 lg:w-5 lg:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -173,7 +175,7 @@ export default function VoiceChat() {
                   </svg>
                 ) : (
                   <svg
-                    className="w-5 h-5"
+                    className="w-4 h-4 lg:w-5 lg:h-5"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -186,16 +188,18 @@ export default function VoiceChat() {
                     />
                   </svg>
                 )}
-                <span>{isMuted ? "Unmute" : "Mute"}</span>
+                <span className="text-xs lg:text-sm">
+                  {isMuted ? "Unmute" : "Mute"}
+                </span>
               </button>
 
               <button
                 onClick={stopVoiceChat}
-                className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors duration-200"
+                className="px-2 lg:px-3 py-1.5 lg:py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors duration-200"
                 title="Stop Voice Chat"
               >
                 <svg
-                  className="w-5 h-5"
+                  className="w-4 h-4 lg:w-5 lg:h-5"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -214,11 +218,11 @@ export default function VoiceChat() {
 
         {/* Connected users list */}
         {audioEnabled && voiceChatUsersList.length > 0 && (
-          <div className="space-y-2">
-            <p className="text-sm font-medium text-gray-700">
+          <div className="space-y-1 lg:space-y-2">
+            <p className="text-xs lg:text-sm font-medium text-gray-700">
               Voice Chat Users:
             </p>
-            <div className="space-y-1 max-h-32 overflow-y-auto">
+            <div className="space-y-1 max-h-24 lg:max-h-32 overflow-y-auto">
               {voiceChatUsersList.map((playerId: string) => {
                 const playerName = players[playerId] || `Player ${playerId}`;
                 const isConnected =
@@ -229,12 +233,12 @@ export default function VoiceChat() {
                 return (
                   <div
                     key={playerId}
-                    className="flex items-center justify-between p-2 bg-gray-50 rounded-md"
+                    className="flex items-center justify-between p-1.5 lg:p-2 bg-gray-50 rounded-md"
                   >
-                    <span className="text-sm text-gray-700 truncate">
+                    <span className="text-xs lg:text-sm text-gray-700 truncate">
                       {playerName}
                     </span>
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center space-x-1 lg:space-x-2">
                       <div
                         className={`w-2 h-2 rounded-full ${
                           isConnected
@@ -247,7 +251,7 @@ export default function VoiceChat() {
                         <div title={isMuted ? "Muted" : "Unmuted"}>
                           {isMuted ? (
                             <svg
-                              className="w-4 h-4 text-red-500"
+                              className="w-3 h-3 lg:w-4 lg:h-4 text-red-500"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -267,7 +271,7 @@ export default function VoiceChat() {
                             </svg>
                           ) : (
                             <svg
-                              className="w-4 h-4 text-green-500"
+                              className="w-3 h-3 lg:w-4 lg:h-4 text-green-500"
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
@@ -283,7 +287,7 @@ export default function VoiceChat() {
                         </div>
                       ) : (
                         <svg
-                          className="w-4 h-4 text-gray-400 animate-spin"
+                          className="w-3 h-3 lg:w-4 lg:h-4 text-gray-400 animate-spin"
                           fill="none"
                           viewBox="0 0 24 24"
                         >
@@ -312,8 +316,8 @@ export default function VoiceChat() {
 
         {/* No other users message */}
         {voiceChatUsersList.length === 0 && audioEnabled && (
-          <div className="text-center py-4">
-            <p className="text-sm text-gray-500">
+          <div className="text-center py-2 lg:py-4">
+            <p className="text-xs lg:text-sm text-gray-500">
               No other users in voice chat
             </p>
           </div>

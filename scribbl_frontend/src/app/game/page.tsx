@@ -551,7 +551,7 @@ export default function GamePage() {
   }
 
   return (
-    <main className="h-[100svh] w-screen flex flex-col md:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+    <main className="h-[100svh] w-screen flex flex-col lg:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
       {/* Game Over Modal */}
       <GameOverModal
         isOpen={showGameOverModal}
@@ -672,13 +672,72 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Canvas area - Fixed height on mobile, grows on md+ */}
-      <div className="px-1 h-[45vh] md:h-auto md:flex-1 md:p-4 relative">
-        <div className="w-full h-full bg-white rounded-xl md:shadow-lg flex flex-col overflow-hidden">
+      {/* Left Sidebar - Players and Voice Chat */}
+      <aside className="flex flex-row lg:flex-col gap-2 p-1 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-r lg:border-gray-200 lg:bg-transparent">
+        {/* Players Section */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 lg:p-3 flex flex-col min-h-0 select-none w-1/2 lg:w-auto flex-1 lg:flex-initial lg:max-h-[45vh]">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-bold text-sm lg:text-lg text-gray-700 flex-shrink-0">
+              Players ({playersList.length})
+            </h2>
+          </div>
+          <ul className="text-xs lg:text-sm text-gray-600 space-y-1 lg:space-y-1.5 overflow-y-auto pr-1 flex-1">
+            {playersList.length > 0 ? (
+              playersList.map((name, index) => {
+                const playerId = Object.entries(players).find(
+                  ([_, n]) => n === name
+                )?.[0];
+                const score = playerId ? scores[playerId] || 0 : 0;
+                return (
+                  <li
+                    key={index}
+                    className="flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-1 lg:gap-2 min-w-0">
+                      <span className="text-sm lg:text-lg flex-shrink-0">
+                        {playerId === gameInfo.currentDrawer ? "✏️" : "👤"}
+                      </span>
+                      <span className="truncate text-xs lg:text-sm">
+                        {name === playerName ? <b>{name} (You)</b> : name}
+                      </span>
+                    </div>
+                    <span className="font-medium text-indigo-600 flex-shrink-0 text-xs lg:text-sm">
+                      {score} pts
+                    </span>
+                  </li>
+                );
+              })
+            ) : (
+              <li className="text-gray-500 italic text-xs lg:text-sm">
+                No players yet...
+              </li>
+            )}
+          </ul>
+        </div>
+
+        {/* Voice Chat Section */}
+        <div className="w-1/2 lg:w-auto flex-shrink-0">
+          <VoiceChat />
+        </div>
+      </aside>
+
+      {/* Canvas area - Fixed height on mobile, grows on lg+ */}
+      <div className="px-1 h-[50vh] lg:h-auto lg:flex-1 lg:p-4 relative">
+        <div className="w-full h-full bg-white rounded-xl lg:shadow-lg flex flex-col overflow-hidden">
           <Canvas
             isDrawer={isCurrentUserDrawing}
             gameStarted={roomStatus === "started"}
             onShowSettings={() => setShowViewOnlySettings(true)}
+            roomStatus={roomStatus}
+            gameInfo={gameInfo}
+            players={players}
+            playerName={playerName}
+            timeLeft={timeLeft}
+            showWordSelection={showWordSelection}
+            wordToDraw={wordToDraw}
+            guessed={guessed}
+            revealedLetters={revealedLetters}
+            wordLength={wordLength}
           />
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
@@ -1003,90 +1062,25 @@ export default function GamePage() {
           )}
         </div>
       </div>
-      {/* Sidebar Area - Takes remaining space on mobile, fixed width on md+ */}
-      <aside className="flex-1 flex flex-col gap-2 p-1 min-h-0 md:w-80 lg:w-96 md:flex-none md:p-4 md:h-screen md:border-l md:border-gray-200 md:bg-transparent">
-        {/* Players, Voice Chat & Chat Container - Row on mobile, Col on md+ */}
-        {/* Takes most of the space in aside, leaving room for Word Hint */}
-        <div className="flex-1 flex flex-row gap-2 min-h-0 md:flex-col md:gap-4">
-          {/* Players - Takes 1/2 width on mobile, full width on md+ */}
-          <div className="w-1/2 md:w-auto bg-white border border-gray-200 rounded-lg shadow-sm p-3 flex flex-col min-h-0 select-none">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="font-bold text-lg text-gray-700 flex-shrink-0">
-                Players
-              </h2>
-            </div>
-            <ul className="text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
-              {playersList.length > 0 ? (
-                playersList.map((name, index) => {
-                  const playerId = Object.entries(players).find(
-                    ([_, n]) => n === name
-                  )?.[0];
-                  const score = playerId ? scores[playerId] || 0 : 0;
-                  return (
-                    <li
-                      key={index}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span className="text-lg flex-shrink-0">👤</span>
-                        <span className="truncate">
-                          {name === playerName ? <b>{name} (You)</b> : name}
-                        </span>
-                      </div>
-                      <span className="font-medium text-indigo-600 flex-shrink-0">
-                        {score} pts
-                      </span>
-                    </li>
-                  );
-                })
-              ) : (
-                <li className="text-gray-500 italic">No players yet...</li>
-              )}
-            </ul>
-          </div>
 
-          {/* Chat - Takes 1/2 width on mobile, flex-1 on md+ */}
-          <div className="w-1/2 md:w-full md:flex-1 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0">
-            <Chat
-              wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
-              onCorrectGuess={() => setGuessed(true)}
-              playerName={playerName}
-              sendMessage={sendMessage}
-              isDrawer={isCurrentUserDrawing}
-            />
-          </div>
+      {/* Right Sidebar - Chat Only */}
+      <aside className="flex flex-col gap-2 p-1 min-h-0 w-full h-[30vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-gray-200 lg:bg-transparent">
+        {/* Chat Section - Full height */}
+        <div className="flex-1 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0">
+          <Chat
+            wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
+            onCorrectGuess={() => setGuessed(true)}
+            playerName={playerName}
+            sendMessage={sendMessage}
+            isDrawer={isCurrentUserDrawing}
+          />
         </div>
 
-        {/* Voice Chat - Full width, between Players/Chat and Game Info */}
-        <div className="flex-shrink-0">
-          <VoiceChat />
-        </div>
-
-        {/* Conditionally render Word hint or Start Game button */}
-        {roomStatus === "waiting" ? (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-3 md:p-3 text-center flex-shrink-0">
-            {gameInfo.currentDrawer ? (
-              <div className="mb-3">
-                <h3 className="text-xl font-bold text-indigo-600 mb-1">
-                  Game in Progress
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Round {gameInfo.currentRound} of {gameInfo.maxRounds}
-                </p>
-                <p className="text-sm text-gray-600 mb-2">
-                  {players[gameInfo.currentDrawer] || "Someone"} is drawing
-                </p>
-                <div className="w-full h-1 bg-indigo-100 rounded mb-4">
-                  <div
-                    className="h-full bg-indigo-500 rounded animate-pulse"
-                    style={{ width: "100%" }}
-                  ></div>
-                </div>
-              </div>
-            ) : null}
-
+        {/* Room Controls - Only show when game not started */}
+        {roomStatus === "waiting" && (
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-2 lg:py-3 lg:px-3 text-center flex-shrink-0">
             {/* Room ID with Copy Button */}
-            <div className="mb-4">
+            <div className="mb-3">
               <button
                 onClick={() => {
                   const url = getShareableLink();
@@ -1147,10 +1141,10 @@ export default function GamePage() {
                   }
                 }}
                 id="copy-btn"
-                className="w-[95%] mx-auto md:w-full relative py-2 px-4 bg-indigo-100 hover:bg-indigo-200 rounded-md font-medium text-indigo-700 transition-colors text-center hover:cursor-pointer"
+                className="w-full relative py-2 px-4 bg-indigo-100 hover:bg-indigo-200 rounded-md font-medium text-indigo-700 transition-colors text-center hover:cursor-pointer"
               >
-                <div id="copy-btn-text" className="pr-6">
-                  Invite Friends: {roomId}
+                <div id="copy-btn-text" className="pr-6 text-xs lg:text-sm">
+                  Invite: {roomId}
                 </div>
                 <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
                   🔗
@@ -1162,7 +1156,7 @@ export default function GamePage() {
             </div>
 
             <button
-              className={`w-[95%] py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer md:w-full ${
+              className={`w-full py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer text-sm lg:text-base ${
                 playersList.length >= 2 &&
                 !gameInfo.currentDrawer &&
                 isCurrentUserAdmin
@@ -1186,78 +1180,6 @@ export default function GamePage() {
                 : !isCurrentUserAdmin
                 ? "Only the room admin can start the game"
                 : ""}
-            </p>
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-1 md:p-3 text-center flex-shrink-0">
-            {/* Game info header - shows round and drawer */}
-            <div className="mb-2 pb-2 border-b border-gray-100 text-sm text-gray-600">
-              <div className="flex justify-between items-center">
-                <span>Round {gameInfo.currentRound}</span>
-                <span className="font-medium">
-                  {gameInfo.currentDrawer && players[gameInfo.currentDrawer]
-                    ? showWordSelection &&
-                      players[gameInfo.currentDrawer] === playerName
-                      ? "You are choosing a word..."
-                      : showWordSelection
-                      ? `${
-                          players[gameInfo.currentDrawer]
-                        } is choosing a word...`
-                      : `${players[gameInfo.currentDrawer]}${
-                          players[gameInfo.currentDrawer] === playerName
-                            ? " (You)"
-                            : ""
-                        } is drawing`
-                    : "Waiting for drawer..."}
-                </span>
-              </div>
-            </div>
-
-            {/* Timer - only show when time is running */}
-            {timeLeft > 0 && (
-              <div className="mb-3">
-                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${
-                      timeLeft <= 10 ? "bg-red-500" : "bg-green-500"
-                    }`}
-                    style={{
-                      width: `${(timeLeft / 60) * 100}%`,
-                      transition: "width 1s linear",
-                    }}
-                  ></div>
-                </div>
-                <div className="text-sm mt-1 font-medium">
-                  {timeLeft} seconds left
-                </div>
-              </div>
-            )}
-
-            <p className="text-xl md:text-2xl font-mono tracking-widest text-indigo-600">
-              {showWordSelection && isCurrentUserDrawing
-                ? "Choose your word..."
-                : showWordSelection
-                ? "Waiting for word selection..."
-                : isCurrentUserDrawing
-                ? wordToDraw
-                : guessed
-                ? wordToDraw.split("").join(" ")
-                : revealedLetters.length > 0
-                ? revealedLetters
-                    .map((letter, index) => letter || "_")
-                    .join(" ")
-                : wordLength > 0
-                ? Array(wordLength).fill("_").join(" ")
-                : ""}
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {showWordSelection && isCurrentUserDrawing
-                ? "Select a word from the modal above"
-                : showWordSelection
-                ? "Drawer is selecting a word..."
-                : isCurrentUserDrawing
-                ? "Draw this word!"
-                : "Guess the word!"}
             </p>
           </div>
         )}
