@@ -235,6 +235,8 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+
+
   def handle_info({:exclude_user, user_id_to_exclude, message}, socket) do
     # Only push the message to the socket if the user is not the one to exclude
     if socket.assigns.user_id != user_id_to_exclude do
@@ -492,7 +494,7 @@ defmodule ScribblBackendWeb.RoomChannel do
     room_id = String.split(socket.topic, ":") |> List.last()
     user_id = socket.assigns.user_id
 
-    # Add user to voice room
+        # Add user to voice room
     case ScribblBackend.VoiceRoomManager.join_voice_room(room_id, user_id) do
       {:ok, voice_members} ->
         # Broadcast voice state change to all room members
@@ -520,8 +522,10 @@ defmodule ScribblBackendWeb.RoomChannel do
     room_id = String.split(socket.topic, ":") |> List.last()
     user_id = socket.assigns.user_id
 
-    # Remove user from voice room
-    case ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, user_id) do
+    # Remove user from voice room and clean up their mute state
+    ScribblBackend.VoiceRoomManager.cleanup_user_mute_state(room_id, user_id)
+
+        case ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, user_id) do
       {:ok, voice_members} ->
         # Broadcast voice state change to all room members
         Phoenix.PubSub.broadcast(
@@ -544,6 +548,44 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_in("voice_mute", %{"muted" => muted}, socket) do
+    room_id = String.split(socket.topic, ":") |> List.last()
+    user_id = socket.assigns.user_id
+
+    # Check if user is in voice room first
+    case ScribblBackend.VoiceRoomManager.is_user_in_voice_room?(room_id, user_id) do
+      {:ok, true} ->
+        # Set mute state and broadcast update
+        case ScribblBackend.VoiceRoomManager.set_user_mute_state(room_id, user_id, muted) do
+          {:ok, voice_members} ->
+            # Broadcast mute state change to all room members
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "voice_state_changed",
+                payload: %{
+                  "action" => "muted",
+                  "user_id" => user_id,
+                  "voice_members" => voice_members
+                }
+              }
+            )
+
+          {:error, reason} ->
+            push(socket, "error", %{"message" => reason})
+        end
+
+      {:ok, false} ->
+        push(socket, "error", %{"message" => "User not in voice room"})
+
+      {:error, reason} ->
+        push(socket, "error", %{"message" => reason})
+    end
+
+    {:noreply, socket}
+  end
+
   # Catch-all to ignore any unhandled events
   def handle_in(_event, _payload, socket) do
     {:noreply, socket}
@@ -558,6 +600,7 @@ defmodule ScribblBackendWeb.RoomChannel do
     case ScribblBackend.VoiceRoomManager.is_user_in_voice_room?(room_id, user_id) do
       {:ok, true} ->
         # User was in voice room, remove them and broadcast
+        ScribblBackend.VoiceRoomManager.cleanup_user_mute_state(room_id, user_id)
         case ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, user_id) do
           {:ok, voice_members} ->
             # Broadcast voice state change to all room members
