@@ -56,6 +56,22 @@ defmodule ScribblBackend.RedisHelper do
   end
 
   @doc """
+  Sets a single field in a Hash in Redis.
+  ## Parameters
+
+    - `key`: The key to set.
+    - `field`: The field name.
+    - `value`: The field value.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.hset("my_key", "field1", "value1")
+      :ok
+  """
+  def hset(key, field, value) do
+    Redix.command(:redix, ["HSET", key, field, value])
+  end
+
+  @doc """
   Set multpile fields in a Hash in Redis.
   """
   def hmset(key, fields) do
@@ -117,6 +133,21 @@ defmodule ScribblBackend.RedisHelper do
   """
   def hgetall(key) do
     Redix.command(:redix, ["HGETALL", key])
+  end
+
+  @doc """
+  Check if a field exists in a Hash in Redis.
+  ## Parameters
+
+    - `key`: The key to check.
+    - `field`: The field to check.
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.hexists("my_key", "field1")
+      {:ok, 1}
+  """
+  def hexists(key, field) do
+    Redix.command(:redix, ["HEXISTS", key, field])
   end
 
   @doc """

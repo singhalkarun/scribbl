@@ -61,6 +61,9 @@ defmodule ScribblBackend.PlayerManager do
     room_key = KeyManager.room_players(room_id)
     RedisHelper.srem(room_key, player_id)
 
+    # Remove from voice room if they were in it
+    ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, player_id)
+
     # Check if the removed player was the drawer
     {:ok, current_drawer} = GameState.get_current_drawer(room_id)
     if player_id == current_drawer do

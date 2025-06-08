@@ -29,6 +29,21 @@ interface CanvasProps {
   isDrawer: boolean;
   gameStarted?: boolean;
   onShowSettings?: () => void;
+  // Game state props for word/timer display
+  roomStatus?: string;
+  gameInfo?: {
+    currentRound: string;
+    maxRounds: string;
+    currentDrawer: string;
+  };
+  players?: { [key: string]: string };
+  playerName?: string;
+  timeLeft?: number;
+  showWordSelection?: boolean;
+  wordToDraw?: string;
+  guessed?: boolean;
+  revealedLetters?: string[];
+  wordLength?: number;
 }
 
 interface DrawingData {
@@ -43,6 +58,16 @@ export default function Canvas({
   isDrawer,
   gameStarted = false,
   onShowSettings,
+  roomStatus,
+  gameInfo,
+  players,
+  playerName,
+  timeLeft,
+  showWordSelection,
+  wordToDraw,
+  guessed,
+  revealedLetters,
+  wordLength,
 }: CanvasProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -427,9 +452,225 @@ export default function Canvas({
 
   return (
     <div className="w-full h-full flex flex-col md:gap-2 md:p-4 bg-gray-50 font-sans">
-      {/* Toolbar - Make relative for absolute positioning of slider */}
-      {isDrawer ? (
-        <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
+      {/* Game Info Display - Show for both drawer and non-drawers */}
+      <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
+        {/* Game Info Display */}
+        {roomStatus === "started" && gameInfo ? (
+          <div className="flex items-center justify-between px-2 py-1">
+            {/* Round and Timer info - stacked vertically */}
+            <div className="flex flex-col text-xs lg:text-sm text-gray-600">
+              <span className="font-medium">
+                Round {gameInfo.currentRound} of {gameInfo.maxRounds}
+              </span>
+              {timeLeft && timeLeft > 0 ? (
+                <span
+                  className={`font-medium ${
+                    timeLeft <= 10 ? "text-red-500" : "text-green-600"
+                  }`}
+                >
+                  Timer: {timeLeft}s
+                </span>
+              ) : null}
+            </div>
+
+            {/* Word Display */}
+            <div className="text-center flex-1 mx-4">
+              <p className="text-base lg:text-lg xl:text-xl font-mono tracking-widest text-indigo-600">
+                {(() => {
+                  // Check if word selection is happening (for all players)
+                  const isWordSelectionPhase =
+                    gameInfo?.currentDrawer &&
+                    (!timeLeft || timeLeft === 0) &&
+                    (!wordLength || wordLength === 0) &&
+                    !wordToDraw;
+
+                  if (isWordSelectionPhase) {
+                    return isDrawer
+                      ? "Choose your word..."
+                      : "Waiting for word selection...";
+                  }
+
+                  if (isDrawer) {
+                    return wordToDraw;
+                  }
+
+                  if (guessed) {
+                    return wordToDraw?.split("").join(" ");
+                  }
+
+                  if (revealedLetters && revealedLetters.length > 0) {
+                    return revealedLetters
+                      .map((letter, index) => letter || "_")
+                      .join(" ");
+                  }
+
+                  if (wordLength && wordLength > 0) {
+                    return Array(wordLength).fill("_").join(" ");
+                  }
+
+                  return "";
+                })()}
+              </p>
+            </div>
+
+            {/* Settings and Feedback buttons */}
+            <div className="flex flex-col gap-1">
+              {/* Settings button */}
+              {onShowSettings && (
+                <button
+                  onClick={onShowSettings}
+                  className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                  title="View room settings"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </button>
+              )}
+
+              {/* Feedback button */}
+              <a
+                href="https://forms.gle/iuJVLc5qYkKrxFq38"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                title="Give us feedback"
+              >
+                <Image
+                  src="/survey.png"
+                  alt="Feedback"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5"
+                />
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="flex justify-between items-center px-2 py-1">
+            <div className="py-2 text-center text-indigo-700 font-medium flex-1">
+              Game not started yet
+            </div>
+
+            {/* Settings and Feedback buttons for waiting state */}
+            <div className="flex gap-1">
+              {/* Settings button */}
+              {onShowSettings && (
+                <button
+                  onClick={onShowSettings}
+                  className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                  title="View room settings"
+                >
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </button>
+              )}
+
+              {/* Feedback button */}
+              <a
+                href="https://forms.gle/iuJVLc5qYkKrxFq38"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
+                title="Give us feedback"
+              >
+                <Image
+                  src="/survey.png"
+                  alt="Feedback"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5"
+                />
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Drawing canvas */}
+      <div
+        ref={canvasContainerRef}
+        className="relative flex-1 border border-gray-300 rounded-lg shadow-inner overflow-hidden bg-white min-h-0"
+        style={{
+          cursor: isDrawer
+            ? isEraser
+              ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                  eraserWidth * 2
+                }" height="${eraserWidth * 2}" viewBox="0 0 ${
+                  eraserWidth * 2
+                } ${
+                  eraserWidth * 2
+                }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
+                  eraserWidth - 1
+                }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
+              : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                  strokeWidth * 2
+                }" height="${strokeWidth * 2}" viewBox="0 0 ${
+                  strokeWidth * 2
+                } ${
+                  strokeWidth * 2
+                }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`
+            : "not-allowed",
+        }}
+      >
+        <ReactSketchCanvas
+          ref={canvasRef}
+          width="100%"
+          height="100%"
+          strokeWidth={strokeWidth}
+          strokeColor={color}
+          eraserWidth={eraserWidth}
+          canvasColor="white"
+          onStroke={isDrawer ? handleStroke : undefined}
+          onChange={isDrawer ? handleDrawingMove : undefined}
+          allowOnlyPointerType="all"
+          style={{
+            border: "none",
+            borderRadius: "8px",
+            display: "block",
+            pointerEvents: isDrawer ? "auto" : "none",
+          }}
+        />
+      </div>
+
+      {/* Drawing tools - Moved to bottom */}
+      {isDrawer && (
+        <div className="relative flex flex-col gap-2 p-2 bg-white rounded-lg md:shadow">
           {/* Main controls */}
           <div className="flex items-center gap-2 flex-wrap">
             {/* Color buttons */}
@@ -478,61 +719,11 @@ export default function Canvas({
             >
               Clear All
             </button>
-
-            {/* Settings and Feedback buttons */}
-            <div className="relative ml-auto flex gap-1">
-              {/* Settings button */}
-              {onShowSettings && (
-                <button
-                  onClick={onShowSettings}
-                  className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                  title="View room settings"
-                >
-                  <svg
-                    className="h-6 w-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                </button>
-              )}
-
-              {/* Feedback button */}
-              <a
-                href="https://forms.gle/iuJVLc5qYkKrxFq38"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                title="Give us feedback"
-              >
-                <Image
-                  src="/survey.png"
-                  alt="Feedback"
-                  width={25}
-                  height={25}
-                  className="h-6 w-6"
-                />
-              </a>
-            </div>
           </div>
 
           {/* Brush size slider - Position absolutely */}
           {showBrushSlider && (
-            <div className="absolute top-full left-0 right-0 z-10 mt-1 p-2 bg-white rounded-b-lg shadow-md border-t border-gray-100 flex items-center gap-4 px-4">
+            <div className="absolute bottom-full left-0 right-0 z-10 mb-1 p-2 bg-white rounded-t-lg shadow-md border-b border-gray-100 flex items-center gap-4 px-4">
               <span className="text-sm text-gray-600 flex-shrink-0">
                 {isEraser ? "Eraser Size" : "Brush Size"}
               </span>
@@ -557,114 +748,7 @@ export default function Canvas({
             </div>
           )}
         </div>
-      ) : (
-        <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
-          <div className="flex justify-center items-center relative">
-            <div className="py-2 text-center text-indigo-700 font-medium">
-              {/* Information message for non-drawers */}
-              {gameStarted
-                ? "Waiting for drawer to draw..."
-                : "Game not started yet"}
-            </div>
-
-            {/* Settings and Feedback buttons for non-drawers - absolute positioned to right */}
-            <div className="absolute right-0 flex gap-1">
-              {/* Settings button */}
-              {onShowSettings && (
-                <button
-                  onClick={onShowSettings}
-                  className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                  title="View room settings"
-                >
-                  <svg
-                    className="h-6 w-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                </button>
-              )}
-
-              {/* Feedback button */}
-              <a
-                href="https://forms.gle/iuJVLc5qYkKrxFq38"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center px-3 py-1.5 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                title="Give us feedback"
-              >
-                <Image
-                  src="/survey.png"
-                  alt="Feedback"
-                  width={25}
-                  height={25}
-                  className="h-6 w-6"
-                />
-              </a>
-            </div>
-          </div>
-        </div>
       )}
-
-      {/* Drawing canvas */}
-      <div
-        ref={canvasContainerRef}
-        className="relative flex-1 border border-gray-300 rounded-lg shadow-inner overflow-hidden bg-white min-h-0"
-        style={{
-          cursor: isDrawer
-            ? isEraser
-              ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
-                  eraserWidth * 2
-                }" height="${eraserWidth * 2}" viewBox="0 0 ${
-                  eraserWidth * 2
-                } ${
-                  eraserWidth * 2
-                }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
-                  eraserWidth - 1
-                }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
-              : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
-                  strokeWidth * 2
-                }" height="${strokeWidth * 2}" viewBox="0 0 ${
-                  strokeWidth * 2
-                } ${
-                  strokeWidth * 2
-                }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`
-            : "not-allowed",
-        }}
-      >
-        <ReactSketchCanvas
-          ref={canvasRef}
-          width="100%"
-          height="100%"
-          strokeWidth={strokeWidth}
-          strokeColor={color}
-          eraserWidth={eraserWidth}
-          canvasColor="white"
-          onStroke={isDrawer ? handleStroke : undefined}
-          onChange={isDrawer ? handleDrawingMove : undefined}
-          allowOnlyPointerType="all"
-          style={{
-            border: "none",
-            borderRadius: "8px",
-            display: "block",
-            pointerEvents: isDrawer ? "auto" : "none",
-          }}
-        />
-      </div>
     </div>
   );
 }

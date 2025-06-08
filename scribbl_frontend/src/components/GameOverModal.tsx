@@ -105,7 +105,7 @@ export default function GameOverModal({
             className="w-full py-3 px-4 rounded-lg font-semibold text-white bg-indigo-600 hover:bg-indigo-700 transition-colors"
             onClick={onClose}
           >
-            Close
+            Play Again
           </button>
 
           {/* For development/preview only - remove in production */}
