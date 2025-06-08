@@ -43,6 +43,7 @@ export function useWebRTCVoice() {
   const connectionsRef = useRef<Map<string, WebRTCConnection>>(new Map());
   const localStreamRef = useRef<MediaStream | null>(null);
   const voiceChatUsersRef = useRef<Set<string>>(new Set());
+  const audioEnabledRef = useRef<boolean>(false);
 
   // Process queued ICE candidates after remote description is set
   const processQueuedIceCandidates = useCallback(
@@ -91,6 +92,7 @@ export function useWebRTCVoice() {
       });
 
       localStreamRef.current = stream;
+      audioEnabledRef.current = true;
       setState((prev) => ({
         ...prev,
         localStream: stream,
@@ -453,6 +455,7 @@ export function useWebRTCVoice() {
       localStreamRef.current = null;
     }
 
+    audioEnabledRef.current = false;
     setState((prev) => ({
       ...prev,
       isConnected: false,
@@ -524,26 +527,32 @@ export function useWebRTCVoice() {
               user_id,
             ]);
             voiceChatUsersRef.current = newVoiceChatUsers;
-            setState((prev) => ({
-              ...prev,
-              voiceChatUsers: newVoiceChatUsers,
-            }));
+            setState((prev) => {
+              const newState = {
+                ...prev,
+                voiceChatUsers: newVoiceChatUsers,
+              };
 
-            // If we're also in voice chat and it's not us, create an offer
-            if (state.audioEnabled && user_id !== userId) {
-              // Only create offer if we don't already have a connection in progress
-              const existingConnection = connectionsRef.current.get(user_id);
-              if (!existingConnection) {
-                console.log(
-                  `[WebRTC] User ${user_id} joined voice chat, creating offer`
-                );
-                createOffer(user_id);
-              } else {
-                console.log(
-                  `[WebRTC] Connection to ${user_id} already exists, skipping offer`
-                );
+              // If we're also in voice chat and it's not us, create an offer
+              // Use ref to get current audio state immediately
+              if (audioEnabledRef.current && user_id !== userId) {
+                // Only create offer if we don't already have a connection in progress
+                const existingConnection = connectionsRef.current.get(user_id);
+                if (!existingConnection) {
+                  console.log(
+                    `[WebRTC] User ${user_id} joined voice chat, creating offer`
+                  );
+                  // Use setTimeout to avoid blocking setState
+                  setTimeout(() => createOffer(user_id), 0);
+                } else {
+                  console.log(
+                    `[WebRTC] Connection to ${user_id} already exists, skipping offer`
+                  );
+                }
               }
-            }
+
+              return newState;
+            });
           } else if (action === "left" && user_id) {
             // Someone left voice chat - remove them from our local state
             const newVoiceChatUsers = new Set(
@@ -574,27 +583,35 @@ export function useWebRTCVoice() {
             // Full state update - use authoritative voice_members array
             const newVoiceChatUsers = new Set(voice_members);
             voiceChatUsersRef.current = newVoiceChatUsers;
-            setState((prev) => ({
-              ...prev,
-              voiceChatUsers: newVoiceChatUsers,
-            }));
+            setState((prev) => {
+              const newState = {
+                ...prev,
+                voiceChatUsers: newVoiceChatUsers,
+              };
 
-            // Connect to all voice chat users if we're also in voice chat
-            if (state.audioEnabled) {
-              const otherVoiceUsers = voice_members.filter(
-                (id) => id !== userId
-              );
-              console.log(
-                `[WebRTC] Voice state update, connecting to users:`,
-                otherVoiceUsers
-              );
-              otherVoiceUsers.forEach((targetUserId) => {
-                // Only create offer if we don't already have a connection
-                if (!connectionsRef.current.has(targetUserId)) {
-                  createOffer(targetUserId);
-                }
-              });
-            }
+              // Connect to all voice chat users if we're also in voice chat
+              // Use ref to get current audio state immediately
+              if (audioEnabledRef.current) {
+                const otherVoiceUsers = voice_members.filter(
+                  (id) => id !== userId
+                );
+                console.log(
+                  `[WebRTC] Voice state update, connecting to users:`,
+                  otherVoiceUsers
+                );
+                // Use setTimeout to avoid blocking setState
+                setTimeout(() => {
+                  otherVoiceUsers.forEach((targetUserId) => {
+                    // Only create offer if we don't already have a connection
+                    if (!connectionsRef.current.has(targetUserId)) {
+                      createOffer(targetUserId);
+                    }
+                  });
+                }, 0);
+              }
+
+              return newState;
+            });
           }
         }
       ),
@@ -616,7 +633,6 @@ export function useWebRTCVoice() {
     handleOffer,
     handleAnswer,
     handleIceCandidate,
-    state.audioEnabled,
     userId,
     createOffer,
   ]);
