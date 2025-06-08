@@ -32,6 +32,17 @@ defmodule ScribblBackend.KeyManager do
   def room_players(room_id), do: "#{@room_prefix}{#{room_id}}:players"
 
   @doc """
+  Get the key for voice room members.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for voice room members.
+  """
+  def voice_room_members(room_id), do: "#{@room_prefix}{#{room_id}}:voice_members"
+
+  @doc """
   Get the key for a player's score.
 
   ## Parameters

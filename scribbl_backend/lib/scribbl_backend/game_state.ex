@@ -333,6 +333,9 @@ defmodule ScribblBackend.GameState do
     # Clear all player scores first
     PlayerManager.clear_all_player_scores(room_id)
 
+    # Clear voice room members
+    ScribblBackend.VoiceRoomManager.clear_voice_room(room_id)
+
     # Remove from public rooms set
     remove_from_public_rooms(room_id)
 
