@@ -16,6 +16,7 @@ interface WebRTCVoiceState {
   connections: Map<string, WebRTCConnection>;
   audioEnabled: boolean;
   voiceChatUsers: Set<string>; // Track which users are in voice chat
+  userMuteStates: Map<string, boolean>; // Track mute state of each user
 }
 
 const ICE_SERVERS: RTCConfiguration = {
@@ -38,6 +39,7 @@ export function useWebRTCVoice() {
     connections: new Map(),
     audioEnabled: false,
     voiceChatUsers: new Set(),
+    userMuteStates: new Map(),
   });
 
   const connectionsRef = useRef<Map<string, WebRTCConnection>>(new Map());
@@ -463,6 +465,7 @@ export function useWebRTCVoice() {
       localStream: null,
       connections: new Map(),
       audioEnabled: false,
+      userMuteStates: new Map(),
       // voiceChatUsers will be updated via voice_state_changed event from backend
     }));
 
@@ -471,20 +474,28 @@ export function useWebRTCVoice() {
 
   // Toggle mute
   const toggleMute = useCallback(() => {
-    if (localStreamRef.current) {
+    if (localStreamRef.current && channel) {
       const audioTrack = localStreamRef.current.getAudioTracks()[0];
       if (audioTrack) {
         audioTrack.enabled = !audioTrack.enabled;
+        const newMutedState = !audioTrack.enabled;
+
         setState((prev) => ({
           ...prev,
-          isMuted: !audioTrack.enabled,
+          isMuted: newMutedState,
         }));
+
+        // Send mute state to backend
+        channel.push("voice_mute", {
+          muted: newMutedState,
+        });
+
         console.log(
           `[WebRTC] Audio ${audioTrack.enabled ? "unmuted" : "muted"}`
         );
       }
     }
-  }, []);
+  }, [channel]);
 
   // Set up channel listeners
   useEffect(() => {
@@ -510,9 +521,9 @@ export function useWebRTCVoice() {
           user_id,
           voice_members,
         }: {
-          action: "joined" | "left" | "state";
+          action: "joined" | "left" | "muted" | "state";
           user_id?: string;
-          voice_members?: string[];
+          voice_members?: Record<string, boolean>;
         }) => {
           console.log(`[WebRTC] Voice state changed:`, {
             action,
@@ -559,10 +570,16 @@ export function useWebRTCVoice() {
               [...voiceChatUsersRef.current].filter((id) => id !== user_id)
             );
             voiceChatUsersRef.current = newVoiceChatUsers;
-            setState((prev) => ({
-              ...prev,
-              voiceChatUsers: newVoiceChatUsers,
-            }));
+            setState((prev) => {
+              const newUserMuteStates = new Map(prev.userMuteStates);
+              newUserMuteStates.delete(user_id);
+
+              return {
+                ...prev,
+                voiceChatUsers: newVoiceChatUsers,
+                userMuteStates: newUserMuteStates,
+              };
+            });
 
             // Close their connection if we have one
             if (user_id !== userId) {
@@ -579,20 +596,43 @@ export function useWebRTCVoice() {
                 }));
               }
             }
+          } else if (action === "muted" && user_id && voice_members) {
+            // Someone changed their mute state - update our local state
+            const userMuteState = voice_members[user_id];
+            if (userMuteState !== undefined) {
+              setState((prev) => {
+                const newUserMuteStates = new Map(prev.userMuteStates);
+                newUserMuteStates.set(user_id, userMuteState);
+
+                return {
+                  ...prev,
+                  userMuteStates: newUserMuteStates,
+                };
+              });
+
+              console.log(
+                `[WebRTC] User ${user_id} ${
+                  userMuteState ? "muted" : "unmuted"
+                }`
+              );
+            }
           } else if (action === "state" && voice_members) {
-            // Full state update - use authoritative voice_members array
-            const newVoiceChatUsers = new Set(voice_members);
+            // Full state update - use authoritative voice_members object
+            const newVoiceChatUsers = new Set(Object.keys(voice_members));
+            const newUserMuteStates = new Map(Object.entries(voice_members));
+
             voiceChatUsersRef.current = newVoiceChatUsers;
             setState((prev) => {
               const newState = {
                 ...prev,
                 voiceChatUsers: newVoiceChatUsers,
+                userMuteStates: newUserMuteStates,
               };
 
               // Connect to all voice chat users if we're also in voice chat
               // Use ref to get current audio state immediately
               if (audioEnabledRef.current) {
-                const otherVoiceUsers = voice_members.filter(
+                const otherVoiceUsers = Object.keys(voice_members).filter(
                   (id) => id !== userId
                 );
                 console.log(
@@ -652,6 +692,7 @@ export function useWebRTCVoice() {
     audioEnabled: state.audioEnabled,
     connections: state.connections,
     voiceChatUsers: state.voiceChatUsers,
+    userMuteStates: state.userMuteStates,
     startVoiceChat,
     stopVoiceChat,
     toggleMute,
