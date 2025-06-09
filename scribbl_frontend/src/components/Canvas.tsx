@@ -5,7 +5,17 @@ import React, { useRef, useState, useEffect } from "react";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import Image from "next/image";
 
-const colors = ["black", "red", "blue", "green", "orange", "purple"];
+const colors = [
+  "black", 
+  "red", 
+  "blue", 
+  "green", 
+  "yellow", 
+  "orange", 
+  "purple", 
+  "#FF69B4", // Pink
+  "#8B4513", // Brown
+];
 
 // Define proper types for sketch paths
 interface PathPoint {
@@ -668,65 +678,159 @@ export default function Canvas({
         />
       </div>
 
-      {/* Drawing tools - Moved to bottom */}
+            {/* Drawing tools - Improved but compact */}
       {isDrawer && (
-        <div className="relative flex flex-col gap-2 p-2 bg-white rounded-lg md:shadow">
-          {/* Main controls */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Color buttons */}
-            {colors.map((c) => (
-              <button
-                key={c}
-                aria-label={`Select color ${c}`}
-                onClick={() => handleColorChange(c)}
-                className={`w-8 h-8 rounded-full border-2 transition-transform duration-150 ease-in-out hover:cursor-pointer ${
-                  color === c && !isEraser
-                    ? "border-blue-600 scale-110 ring-2 ring-blue-300"
-                    : "border-gray-300 hover:scale-105"
-                }`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
+                <div className="relative flex flex-col gap-3 p-3 bg-white rounded-lg md:shadow">
+          {/* Mobile Layout - Stack colors and tools */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {/* Colors - Mobile */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-2 flex-wrap justify-center max-w-sm">
+                {colors.map((c) => (
+                  <button
+                    key={c}
+                    aria-label={`Select color ${c}`}
+                    onClick={() => handleColorChange(c)}
+                    className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-out hover:cursor-pointer ${
+                      color === c && !isEraser
+                        ? "border-blue-500 scale-110 ring-2 ring-blue-200 shadow-md"
+                        : "border-gray-300 hover:border-gray-400 hover:scale-105"
+                    }`}
+                    style={{ backgroundColor: c }}
+                  >
+                    {color === c && !isEraser && (
+                      <svg className="w-3 h-3 text-white drop-shadow-sm mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            {/* Separator */}
-            <div className="border-l border-gray-300 h-6 mx-2"></div>
+            {/* Tools - Mobile */}
+            <div className="flex justify-center">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDrawModeClick}
+                  className={`p-3 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
+                    !isEraser
+                      ? "bg-blue-500 text-white shadow-md hover:bg-blue-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                  }`}
+                  title="Draw Mode"
+                >
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  </svg>
+                </button>
 
-            {/* Mode toggle */}
-            <button
-              onClick={handleDrawModeClick}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
-                !isEraser
-                  ? "bg-blue-500 text-white shadow-sm"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              Draw
-            </button>
-            <button
-              onClick={handleEraseModeClick}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors hover:cursor-pointer ${
-                isEraser
-                  ? "bg-red-500 text-white shadow-sm"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              }`}
-            >
-              Erase
-            </button>
+                <button
+                  onClick={handleEraseModeClick}
+                  className={`p-3 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
+                    isEraser
+                      ? "bg-pink-500 text-white shadow-md hover:bg-pink-600"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                  }`}
+                  title="Eraser Mode"
+                >
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53c-.39.39-1.02.39-1.41 0L2.81 12.75c-.78-.79-.78-2.05 0-2.84L11.6 1.12c.78-.78 2.05-.78 2.83 0l1.81 1.81zm-.71 4.24L11.66 3.93c-.39-.39-1.02-.39-1.41 0L2.5 11.68c-.39.39-.39 1.02 0 1.41l7.77 7.77c.39.39 1.02.39 1.41 0l7.75-7.75c.39-.39.39-1.02 0-1.41l-3.89-3.9z"/>
+                  </svg>
+                </button>
 
-            <button
-              onClick={handleClear}
-              className="px-3 py-1.5 bg-red-600 text-white rounded-md text-sm font-medium hover:bg-red-700 transition-colors shadow-sm hover:cursor-pointer"
-            >
-              Clear All
-            </button>
+                <button
+                  onClick={handleClear}
+                  className="p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-150 shadow-md hover:cursor-pointer"
+                  title="Clear All"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* Brush size slider - Position absolutely */}
+          {/* Desktop Layout - Single centered row */}
+          <div className="hidden md:flex items-center justify-center gap-3">
+            {/* Colors - Desktop */}
+            <div className="flex items-center gap-2">
+              {colors.map((c) => (
+                <button
+                  key={c}
+                  aria-label={`Select color ${c}`}
+                  onClick={() => handleColorChange(c)}
+                  className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-out hover:cursor-pointer ${
+                    color === c && !isEraser
+                      ? "border-blue-500 scale-110 ring-2 ring-blue-200 shadow-md"
+                      : "border-gray-300 hover:border-gray-400 hover:scale-105"
+                  }`}
+                  style={{ backgroundColor: c }}
+                >
+                  {color === c && !isEraser && (
+                    <svg className="w-3 h-3 text-white drop-shadow-sm mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Separator - Desktop */}
+            <div className="border-l border-gray-300 h-6 mx-2"></div>
+
+            {/* Tools - Desktop */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleDrawModeClick}
+                className={`p-2 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
+                  !isEraser
+                    ? "bg-blue-500 text-white shadow-md hover:bg-blue-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                }`}
+                title="Draw Mode"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </button>
+
+              <button
+                onClick={handleEraseModeClick}
+                className={`p-2 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
+                  isEraser
+                    ? "bg-pink-500 text-white shadow-md hover:bg-pink-600"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
+                }`}
+                title="Eraser Mode"
+              >
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53c-.39.39-1.02.39-1.41 0L2.81 12.75c-.78-.79-.78-2.05 0-2.84L11.6 1.12c.78-.78 2.05-.78 2.83 0l1.81 1.81zm-.71 4.24L11.66 3.93c-.39-.39-1.02-.39-1.41 0L2.5 11.68c-.39.39-.39 1.02 0 1.41l7.77 7.77c.39.39 1.02.39 1.41 0l7.75-7.75c.39-.39.39-1.02 0-1.41l-3.89-3.9z"/>
+                </svg>
+              </button>
+
+              <button
+                onClick={handleClear}
+                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-150 shadow-md hover:cursor-pointer"
+                title="Clear All"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* Brush size slider - improved styling */}
           {showBrushSlider && (
-            <div className="absolute bottom-full left-0 right-0 z-10 mb-1 p-2 bg-white rounded-t-lg shadow-md border-b border-gray-100 flex items-center gap-4 px-4">
-              <span className="text-sm text-gray-600 flex-shrink-0">
-                {isEraser ? "Eraser Size" : "Brush Size"}
-              </span>
+            <div className="absolute bottom-full left-0 right-0 z-10 mb-1 p-3 bg-white rounded-lg shadow-lg border border-gray-200 flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isEraser ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+                <span className="text-sm text-gray-600 font-medium">
+                  {isEraser ? "Eraser" : "Brush"}
+                </span>
+              </div>
               <input
                 type="range"
                 min="1"
@@ -740,9 +844,15 @@ export default function Canvas({
                     setStrokeWidth(value);
                   }
                 }}
-                className="w-48"
+                className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer
+                  [&::-webkit-slider-thumb]:appearance-none 
+                  [&::-webkit-slider-thumb]:w-4 
+                  [&::-webkit-slider-thumb]:h-4 
+                  [&::-webkit-slider-thumb]:rounded-full 
+                  [&::-webkit-slider-thumb]:bg-blue-500 
+                  [&::-webkit-slider-thumb]:shadow-sm"
               />
-              <span className="text-sm text-gray-600">
+              <span className="text-sm text-gray-500 w-8">
                 {isEraser ? eraserWidth : strokeWidth}px
               </span>
             </div>
