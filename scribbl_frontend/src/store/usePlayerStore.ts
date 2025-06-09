@@ -87,9 +87,14 @@ export const usePlayerStore = create<PlayerStore>()(
 
           Object.keys(presenceState).forEach((userId) => {
             if (presenceState[userId].metas.length > 0) {
-              const playerMeta = presenceState[userId].metas[0];
-              const playerName = playerMeta.name;
-              const joinedAt = playerMeta.joined_at;
+              // Find the meta with the latest joined_at timestamp
+              const latestMeta = presenceState[userId].metas.reduce(
+                (latest, meta) =>
+                  meta.joined_at > latest.joined_at ? meta : latest,
+                presenceState[userId].metas[0]
+              );
+              const playerName = latestMeta.name;
+              const joinedAt = latestMeta.joined_at;
 
               newPlayers[userId] = playerName;
               newTimestamps[userId] = joinedAt;
@@ -118,20 +123,24 @@ export const usePlayerStore = create<PlayerStore>()(
           // Handle joins
           Object.keys(diff.joins).forEach((userId) => {
             if (diff.joins[userId].metas.length > 0) {
-              const newPlayerMeta = diff.joins[userId].metas[0];
-              const newJoinedAt = newPlayerMeta.joined_at;
+              const latestNewMeta = diff.joins[userId].metas.reduce(
+                (latest, meta) =>
+                  meta.joined_at > latest.joined_at ? meta : latest,
+                diff.joins[userId].metas[0]
+              );
+              const newJoinedAt = latestNewMeta.joined_at;
               const currentTimestamp = updatedTimestamps[userId] || 0;
 
               // Only update if this is a newer presence update (higher timestamp)
               if (newJoinedAt > currentTimestamp) {
-                updatedPlayers[userId] = newPlayerMeta.name;
+                updatedPlayers[userId] = latestNewMeta.name;
                 updatedTimestamps[userId] = newJoinedAt;
                 console.log(
-                  `[Store] Added/Updated player ${newPlayerMeta.name} with timestamp ${newJoinedAt}`
+                  `[Store] Added/Updated player ${latestNewMeta.name} with timestamp ${newJoinedAt}`
                 );
               } else {
                 console.log(
-                  `[Store] Ignored outdated join for ${newPlayerMeta.name}: ${newJoinedAt} <= ${currentTimestamp}`
+                  `[Store] Ignored outdated join for ${latestNewMeta.name}: ${newJoinedAt} <= ${currentTimestamp}`
                 );
               }
             }
@@ -140,8 +149,12 @@ export const usePlayerStore = create<PlayerStore>()(
           // Handle leaves - only remove if the leave event's timestamp is newer than what we have
           Object.keys(diff.leaves).forEach((userId) => {
             if (diff.leaves[userId].metas.length > 0) {
-              const leavePlayerMeta = diff.leaves[userId].metas[0];
-              const leaveJoinedAt = leavePlayerMeta.joined_at;
+              const latestLeaveMeta = diff.leaves[userId].metas.reduce(
+                (latest, meta) =>
+                  meta.joined_at > latest.joined_at ? meta : latest,
+                diff.leaves[userId].metas[0]
+              );
+              const leaveJoinedAt = latestLeaveMeta.joined_at;
               const currentTimestamp = updatedTimestamps[userId] || 0;
 
               // If we have a newer join timestamp, keep the player (ignore the leave)
