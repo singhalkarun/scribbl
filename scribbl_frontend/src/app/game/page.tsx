@@ -705,176 +705,364 @@ export default function GamePage() {
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
           {roomStatus === "waiting" && isCurrentUserAdmin && (
-            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 select-none">
-              <div className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto">
+            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 select-none p-2">
+              <div className="bg-white rounded-xl p-4 lg:p-6 shadow-2xl w-full max-w-sm lg:max-w-md">
                 <div className="text-center mb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">
+                  <h2 className="text-xl lg:text-2xl font-bold text-gray-800">
                     Room Settings
                   </h2>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Configure game settings before starting
-                  </p>
                 </div>
 
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    const formData = new FormData(e.currentTarget);
-                    const updatedSettings = {
-                      maxPlayers: formData.get("maxPlayers") as string,
-                      maxRounds: formData.get("maxRounds") as string,
-                      turnTime: formData.get("turnTime") as string,
-                      hintsAllowed: formData.get("hintsAllowed") as string,
-                      difficulty: formData.get("difficulty") as string,
-                      roomType: formData.get("roomType") as string,
-                    };
-                    handleUpdateRoomSettings(updatedSettings);
-                  }}
-                  className="space-y-4"
-                >
-                  {/* Max Players */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Players
-                    </label>
-                    <select
-                      name="maxPlayers"
-                      value={roomSettings.maxPlayers}
-                      onChange={(e) =>
-                        setRoomSettings((prev) => ({
-                          ...prev,
-                          maxPlayers: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="2">2 Players</option>
-                      <option value="3">3 Players</option>
-                      <option value="4">4 Players</option>
-                      <option value="5">5 Players</option>
-                      <option value="6">6 Players</option>
-                      <option value="8">8 Players</option>
-                    </select>
+                {/* Mobile-optimized form with plus/minus controls */}
+                <div className="space-y-3">
+                  {/* Row 1: Max Players & Max Rounds */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Max Players */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Max Players
+                      </label>
+                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentPlayers = parseInt(
+                              roomSettings.maxPlayers
+                            );
+                            const newPlayers = Math.max(2, currentPlayers - 1);
+                            if (newPlayers !== currentPlayers) {
+                              setRoomSettings((prev) => ({
+                                ...prev,
+                                maxPlayers: newPlayers.toString(),
+                              }));
+                            }
+                          }}
+                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors hover:cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M20 12H4"
+                            />
+                          </svg>
+                        </button>
+                        <span className="flex-1 text-center py-2 text-sm font-medium text-gray-800">
+                          {roomSettings.maxPlayers}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentPlayers = parseInt(
+                              roomSettings.maxPlayers
+                            );
+                            const newPlayers = Math.min(8, currentPlayers + 1);
+                            if (newPlayers !== currentPlayers) {
+                              setRoomSettings((prev) => ({
+                                ...prev,
+                                maxPlayers: newPlayers.toString(),
+                              }));
+                            }
+                          }}
+                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors hover:cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v16m8-8H4"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Max Rounds */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Max Rounds
+                      </label>
+                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const rounds = ["1", "2", "3", "5", "10"];
+                            const currentIndex = rounds.indexOf(
+                              roomSettings.maxRounds
+                            );
+                            const newIndex = Math.max(0, currentIndex - 1);
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              maxRounds: rounds[newIndex],
+                            }));
+                          }}
+                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors hover:cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M20 12H4"
+                            />
+                          </svg>
+                        </button>
+                        <span className="flex-1 text-center py-2 text-sm font-medium text-gray-800">
+                          {roomSettings.maxRounds}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const rounds = ["1", "2", "3", "5", "10"];
+                            const currentIndex = rounds.indexOf(
+                              roomSettings.maxRounds
+                            );
+                            const newIndex = Math.min(
+                              rounds.length - 1,
+                              currentIndex + 1
+                            );
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              maxRounds: rounds[newIndex],
+                            }));
+                          }}
+                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors hover:cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v16m8-8H4"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Max Rounds */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Rounds
-                    </label>
-                    <select
-                      name="maxRounds"
-                      value={roomSettings.maxRounds}
-                      onChange={(e) =>
-                        setRoomSettings((prev) => ({
-                          ...prev,
-                          maxRounds: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="1">1 Round</option>
-                      <option value="2">2 Rounds</option>
-                      <option value="3">3 Rounds</option>
-                      <option value="5">5 Rounds</option>
-                      <option value="10">10 Rounds</option>
-                    </select>
+                  {/* Row 2: Turn Time & Hints */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Turn Time */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Turn Time (sec)
+                      </label>
+                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const times = ["30", "45", "60", "90", "120"];
+                            const currentIndex = times.indexOf(
+                              roomSettings.turnTime
+                            );
+                            const newIndex = Math.max(0, currentIndex - 1);
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              turnTime: times[newIndex],
+                            }));
+                          }}
+                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors hover:cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M20 12H4"
+                            />
+                          </svg>
+                        </button>
+                        <span className="flex-1 text-center py-2 text-sm font-medium text-gray-800">
+                          {roomSettings.turnTime}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const times = ["30", "45", "60", "90", "120"];
+                            const currentIndex = times.indexOf(
+                              roomSettings.turnTime
+                            );
+                            const newIndex = Math.min(
+                              times.length - 1,
+                              currentIndex + 1
+                            );
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              turnTime: times[newIndex],
+                            }));
+                          }}
+                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors hover:cursor-pointer"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 4v16m8-8H4"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Hints Allowed */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Hints
+                      </label>
+                      <div className="flex bg-gray-100 rounded-lg p-[2px] border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              hintsAllowed: "false",
+                            }))
+                          }
+                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                            roomSettings.hintsAllowed === "false"
+                              ? "bg-red-500 text-white shadow-sm"
+                              : "text-gray-600 hover:text-gray-800"
+                          }`}
+                        >
+                          ✗ No
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              hintsAllowed: "true",
+                            }))
+                          }
+                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                            roomSettings.hintsAllowed === "true"
+                              ? "bg-green-500 text-white shadow-sm"
+                              : "text-gray-600 hover:text-gray-800"
+                          }`}
+                        >
+                          ✓ Yes
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Turn Time */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Turn Time (seconds)
-                    </label>
-                    <select
-                      name="turnTime"
-                      value={roomSettings.turnTime}
-                      onChange={(e) =>
-                        setRoomSettings((prev) => ({
-                          ...prev,
-                          turnTime: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="30">30 seconds</option>
-                      <option value="45">45 seconds</option>
-                      <option value="60">60 seconds</option>
-                      <option value="90">90 seconds</option>
-                      <option value="120">120 seconds</option>
-                    </select>
+                  {/* Row 3: Difficulty & Room Type */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Difficulty */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Difficulty
+                      </label>
+                      <div className="flex bg-gray-100 rounded-lg p-[2px] border border-gray-200">
+                        {["easy", "medium", "hard"].map((diff) => (
+                          <button
+                            key={diff}
+                            type="button"
+                            onClick={() =>
+                              setRoomSettings((prev) => ({
+                                ...prev,
+                                difficulty: diff,
+                              }))
+                            }
+                            className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                              roomSettings.difficulty === diff
+                                ? diff === "easy"
+                                  ? "bg-green-500 text-white shadow-sm"
+                                  : diff === "medium"
+                                  ? "bg-yellow-500 text-white shadow-sm"
+                                  : "bg-red-500 text-white shadow-sm"
+                                : "text-gray-600 hover:text-gray-800"
+                            }`}
+                          >
+                            {diff.charAt(0).toUpperCase() + diff.slice(1)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Room Type */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                        Room Type
+                      </label>
+                      <div className="flex bg-gray-100 rounded-lg p-[2px] border border-gray-200">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              roomType: "public",
+                            }))
+                          }
+                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                            roomSettings.roomType === "public"
+                              ? "bg-blue-500 text-white shadow-sm"
+                              : "text-gray-600 hover:text-gray-800"
+                          }`}
+                        >
+                          🌐 Public
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRoomSettings((prev) => ({
+                              ...prev,
+                              roomType: "private",
+                            }))
+                          }
+                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                            roomSettings.roomType === "private"
+                              ? "bg-purple-500 text-white shadow-sm"
+                              : "text-gray-600 hover:text-gray-800"
+                          }`}
+                        >
+                          🔒 Private
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Hints Allowed */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hints Allowed
-                    </label>
-                    <select
-                      name="hintsAllowed"
-                      value={roomSettings.hintsAllowed}
-                      onChange={(e) =>
-                        setRoomSettings((prev) => ({
-                          ...prev,
-                          hintsAllowed: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
-                    </select>
-                  </div>
-
-                  {/* Difficulty */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Difficulty
-                    </label>
-                    <select
-                      name="difficulty"
-                      value={roomSettings.difficulty}
-                      onChange={(e) =>
-                        setRoomSettings((prev) => ({
-                          ...prev,
-                          difficulty: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
-                  </div>
-
-                  {/* Room Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Room Type
-                    </label>
-                    <select
-                      name="roomType"
-                      value={roomSettings.roomType}
-                      onChange={(e) =>
-                        setRoomSettings((prev) => ({
-                          ...prev,
-                          roomType: e.target.value,
-                        }))
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="public">Public</option>
-                      <option value="private">Private</option>
-                    </select>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 pt-4">
+                  {/* Update Button */}
+                  <div className="pt-2">
                     <button
-                      type="submit"
+                      type="button"
                       disabled={settingsUpdateStatus === "updating"}
-                      className={`w-full px-4 py-2 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-2 ${
+                      onClick={() => handleUpdateRoomSettings(roomSettings)}
+                      className={`w-full px-4 py-3 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-2 text-sm ${
                         settingsUpdateStatus === "success"
                           ? "bg-green-600 text-white"
                           : settingsUpdateStatus === "updating"
@@ -925,7 +1113,7 @@ export default function GamePage() {
                         : "Update Settings"}
                     </button>
                   </div>
-                </form>
+                </div>
               </div>
             </div>
           )}

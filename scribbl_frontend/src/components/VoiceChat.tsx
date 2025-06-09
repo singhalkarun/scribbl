@@ -91,7 +91,7 @@ export default function VoiceChat({
   const playerList = Object.entries(players);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 lg:p-3 flex flex-col min-h-0 select-none w-full lg:w-auto flex-1 lg:flex-initial lg:max-h-[90vh]">
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 lg:p-3 flex flex-col h-full select-none w-full lg:w-auto flex-1 lg:flex-initial lg:max-h-[90vh]">
       <div className="flex items-center justify-between mb-2">
         <h2 className="font-bold text-sm lg:text-lg text-gray-700">
           Players ({playerList.length})
