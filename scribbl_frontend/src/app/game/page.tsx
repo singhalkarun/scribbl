@@ -673,51 +673,14 @@ export default function GamePage() {
       )}
 
       {/* Left Sidebar - Players and Voice Chat */}
-      <aside className="flex flex-row lg:flex-col gap-2 p-1 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-r lg:border-gray-200 lg:bg-transparent">
-        {/* Players Section */}
-        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 lg:p-3 flex flex-col min-h-0 select-none w-1/2 lg:w-auto flex-1 lg:flex-initial lg:max-h-[45vh]">
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="font-bold text-sm lg:text-lg text-gray-700 flex-shrink-0">
-              Players ({playersList.length})
-            </h2>
-          </div>
-          <ul className="text-xs lg:text-sm text-gray-600 space-y-1 lg:space-y-1.5 overflow-y-auto pr-1 flex-1">
-            {playersList.length > 0 ? (
-              playersList.map((name, index) => {
-                const playerId = Object.entries(players).find(
-                  ([_, n]) => n === name
-                )?.[0];
-                const score = playerId ? scores[playerId] || 0 : 0;
-                return (
-                  <li
-                    key={index}
-                    className="flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-1 lg:gap-2 min-w-0">
-                      <span className="text-sm lg:text-lg flex-shrink-0">
-                        {playerId === gameInfo.currentDrawer ? "✏️" : "👤"}
-                      </span>
-                      <span className="truncate text-xs lg:text-sm">
-                        {name === playerName ? <b>{name} (You)</b> : name}
-                      </span>
-                    </div>
-                    <span className="font-medium text-indigo-600 flex-shrink-0 text-xs lg:text-sm">
-                      {score} pts
-                    </span>
-                  </li>
-                );
-              })
-            ) : (
-              <li className="text-gray-500 italic text-xs lg:text-sm">
-                No players yet...
-              </li>
-            )}
-          </ul>
-        </div>
-
-        {/* Voice Chat Section */}
-        <div className="w-1/2 lg:w-auto flex-shrink-0">
-          <VoiceChat />
+      <aside className="flex flex-row lg:flex-col gap-2 p-1 md:p-4 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-gray-200 lg:bg-transparent">
+        {/* Merged Players and Voice Chat Section */}
+        <div className="w-full lg:w-auto flex-shrink-0">
+          <VoiceChat
+            scores={scores}
+            currentDrawerId={gameInfo.currentDrawer}
+            currentPlayerName={playerName}
+          />
         </div>
       </aside>
 
@@ -742,7 +705,7 @@ export default function GamePage() {
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
           {roomStatus === "waiting" && isCurrentUserAdmin && (
-            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl select-none">
+            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 select-none">
               <div className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto">
                 <div className="text-center mb-4">
                   <h2 className="text-2xl font-bold text-gray-800">

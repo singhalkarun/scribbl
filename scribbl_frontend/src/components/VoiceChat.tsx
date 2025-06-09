@@ -4,7 +4,17 @@ import React, { useEffect, useRef } from "react";
 import { useWebRTCVoice } from "@/hooks/useWebRTCVoice";
 import { usePlayerStore } from "@/store/usePlayerStore";
 
-export default function VoiceChat() {
+interface VoiceChatProps {
+  scores: { [key: string]: number };
+  currentDrawerId: string;
+  currentPlayerName: string;
+}
+
+export default function VoiceChat({
+  scores,
+  currentDrawerId,
+  currentPlayerName,
+}: VoiceChatProps) {
   const { players, userId } = usePlayerStore();
   const {
     isConnected,
@@ -14,55 +24,40 @@ export default function VoiceChat() {
     startVoiceChat,
     stopVoiceChat,
     toggleMute,
-    voiceChatUsers,
     userMuteStates,
   } = useWebRTCVoice();
 
   const audioRefs = useRef<{ [userId: string]: HTMLAudioElement }>({});
 
-  // Play remote audio streams
   useEffect(() => {
     connections.forEach((connection, remoteUserId) => {
       if (connection.remoteStream) {
         let audioElement = audioRefs.current[remoteUserId];
-
         if (!audioElement) {
           audioElement = new Audio();
           audioElement.autoplay = true;
-          audioElement.controls = false;
           audioRefs.current[remoteUserId] = audioElement;
         }
-
-        if (audioElement.srcObject !== connection.remoteStream) {
-          audioElement.srcObject = connection.remoteStream;
-          console.log(
-            `[VoiceChat] Playing audio from ${
-              players[remoteUserId] || remoteUserId
-            }`
-          );
-        }
+        audioElement.srcObject = connection.remoteStream;
       }
     });
 
-    // Clean up audio elements for disconnected users
     Object.keys(audioRefs.current).forEach((remoteUserId) => {
       if (!connections.has(remoteUserId)) {
-        const audioElement = audioRefs.current[remoteUserId];
-        if (audioElement) {
-          audioElement.srcObject = null;
+        const audio = audioRefs.current[remoteUserId];
+        if (audio) {
+          audio.srcObject = null;
           delete audioRefs.current[remoteUserId];
         }
       }
     });
-  }, [connections, players]);
+  }, [connections]);
 
-  // Clean up audio elements on unmount
   useEffect(() => {
     return () => {
       Object.values(audioRefs.current).forEach((audio) => {
         audio.srcObject = null;
       });
-      audioRefs.current = {};
     };
   }, []);
 
@@ -70,9 +65,6 @@ export default function VoiceChat() {
     try {
       await startVoiceChat();
     } catch (error) {
-      console.error("[VoiceChat] Failed to start voice chat:", error);
-
-      // More specific error messages
       let errorMessage = "Failed to start voice chat.";
       if (error instanceof DOMException) {
         switch (error.name) {
@@ -92,245 +84,154 @@ export default function VoiceChat() {
             errorMessage = `Microphone error: ${error.message}`;
         }
       }
-
       alert(errorMessage);
     }
   };
 
-  const connectedUsers = Array.from(connections.keys()).filter(
-    (id) => connections.get(id)?.remoteStream
-  );
-  const voiceChatUsersList = Array.from(voiceChatUsers).filter(
-    (id) => id !== userId
-  );
+  const playerList = Object.entries(players);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2 lg:p-3">
-      <div className="flex items-center justify-between mb-2 lg:mb-3">
-        <h3 className="text-sm lg:text-lg font-semibold text-gray-800">
-          Voice Chat
-        </h3>
-        <div className="flex items-center space-x-1">
-          {isConnected && (
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          )}
-          <span className="text-xs lg:text-sm text-gray-600">
-            {voiceChatUsersList.length} connected
-          </span>
-        </div>
-      </div>
-
-      <div className="space-y-2 lg:space-y-3">
-        {/* Voice chat controls */}
-        <div className="flex space-x-2">
-          {!audioEnabled ? (
+    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 lg:p-3 flex flex-col min-h-0 select-none w-full lg:w-auto flex-1 lg:flex-initial lg:max-h-[90vh]">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="font-bold text-sm lg:text-lg text-gray-700">
+          Players ({playerList.length})
+        </h2>
+        {!audioEnabled ? (
+          <button
+            onClick={handleStartVoice}
+            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer"
+          >
+            Join Voice
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
             <button
-              onClick={handleStartVoice}
-              className="flex-1 bg-green-500 hover:bg-green-600 text-white px-2 lg:px-4 py-1.5 lg:py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center space-x-1 lg:space-x-2"
+              onClick={toggleMute}
+              className={`p-1.5 rounded-full transition-colors hover:cursor-pointer ${
+                isMuted
+                  ? "bg-red-500 hover:bg-red-600 text-white"
+                  : "bg-blue-500 hover:bg-blue-600 text-white"
+              }`}
+              title={isMuted ? "Unmute Self" : "Mute Self"}
             >
-              <svg
-                className="w-4 h-4 lg:w-5 lg:h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                />
-              </svg>
-              <span className="text-xs lg:text-sm">Start Voice</span>
+              {isMuted ? <MutedIcon /> : <UnmutedIcon />}
             </button>
-          ) : (
-            <>
-              <button
-                onClick={toggleMute}
-                className={`flex-1 px-2 lg:px-4 py-1.5 lg:py-2 rounded-md font-medium transition-colors duration-200 flex items-center justify-center space-x-1 lg:space-x-2 ${
-                  isMuted
-                    ? "bg-red-500 hover:bg-red-600 text-white"
-                    : "bg-blue-500 hover:bg-blue-600 text-white"
+            <button
+              onClick={stopVoiceChat}
+              className="bg-gray-500 hover:bg-gray-600 text-white p-1.5 rounded-full transition-colors hover:cursor-pointer"
+              title="Leave Voice"
+            >
+              <LeaveIcon />
+            </button>
+          </div>
+        )}
+      </div>
+      <ul className="text-xs lg:text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
+        {playerList.length > 0 ? (
+          playerList.map(([id, name]) => {
+            const score = scores[id] || 0;
+            const isMutedForUser = userMuteStates.get(id) ?? false;
+            const isSelf = id === userId;
+
+            return (
+              <li
+                key={id}
+                className={`flex items-center justify-between gap-2 p-1.5 rounded-md ${
+                  isConnected && connections.has(id) ? "bg-green-50" : ""
                 }`}
               >
-                {isMuted ? (
-                  <svg
-                    className="w-4 h-4 lg:w-5 lg:h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-                    />
-                  </svg>
-                ) : (
-                  <svg
-                    className="w-4 h-4 lg:w-5 lg:h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                    />
-                  </svg>
-                )}
-                <span className="text-xs lg:text-sm">
-                  {isMuted ? "Unmute" : "Mute"}
-                </span>
-              </button>
-
-              <button
-                onClick={stopVoiceChat}
-                className="px-2 lg:px-3 py-1.5 lg:py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition-colors duration-200"
-                title="Stop Voice Chat"
-              >
-                <svg
-                  className="w-4 h-4 lg:w-5 lg:h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </>
-          )}
-        </div>
-
-        {/* Connected users list */}
-        {audioEnabled && voiceChatUsersList.length > 0 && (
-          <div className="space-y-1 lg:space-y-2">
-            <p className="text-xs lg:text-sm font-medium text-gray-700">
-              Voice Chat Users:
-            </p>
-            <div className="space-y-1 max-h-24 lg:max-h-32 overflow-y-auto">
-              {voiceChatUsersList.map((playerId: string) => {
-                const playerName = players[playerId] || `Player ${playerId}`;
-                const isConnected =
-                  connections.has(playerId) &&
-                  connections.get(playerId)?.remoteStream;
-                const isMuted = userMuteStates.get(playerId) || false;
-
-                return (
-                  <div
-                    key={playerId}
-                    className="flex items-center justify-between p-1.5 lg:p-2 bg-gray-50 rounded-md"
-                  >
-                    <span className="text-xs lg:text-sm text-gray-700 truncate">
-                      {playerName}
-                    </span>
-                    <div className="flex items-center space-x-1 lg:space-x-2">
-                      <div
-                        className={`w-2 h-2 rounded-full ${
-                          isConnected
-                            ? "bg-green-500 animate-pulse"
-                            : "bg-gray-300"
-                        }`}
-                        title={isConnected ? "Connected" : "Connecting..."}
-                      />
-                      {isConnected ? (
-                        <div title={isMuted ? "Muted" : "Unmuted"}>
-                          {isMuted ? (
-                            <svg
-                              className="w-3 h-3 lg:w-4 lg:h-4 text-red-500"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
-                              />
-                            </svg>
-                          ) : (
-                            <svg
-                              className="w-3 h-3 lg:w-4 lg:h-4 text-green-500"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                              />
-                            </svg>
-                          )}
-                        </div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm lg:text-lg flex-shrink-0">
+                    {id === currentDrawerId ? "✏️" : "👤"}
+                  </span>
+                  <span className="truncate text-xs lg:text-sm font-normal">
+                    {name === currentPlayerName ? <b>{name} (You)</b> : name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-indigo-600 flex-shrink-0 text-xs lg:text-sm">
+                    {score} pts
+                  </span>
+                  {audioEnabled && !isSelf && connections.has(id) && (
+                    <span
+                      className="p-1 text-gray-500"
+                      title={isMutedForUser ? "Muted" : "Unmuted"}
+                    >
+                      {isMutedForUser ? (
+                        <MutedIcon small />
                       ) : (
-                        <svg
-                          className="w-3 h-3 lg:w-4 lg:h-4 text-gray-400 animate-spin"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="m4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
+                        <UnmutedIcon small />
                       )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })
+        ) : (
+          <li className="text-gray-500 italic text-xs lg:text-sm">
+            No players yet...
+          </li>
         )}
-
-        {/* No other users message */}
-        {voiceChatUsersList.length === 0 && audioEnabled && (
-          <div className="text-center py-2 lg:py-4">
-            <p className="text-xs lg:text-sm text-gray-500">
-              No other users in voice chat
-            </p>
-          </div>
-        )}
-
-        {/* {!audioEnabled && (
-          <div className="text-center py-4">
-            <p className="text-sm text-gray-500">
-              Start voice chat to talk with other players
-            </p>
-          </div>
-        )} */}
-      </div>
+      </ul>
     </div>
   );
 }
+
+// SVG Icon Components
+const MutedIcon = ({ small }: { small?: boolean }) => (
+  <svg
+    className={small ? "w-4 h-4" : "w-5 h-5"}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+    />
+  </svg>
+);
+
+const UnmutedIcon = ({ small }: { small?: boolean }) => (
+  <svg
+    className={small ? "w-4 h-4" : "w-5 h-5"}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+    />
+  </svg>
+);
+
+const LeaveIcon = () => (
+  <svg
+    className="w-5 h-5"
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth={2}
+      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+    />
+  </svg>
+);

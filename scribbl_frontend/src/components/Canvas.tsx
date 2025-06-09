@@ -475,7 +475,7 @@ export default function Canvas({
 
             {/* Word Display */}
             <div className="text-center flex-1 mx-4">
-              <p className="text-base lg:text-lg xl:text-xl font-mono tracking-widest text-indigo-600">
+              <p className="text-base font-medium lg:text-md xl:text-lg tracking-widest text-indigo-600">
                 {(() => {
                   // Check if word selection is happening (for all players)
                   const isWordSelectionPhase =
@@ -486,8 +486,8 @@ export default function Canvas({
 
                   if (isWordSelectionPhase) {
                     return isDrawer
-                      ? "Choose your word..."
-                      : "Waiting for word selection...";
+                      ? "Choose your word"
+                      : "Waiting for word selection";
                   }
 
                   if (isDrawer) {
