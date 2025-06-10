@@ -164,8 +164,59 @@ defmodule ScribblBackend.GameFlow do
       room_timer_key = KeyManager.turn_timer(room_id)
 
       if drawer == socket.assigns.user_id do
-        # ignore the message if it's from the drawer
-        {:noreply, socket}
+        # Handle drawer messages: broadcast them except when they send the target word
+        case WordManager.get_current_word(room_id) do
+          {:ok, nil} ->
+            # If no word is set, broadcast the drawer's message
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "new_message",
+                payload: %{
+                  "message" => message,
+                  "user_id" => user_id
+                }
+              }
+            )
+            {:noreply, socket}
+
+          {:ok, word} ->
+            # Check if the drawer is sending the target word (case insensitive)
+            if String.downcase(message) == String.downcase(word) do
+              # Ignore the message if drawer sends the target word
+              {:noreply, socket}
+            else
+              # Broadcast the drawer's message since it's not the target word
+              Phoenix.PubSub.broadcast(
+                ScribblBackend.PubSub,
+                socket.topic,
+                %{
+                  event: "new_message",
+                  payload: %{
+                    "message" => message,
+                    "user_id" => user_id
+                  }
+                }
+              )
+              {:noreply, socket}
+            end
+
+          _error ->
+            # If there's an error getting the word, broadcast the drawer's message
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              socket.topic,
+              %{
+                event: "new_message",
+                payload: %{
+                  "message" => message,
+                  "user_id" => user_id
+                }
+              }
+            )
+            {:noreply, socket}
+        end
       else
         # get the word from Redis
         case WordManager.get_current_word(room_id) do
