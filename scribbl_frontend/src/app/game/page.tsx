@@ -673,7 +673,7 @@ export default function GamePage() {
       )}
 
       {/* Left Sidebar - Players and Voice Chat */}
-      <aside className="flex flex-row lg:flex-col gap-2 p-1 md:p-4 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-gray-200 lg:bg-transparent">
+      <aside className="flex flex-row lg:flex-col gap-2 p-1 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-gray-200 lg:bg-transparent">
         {/* Merged Players and Voice Chat Section */}
         <div className="w-full lg:w-auto flex-shrink-0">
           <VoiceChat
@@ -685,7 +685,7 @@ export default function GamePage() {
       </aside>
 
       {/* Canvas area - Fixed height on mobile, grows on lg+ */}
-      <div className="px-1 h-[50vh] lg:h-auto lg:flex-1 lg:p-4 relative">
+      <div className="px-1 h-[55vh] lg:h-auto lg:flex-1 lg:p-4 relative">
         <div className="w-full h-full bg-white rounded-xl lg:shadow-lg flex flex-col overflow-hidden">
           <Canvas
             isDrawer={isCurrentUserDrawing}
@@ -705,8 +705,8 @@ export default function GamePage() {
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
           {roomStatus === "waiting" && isCurrentUserAdmin && (
-            <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-10 select-none p-2">
-              <div className="bg-white rounded-xl p-4 lg:p-6 shadow-2xl w-full max-w-sm lg:max-w-md">
+            <div className="absolute inset-0 bg-white z-10 select-none overflow-y-auto">
+              <div className="h-full p-4 lg:p-6 flex flex-col justify-center">
                 <div className="text-center mb-4">
                   <h2 className="text-xl lg:text-2xl font-bold text-gray-800">
                     Room Settings
@@ -1114,6 +1114,87 @@ export default function GamePage() {
                     </button>
                   </div>
                 </div>
+
+                {/* Game and Invite Controls */}
+                <div className="border-t border-gray-200 mt-4 pt-4 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      className={`py-2 px-3 rounded-lg font-semibold text-white hover:cursor-pointer text-sm ${
+                        playersList.length >= 2 && !gameInfo.currentDrawer
+                          ? "bg-green-600 hover:bg-green-700"
+                          : "bg-gray-400 cursor-not-allowed"
+                      }`}
+                      disabled={
+                        playersList.length < 2 || !!gameInfo.currentDrawer
+                      }
+                      onClick={handleStartGame}
+                    >
+                      Start Game
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const url = getShareableLink();
+                        const buttonTextElement = document.getElementById(
+                          "admin-copy-btn-text"
+                        );
+                        if (!buttonTextElement) return;
+                        const originalText = buttonTextElement.innerText;
+
+                        const showFeedback = (success: boolean) => {
+                          if (buttonTextElement) {
+                            buttonTextElement.innerText = success
+                              ? "Copied! 👍"
+                              : "Copy failed ❌";
+                            setTimeout(() => {
+                              buttonTextElement.innerText = originalText;
+                            }, 2000);
+                          }
+                        };
+
+                        const fallbackCopy = () => {
+                          const textArea = document.createElement("textarea");
+                          textArea.value = url;
+                          textArea.style.position = "fixed";
+                          textArea.style.top = "-999999px";
+                          textArea.style.left = "-999999px";
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          let success = false;
+                          try {
+                            success = document.execCommand("copy");
+                          } catch (err) {
+                            console.error("Fallback: Unable to copy", err);
+                          }
+                          document.body.removeChild(textArea);
+                          showFeedback(success);
+                        };
+
+                        if (
+                          navigator.clipboard &&
+                          navigator.clipboard.writeText
+                        ) {
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() => showFeedback(true), fallbackCopy);
+                        } else {
+                          fallbackCopy();
+                        }
+                      }}
+                      className="py-2 px-3 bg-indigo-100 hover:bg-indigo-200 rounded-md font-medium text-indigo-700 transition-colors text-center hover:cursor-pointer text-sm"
+                    >
+                      <span id="admin-copy-btn-text">🔗 {roomId}</span>
+                    </button>
+                  </div>
+                  <p className="text-xs text-center text-gray-500">
+                    {playersList.length < 2
+                      ? "Need at least 2 players to start."
+                      : gameInfo.currentDrawer
+                      ? "A game is already in progress."
+                      : "Ready to kick things off!"}
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -1201,6 +1282,62 @@ export default function GamePage() {
                   {/* Close Button */}
                   <div className="flex gap-3 pt-4">
                     <button
+                      onClick={() => {
+                        const url = getShareableLink();
+                        const buttonTextElement = document.getElementById(
+                          "view-only-copy-btn-text"
+                        );
+                        if (!buttonTextElement) return;
+                        const originalText = buttonTextElement.innerText;
+
+                        const showFeedback = (success: boolean) => {
+                          if (buttonTextElement) {
+                            buttonTextElement.innerText = success
+                              ? "Copied! 👍"
+                              : "Copy failed ❌";
+                            setTimeout(() => {
+                              buttonTextElement.innerText = originalText;
+                            }, 2000);
+                          }
+                        };
+
+                        const fallbackCopy = () => {
+                          const textArea = document.createElement("textarea");
+                          textArea.value = url;
+                          textArea.style.position = "fixed";
+                          textArea.style.top = "-999999px";
+                          textArea.style.left = "-999999px";
+                          document.body.appendChild(textArea);
+                          textArea.focus();
+                          textArea.select();
+                          let success = false;
+                          try {
+                            success = document.execCommand("copy");
+                          } catch (err) {
+                            console.error("Fallback: Unable to copy", err);
+                          }
+                          document.body.removeChild(textArea);
+                          showFeedback(success);
+                        };
+
+                        if (
+                          navigator.clipboard &&
+                          navigator.clipboard.writeText
+                        ) {
+                          navigator.clipboard
+                            .writeText(url)
+                            .then(() => showFeedback(true), fallbackCopy);
+                        } else {
+                          fallbackCopy();
+                        }
+                      }}
+                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium hover:cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <span id="view-only-copy-btn-text">
+                        🔗 Copy Invite Link
+                      </span>
+                    </button>
+                    <button
                       onClick={() => setShowViewOnlySettings(false)}
                       className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium hover:cursor-pointer"
                     >
@@ -1226,114 +1363,6 @@ export default function GamePage() {
             isDrawer={isCurrentUserDrawing}
           />
         </div>
-
-        {/* Room Controls - Only show when game not started */}
-        {roomStatus === "waiting" && (
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm py-2 lg:py-3 lg:px-3 text-center flex-shrink-0">
-            {/* Room ID with Copy Button */}
-            <div className="mb-3">
-              <button
-                onClick={() => {
-                  const url = getShareableLink();
-                  // Try the clipboard API first
-                  if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard
-                      .writeText(url)
-                      .then(() => {
-                        const btn = document.getElementById("copy-btn-text");
-                        if (btn) {
-                          const originalText = btn.innerText;
-                          btn.innerText = "Copied! 👍";
-                          setTimeout(() => {
-                            btn.innerText = originalText;
-                          }, 2000);
-                        }
-                      })
-                      .catch((err) => {
-                        // If clipboard API fails, try fallback method
-                        fallbackCopyTextToClipboard(url);
-                      });
-                  } else {
-                    // Fallback for browsers that don't support clipboard API
-                    fallbackCopyTextToClipboard(url);
-                  }
-
-                  // Fallback copy method using textarea
-                  function fallbackCopyTextToClipboard(text: string) {
-                    const textArea = document.createElement("textarea");
-                    textArea.value = text;
-
-                    // Make the textarea out of viewport
-                    textArea.style.position = "fixed";
-                    textArea.style.left = "-999999px";
-                    textArea.style.top = "-999999px";
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-
-                    let success = false;
-                    try {
-                      success = document.execCommand("copy");
-                    } catch (err) {
-                      console.error("Fallback: Unable to copy", err);
-                    }
-
-                    document.body.removeChild(textArea);
-
-                    // Show feedback
-                    const btn = document.getElementById("copy-btn-text");
-                    if (btn) {
-                      const originalText = btn.innerText;
-                      btn.innerText = success ? "Copied! 👍" : "Copy failed ❌";
-                      setTimeout(() => {
-                        btn.innerText = originalText;
-                      }, 2000);
-                    }
-                  }
-                }}
-                id="copy-btn"
-                className="w-full relative py-2 px-4 bg-indigo-100 hover:bg-indigo-200 rounded-md font-medium text-indigo-700 transition-colors text-center hover:cursor-pointer"
-              >
-                <div id="copy-btn-text" className="pr-6 text-xs lg:text-sm">
-                  Invite: {roomId}
-                </div>
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  🔗
-                </div>
-              </button>
-              <p className="text-xs text-gray-500 mt-1">
-                Click to copy invite link
-              </p>
-            </div>
-
-            <button
-              className={`w-full py-2 px-4 rounded-md font-semibold text-white hover:cursor-pointer text-sm lg:text-base ${
-                playersList.length >= 2 &&
-                !gameInfo.currentDrawer &&
-                isCurrentUserAdmin
-                  ? "bg-indigo-600 hover:bg-indigo-700"
-                  : "bg-gray-400 cursor-not-allowed"
-              }`}
-              disabled={
-                playersList.length < 2 ||
-                !!gameInfo.currentDrawer ||
-                !isCurrentUserAdmin
-              }
-              onClick={handleStartGame}
-            >
-              Start Game
-            </button>
-            <p className="text-xs text-gray-500 mt-2">
-              {playersList.length < 2
-                ? "Need at least 2 players to start"
-                : gameInfo.currentDrawer
-                ? "Waiting for current game to finish..."
-                : !isCurrentUserAdmin
-                ? "Only the room admin can start the game"
-                : ""}
-            </p>
-          </div>
-        )}
       </aside>
     </main>
   );

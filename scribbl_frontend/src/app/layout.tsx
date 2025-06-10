@@ -21,6 +21,11 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
 });
 
+// Determine if we are running in the production environment. The variable is populated
+// via `next.config.ts` which copies Vercel's `VERCEL_ENV` value ("development", "preview", "production")
+// into `NEXT_PUBLIC_VERCEL_ENV` so that it is available on the client.
+const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
+
 export const metadata: Metadata = {
   title: "Scribbl",
   description:
@@ -61,18 +66,22 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-1YN078DXYJ"
-          strategy="afterInteractive"
-        />
-        <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-1YN078DXYJ');
-          `}
-        </Script>
+        {isProd && (
+          <>
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=G-1YN078DXYJ"
+              strategy="afterInteractive"
+            />
+            <Script id="google-analytics" strategy="afterInteractive">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);}
+                gtag('js', new Date());
+                gtag('config', 'G-1YN078DXYJ');
+              `}
+            </Script>
+          </>
+        )}
       </head>
       <body className="antialiased">
         <SocketInitializer />
