@@ -92,23 +92,33 @@ export default function OrientationLock() {
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-indigo-50 via-white to-cyan-100 flex items-center justify-center transition-opacity duration-300">
-      <div className="text-center text-gray-800 p-8 max-w-md mx-4 bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20">
-        <div className="mb-6 flex justify-center">
-          {/* Phone rotation icon using CSS */}
-          <div className="relative">
-            <div className="w-16 h-24 border-4 border-blue-400 rounded-lg animate-pulse"></div>
-            <div className="absolute -top-2 -right-2 w-6 h-6 bg-blue-400 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce">
-              ↻
+    <div className="fixed inset-0 z-[9999] bg-gradient-to-br from-violet-900 via-blue-900 to-indigo-900 flex items-center justify-center transition-opacity duration-300">
+      {/* Main glass container */}
+      <div className="relative max-w-md mx-4">
+        {/* Glass backdrop with enhanced effects */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/10 to-transparent backdrop-blur-2xl rounded-3xl border border-white/30 shadow-2xl"></div>
+
+        {/* Inner highlight border */}
+        <div className="absolute inset-[1px] bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-3xl"></div>
+
+        {/* Content container */}
+        <div className="relative text-center p-8">
+          <div className="mb-6 flex justify-center">
+            {/* Phone rotation icon using CSS */}
+            <div className="relative">
+              <div className="w-16 h-24 border-4 border-cyan-400 rounded-lg animate-pulse"></div>
+              <div className="absolute -top-2 -right-2 w-6 h-6 bg-cyan-400 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce">
+                ↻
+              </div>
             </div>
           </div>
+          <h2 className="text-2xl font-bold mb-4 font-outfit text-white drop-shadow-lg">
+            Please Rotate Your Device
+          </h2>
+          <p className="text-lg text-white/80 mb-2 drop-shadow-md">
+            This app is designed for portrait mode only.
+          </p>
         </div>
-        <h2 className="text-2xl font-bold mb-4 font-outfit text-gray-800">
-          Please Rotate Your Device
-        </h2>
-        <p className="text-lg text-gray-600 mb-2">
-          This app is designed for portrait mode only.
-        </p>
       </div>
     </div>
   );

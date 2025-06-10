@@ -6,13 +6,13 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import Image from "next/image";
 
 const colors = [
-  "black", 
-  "red", 
-  "blue", 
-  "green", 
-  "yellow", 
-  "orange", 
-  "purple", 
+  "black",
+  "red",
+  "blue",
+  "green",
+  "yellow",
+  "orange",
+  "purple",
   "#FF69B4", // Pink
   "#8B4513", // Brown
 ];
@@ -461,200 +461,208 @@ export default function Canvas({
   };
 
   return (
-    <div className="w-full h-full flex flex-col md:gap-2 md:p-4 bg-gray-50 font-sans">
+    <div className="w-full h-full flex flex-col md:gap-2 md:p-4 bg-transparent font-sans">
       {/* Game Info Display - Show for both drawer and non-drawers */}
-      <div className="relative flex flex-col gap-2 md:mb-2 p-2 bg-white rounded-lg md:shadow">
-        {/* Game Info Display */}
-        {roomStatus === "started" && gameInfo ? (
-          <div className="flex items-center justify-between px-2 py-1">
-            {/* Round and Timer info - stacked vertically */}
-            <div className="flex flex-col text-xs lg:text-sm text-gray-600">
-              <span className="font-medium">
-                Round {gameInfo.currentRound} of {gameInfo.maxRounds}
-              </span>
-              {timeLeft && timeLeft > 0 ? (
-                <span
-                  className={`font-medium ${
-                    timeLeft <= 10 ? "text-red-500" : "text-green-600"
-                  }`}
-                >
-                  Timer: {timeLeft}s
+      <div className="relative flex flex-col gap-2 md:mb-2 p-2 overflow-hidden">
+        {/* Glass backdrop */}
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-lg"></div>
+
+        {/* Content */}
+        <div className="relative">
+          {/* Game Info Display */}
+          {roomStatus === "started" && gameInfo ? (
+            <div className="flex items-center justify-between px-2 py-1">
+              {/* Round and Timer info - stacked vertically */}
+              <div className="flex flex-col text-xs lg:text-sm text-white/90 drop-shadow-md">
+                <span className="font-medium">
+                  Round {gameInfo.currentRound} of {gameInfo.maxRounds}
                 </span>
-              ) : null}
-            </div>
-
-            {/* Word Display */}
-            <div className="text-center flex-1 mx-4">
-              <p className="text-base font-medium lg:text-md xl:text-lg tracking-widest text-indigo-600">
-                {(() => {
-                  // Check if word selection is happening (for all players)
-                  const isWordSelectionPhase =
-                    gameInfo?.currentDrawer &&
-                    (!timeLeft || timeLeft === 0) &&
-                    (!wordLength || wordLength === 0) &&
-                    !wordToDraw;
-
-                  if (isWordSelectionPhase) {
-                    return isDrawer
-                      ? "Choose your word"
-                      : "Waiting for word selection";
-                  }
-
-                  if (isDrawer) {
-                    return wordToDraw;
-                  }
-
-                  if (guessed) {
-                    return wordToDraw?.split("").join(" ");
-                  }
-
-                  if (revealedLetters && revealedLetters.length > 0) {
-                    return revealedLetters
-                      .map((letter, index) => letter || "_")
-                      .join(" ");
-                  }
-
-                  if (wordLength && wordLength > 0) {
-                    return Array(wordLength).fill("_").join(" ");
-                  }
-
-                  return "";
-                })()}
-              </p>
-            </div>
-
-            {/* Settings and Feedback buttons */}
-            <div className="flex flex-col gap-1">
-              {/* Settings button */}
-              {onShowSettings && (
-                <button
-                  onClick={onShowSettings}
-                  className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                  title="View room settings"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
+                {timeLeft && timeLeft > 0 ? (
+                  <span
+                    className={`font-medium drop-shadow-md ${
+                      timeLeft <= 10 ? "text-red-300" : "text-green-300"
+                    }`}
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                </button>
-              )}
+                    Timer: {timeLeft}s
+                  </span>
+                ) : null}
+              </div>
 
-              {/* Feedback button */}
-              <a
-                href="https://forms.gle/iuJVLc5qYkKrxFq38"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                title="Give us feedback"
-              >
-                <Image
-                  src="/survey.png"
-                  alt="Feedback"
-                  width={20}
-                  height={20}
-                  className="h-5 w-5"
-                />
-              </a>
-            </div>
-          </div>
-        ) : (
-          <div className="flex justify-between items-center px-2 py-1">
-            <div className="py-2 text-center text-indigo-700 font-medium flex-1">
-              Game not started yet
-            </div>
+              {/* Word Display */}
+              <div className="text-center flex-1 mx-4">
+                <p className="text-base font-medium lg:text-md xl:text-lg tracking-widest text-cyan-300 drop-shadow-lg">
+                  {(() => {
+                    // Check if word selection is happening (for all players)
+                    const isWordSelectionPhase =
+                      gameInfo?.currentDrawer &&
+                      (!timeLeft || timeLeft === 0) &&
+                      (!wordLength || wordLength === 0) &&
+                      !wordToDraw;
 
-            {/* Settings and Feedback buttons for waiting state */}
-            <div className="flex gap-1">
-              {/* Settings button */}
-              {onShowSettings && (
-                <button
-                  onClick={onShowSettings}
-                  className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                  title="View room settings"
-                >
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
+                    if (isWordSelectionPhase) {
+                      return isDrawer
+                        ? "Choose your word"
+                        : "Waiting for word selection";
+                    }
+
+                    if (isDrawer) {
+                      return wordToDraw;
+                    }
+
+                    if (guessed) {
+                      return wordToDraw?.split("").join(" ");
+                    }
+
+                    if (revealedLetters && revealedLetters.length > 0) {
+                      return revealedLetters
+                        .map((letter, index) => letter || "_")
+                        .join(" ");
+                    }
+
+                    if (wordLength && wordLength > 0) {
+                      return Array(wordLength).fill("_").join(" ");
+                    }
+
+                    return "";
+                  })()}
+                </p>
+              </div>
+
+              {/* Settings and Feedback buttons */}
+              <div className="flex flex-col gap-1">
+                {/* Settings button */}
+                {onShowSettings && (
+                  <button
+                    onClick={onShowSettings}
+                    className="flex items-center justify-center px-2 py-1 text-white/70 hover:text-white rounded-md text-sm font-medium transition-all duration-300 hover:cursor-pointer hover:scale-110"
+                    title="View room settings"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                    />
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                    />
-                  </svg>
-                </button>
-              )}
+                    <svg
+                      className="h-5 w-5 drop-shadow-md"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                  </button>
+                )}
 
-              {/* Feedback button */}
-              <a
-                href="https://forms.gle/iuJVLc5qYkKrxFq38"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center px-2 py-1 text-gray-700 hover:text-indigo-700 rounded-md text-sm font-medium transition-colors hover:cursor-pointer"
-                title="Give us feedback"
-              >
-                <Image
-                  src="/survey.png"
-                  alt="Feedback"
-                  width={20}
-                  height={20}
-                  className="h-5 w-5"
-                />
-              </a>
+                {/* Feedback button */}
+                <a
+                  href="https://forms.gle/iuJVLc5qYkKrxFq38"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center px-2 py-1 text-white/70 hover:text-white rounded-md text-sm font-medium transition-all duration-300 hover:cursor-pointer hover:scale-110"
+                  title="Give us feedback"
+                >
+                  <Image
+                    src="/survey.png"
+                    alt="Feedback"
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 drop-shadow-md invert"
+                  />
+                </a>
+              </div>
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex justify-between items-center px-2 py-1">
+              <div className="py-2 text-center text-cyan-300 font-medium flex-1 drop-shadow-lg">
+                Game not started yet
+              </div>
+
+              {/* Settings and Feedback buttons for waiting state */}
+              <div className="flex gap-1">
+                {/* Settings button */}
+                {onShowSettings && (
+                  <button
+                    onClick={onShowSettings}
+                    className="flex items-center justify-center px-2 py-1 text-white/70 hover:text-white rounded-md text-sm font-medium transition-all duration-300 hover:cursor-pointer hover:scale-110"
+                    title="View room settings"
+                  >
+                    <svg
+                      className="h-5 w-5 drop-shadow-md"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Feedback button */}
+                <a
+                  href="https://forms.gle/iuJVLc5qYkKrxFq38"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center px-2 py-1 text-white/70 hover:text-white rounded-md text-sm font-medium transition-all duration-300 hover:cursor-pointer hover:scale-110"
+                  title="Give us feedback"
+                >
+                  <Image
+                    src="/survey.png"
+                    alt="Feedback"
+                    width={20}
+                    height={20}
+                    className="h-5 w-5 drop-shadow-md invert"
+                  />
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Drawing canvas */}
       <div
         ref={canvasContainerRef}
-        className="relative flex-1 border border-gray-300 rounded-lg shadow-inner overflow-hidden bg-white min-h-0"
+        className="relative flex-1 border border-white/20 rounded-lg shadow-inner overflow-hidden bg-white min-h-0"
         style={{
           cursor: isDrawer
             ? isEraser
-              ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+              ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${
                   eraserWidth * 2
-                }" height="${eraserWidth * 2}" viewBox="0 0 ${
+                }' height='${eraserWidth * 2}' viewBox='0 0 ${
                   eraserWidth * 2
                 } ${
                   eraserWidth * 2
-                }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
+                }'%3E%3Ccircle cx='${eraserWidth}' cy='${eraserWidth}' r='${
                   eraserWidth - 1
-                }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
-              : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                }' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") ${eraserWidth} ${eraserWidth}, auto`
+              : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${
                   strokeWidth * 2
-                }" height="${strokeWidth * 2}" viewBox="0 0 ${
+                }' height='${strokeWidth * 2}' viewBox='0 0 ${
                   strokeWidth * 2
                 } ${
                   strokeWidth * 2
-                }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`
+                }'%3E%3Ccircle cx='${strokeWidth}' cy='${strokeWidth}' r='${strokeWidth}' fill='${encodeURIComponent(
+                  color
+                )}'/%3E%3C/svg%3E") ${strokeWidth} ${strokeWidth}, auto`
             : "not-allowed",
         }}
       >
@@ -678,14 +686,125 @@ export default function Canvas({
         />
       </div>
 
-            {/* Drawing tools - Improved but compact */}
+      {/* Drawing tools - Improved but compact */}
       {isDrawer && (
-                <div className="relative flex flex-col gap-3 p-3 bg-white rounded-lg md:shadow">
-          {/* Mobile Layout - Stack colors and tools */}
-          <div className="flex flex-col gap-3 md:hidden">
-            {/* Colors - Mobile */}
-            <div className="flex justify-center">
-              <div className="flex items-center gap-2 flex-wrap justify-center max-w-sm">
+        <div className="relative flex flex-col gap-3 p-3 overflow-hidden">
+          {/* Glass backdrop */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-lg"></div>
+
+          {/* Content */}
+          <div className="relative">
+            {/* Mobile Layout - Stack colors and tools */}
+            <div className="flex flex-col gap-3 md:hidden">
+              {/* Colors - Mobile */}
+              <div className="flex justify-center">
+                <div className="flex items-center gap-2 flex-wrap justify-center max-w-sm">
+                  {colors.map((c) => (
+                    <button
+                      key={c}
+                      aria-label={`Select color ${c}`}
+                      onClick={() => handleColorChange(c)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-out hover:cursor-pointer ${
+                        color === c && !isEraser
+                          ? "border-cyan-300 scale-110 ring-2 ring-cyan-200/50 shadow-md"
+                          : "border-white/30 hover:border-white/50 hover:scale-105"
+                      }`}
+                      style={{ backgroundColor: c }}
+                    >
+                      {color === c && !isEraser && (
+                        <svg
+                          className="w-3 h-3 text-white drop-shadow-md mx-auto"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tools - Mobile */}
+              <div className="flex justify-center">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDrawModeClick}
+                    className={`relative p-3 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer hover:scale-105`}
+                    title="Draw Mode"
+                  >
+                    <div
+                      className={`absolute inset-0 backdrop-blur-md border rounded-lg transition-all duration-300 ${
+                        !isEraser
+                          ? "bg-blue-500/80 border-blue-400/50"
+                          : "bg-white/10 border-white/30"
+                      }`}
+                    ></div>
+                    <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-lg"></div>
+                    <svg
+                      className="relative w-6 h-6 text-white drop-shadow-md"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    onClick={handleEraseModeClick}
+                    className={`relative p-3 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer hover:scale-105`}
+                    title="Eraser Mode"
+                  >
+                    <div
+                      className={`absolute inset-0 backdrop-blur-md border rounded-lg transition-all duration-300 ${
+                        isEraser
+                          ? "bg-pink-500/80 border-pink-400/50"
+                          : "bg-white/10 border-white/30"
+                      }`}
+                    ></div>
+                    <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-lg"></div>
+                    <svg
+                      className="relative w-6 h-6 text-white drop-shadow-md"
+                      fill="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53c-.39.39-1.02.39-1.41 0L2.81 12.75c-.78-.79-.78-2.05 0-2.84L11.6 1.12c.78-.78 2.05-.78 2.83 0l1.81 1.81zm-.71 4.24L11.66 3.93c-.39-.39-1.02-.39-1.41 0L2.5 11.68c-.39.39-.39 1.02 0 1.41l7.77 7.77c.39.39 1.02.39 1.41 0l7.75-7.75c.39-.39.39-1.02 0-1.41l-3.89-3.9z" />
+                    </svg>
+                  </button>
+
+                  <button
+                    onClick={handleClear}
+                    className="relative p-3 rounded-lg transition-all duration-150 hover:cursor-pointer hover:scale-105"
+                    title="Clear All"
+                  >
+                    <div className="absolute inset-0 bg-red-500/80 backdrop-blur-md border border-red-400/50 rounded-lg hover:bg-red-400/90 transition-all duration-300"></div>
+                    <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-lg"></div>
+                    <svg
+                      className="relative w-6 h-6 text-white drop-shadow-md"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Layout - Single centered row */}
+            <div className="hidden md:flex items-center justify-center gap-3">
+              {/* Colors - Desktop */}
+              <div className="flex items-center gap-2">
                 {colors.map((c) => (
                   <button
                     key={c}
@@ -693,170 +812,147 @@ export default function Canvas({
                     onClick={() => handleColorChange(c)}
                     className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-out hover:cursor-pointer ${
                       color === c && !isEraser
-                        ? "border-blue-500 scale-110 ring-2 ring-blue-200 shadow-md"
-                        : "border-gray-300 hover:border-gray-400 hover:scale-105"
+                        ? "border-cyan-300 scale-110 ring-2 ring-cyan-200/50 shadow-md"
+                        : "border-white/30 hover:border-white/50 hover:scale-105"
                     }`}
                     style={{ backgroundColor: c }}
                   >
                     {color === c && !isEraser && (
-                      <svg className="w-3 h-3 text-white drop-shadow-sm mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      <svg
+                        className="w-3 h-3 text-white drop-shadow-md mx-auto"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     )}
                   </button>
                 ))}
               </div>
-            </div>
 
-            {/* Tools - Mobile */}
-            <div className="flex justify-center">
+              {/* Separator - Desktop */}
+              <div className="border-l border-white/30 h-6 mx-2"></div>
+
+              {/* Tools - Desktop */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleDrawModeClick}
-                  className={`p-3 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
-                    !isEraser
-                      ? "bg-blue-500 text-white shadow-md hover:bg-blue-600"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
-                  }`}
+                  className={`relative p-2 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer hover:scale-105`}
                   title="Draw Mode"
                 >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  <div
+                    className={`absolute inset-0 backdrop-blur-md border rounded-lg transition-all duration-300 ${
+                      !isEraser
+                        ? "bg-blue-500/80 border-blue-400/50"
+                        : "bg-white/10 border-white/30"
+                    }`}
+                  ></div>
+                  <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-lg"></div>
+                  <svg
+                    className="relative w-5 h-5 text-white drop-shadow-md"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" />
                   </svg>
                 </button>
 
                 <button
                   onClick={handleEraseModeClick}
-                  className={`p-3 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
-                    isEraser
-                      ? "bg-pink-500 text-white shadow-md hover:bg-pink-600"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
-                  }`}
+                  className={`relative p-2 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer hover:scale-105`}
                   title="Eraser Mode"
                 >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53c-.39.39-1.02.39-1.41 0L2.81 12.75c-.78-.79-.78-2.05 0-2.84L11.6 1.12c.78-.78 2.05-.78 2.83 0l1.81 1.81zm-.71 4.24L11.66 3.93c-.39-.39-1.02-.39-1.41 0L2.5 11.68c-.39.39-.39 1.02 0 1.41l7.77 7.77c.39.39 1.02.39 1.41 0l7.75-7.75c.39-.39.39-1.02 0-1.41l-3.89-3.9z"/>
+                  <div
+                    className={`absolute inset-0 backdrop-blur-md border rounded-lg transition-all duration-300 ${
+                      isEraser
+                        ? "bg-pink-500/80 border-pink-400/50"
+                        : "bg-white/10 border-white/30"
+                    }`}
+                  ></div>
+                  <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-lg"></div>
+                  <svg
+                    className="relative w-5 h-5 text-white drop-shadow-md"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53c-.39.39-1.02.39-1.41 0L2.81 12.75c-.78-.79-.78-2.05 0-2.84L11.6 1.12c.78-.78 2.05-.78 2.83 0l1.81 1.81zm-.71 4.24L11.66 3.93c-.39-.39-1.02-.39-1.41 0L2.5 11.68c-.39.39-.39 1.02 0 1.41l7.77 7.77c.39.39 1.02.39 1.41 0l7.75-7.75c.39-.39.39-1.02 0-1.41l-3.89-3.9z" />
                   </svg>
                 </button>
 
                 <button
                   onClick={handleClear}
-                  className="p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-150 shadow-md hover:cursor-pointer"
+                  className="relative p-2 rounded-lg transition-all duration-150 hover:cursor-pointer hover:scale-105"
                   title="Clear All"
                 >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                  <div className="absolute inset-0 bg-red-500/80 backdrop-blur-md border border-red-400/50 rounded-lg hover:bg-red-400/90 transition-all duration-300"></div>
+                  <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-lg"></div>
+                  <svg
+                    className="relative w-5 h-5 text-white drop-shadow-md"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
                   </svg>
                 </button>
               </div>
             </div>
-          </div>
 
-          {/* Desktop Layout - Single centered row */}
-          <div className="hidden md:flex items-center justify-center gap-3">
-            {/* Colors - Desktop */}
-            <div className="flex items-center gap-2">
-              {colors.map((c) => (
-                <button
-                  key={c}
-                  aria-label={`Select color ${c}`}
-                  onClick={() => handleColorChange(c)}
-                  className={`w-8 h-8 rounded-full border-2 transition-all duration-150 ease-out hover:cursor-pointer ${
-                    color === c && !isEraser
-                      ? "border-blue-500 scale-110 ring-2 ring-blue-200 shadow-md"
-                      : "border-gray-300 hover:border-gray-400 hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: c }}
-                >
-                  {color === c && !isEraser && (
-                    <svg className="w-3 h-3 text-white drop-shadow-sm mx-auto" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-            </div>
+            {/* Brush size slider - improved styling */}
+            {showBrushSlider && (
+              <div className="fixed translate-y-[-100%] left-0 right-0 mx-auto max-w-md z-50 p-3 overflow-hidden rounded-lg">
+                {/* Slider glass backdrop */}
+                <div className="absolute inset-0 bg-white/20 backdrop-blur-xl border border-white/30 rounded-lg"></div>
 
-            {/* Separator - Desktop */}
-            <div className="border-l border-gray-300 h-6 mx-2"></div>
-
-            {/* Tools - Desktop */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleDrawModeClick}
-                className={`p-2 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
-                  !isEraser
-                    ? "bg-blue-500 text-white shadow-md hover:bg-blue-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
-                }`}
-                title="Draw Mode"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
-              </button>
-
-              <button
-                onClick={handleEraseModeClick}
-                className={`p-2 rounded-lg transition-all duration-150 font-medium flex items-center justify-center hover:cursor-pointer ${
-                  isEraser
-                    ? "bg-pink-500 text-white shadow-md hover:bg-pink-600"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300"
-                }`}
-                title="Eraser Mode"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M16.24 3.56l4.95 4.94c.78.79.78 2.05 0 2.84L12 20.53c-.39.39-1.02.39-1.41 0L2.81 12.75c-.78-.79-.78-2.05 0-2.84L11.6 1.12c.78-.78 2.05-.78 2.83 0l1.81 1.81zm-.71 4.24L11.66 3.93c-.39-.39-1.02-.39-1.41 0L2.5 11.68c-.39.39-.39 1.02 0 1.41l7.77 7.77c.39.39 1.02.39 1.41 0l7.75-7.75c.39-.39.39-1.02 0-1.41l-3.89-3.9z"/>
-                </svg>
-              </button>
-
-              <button
-                onClick={handleClear}
-                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all duration-150 shadow-md hover:cursor-pointer"
-                title="Clear All"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          {/* Brush size slider - improved styling */}
-          {showBrushSlider && (
-            <div className="absolute bottom-full left-0 right-0 z-10 mb-1 p-3 bg-white rounded-lg shadow-lg border border-gray-200 flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isEraser ? 'bg-red-500' : 'bg-blue-500'}`}></div>
-                <span className="text-sm text-gray-600 font-medium">
-                  {isEraser ? "Eraser" : "Brush"}
-                </span>
+                {/* Slider content */}
+                <div className="relative flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        isEraser ? "bg-red-300" : "bg-blue-300"
+                      }`}
+                    ></div>
+                    <span className="text-sm text-white/90 font-medium drop-shadow-md">
+                      {isEraser ? "Eraser" : "Brush"}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max={isEraser ? "50" : "20"}
+                    value={isEraser ? eraserWidth : strokeWidth}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      if (isEraser) {
+                        setEraserWidth(value);
+                      } else {
+                        setStrokeWidth(value);
+                      }
+                    }}
+                    className="flex-1 h-2 bg-white/20 rounded-full appearance-none cursor-pointer
+                      [&::-webkit-slider-thumb]:appearance-none
+                      [&::-webkit-slider-thumb]:w-4
+                      [&::-webkit-slider-thumb]:h-4
+                      [&::-webkit-slider-thumb]:rounded-full
+                      [&::-webkit-slider-thumb]:bg-cyan-400
+                      [&::-webkit-slider-thumb]:shadow-sm"
+                  />
+                  <span className="text-sm text-white/70 w-8 drop-shadow-md">
+                    {isEraser ? eraserWidth : strokeWidth}px
+                  </span>
+                </div>
               </div>
-              <input
-                type="range"
-                min="1"
-                max={isEraser ? "50" : "20"}
-                value={isEraser ? eraserWidth : strokeWidth}
-                onChange={(e) => {
-                  const value = parseInt(e.target.value);
-                  if (isEraser) {
-                    setEraserWidth(value);
-                  } else {
-                    setStrokeWidth(value);
-                  }
-                }}
-                className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer
-                  [&::-webkit-slider-thumb]:appearance-none 
-                  [&::-webkit-slider-thumb]:w-4 
-                  [&::-webkit-slider-thumb]:h-4 
-                  [&::-webkit-slider-thumb]:rounded-full 
-                  [&::-webkit-slider-thumb]:bg-blue-500 
-                  [&::-webkit-slider-thumb]:shadow-sm"
-              />
-              <span className="text-sm text-gray-500 w-8">
-                {isEraser ? eraserWidth : strokeWidth}px
-              </span>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -91,89 +91,120 @@ export default function VoiceChat({
   const playerList = Object.entries(players);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 lg:p-3 flex flex-col h-full select-none w-full lg:w-auto flex-1 lg:flex-initial lg:max-h-[90vh]">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="font-bold text-sm lg:text-lg text-gray-700">
-          Players ({playerList.length})
-        </h2>
-        {!audioEnabled ? (
-          <button
-            onClick={handleStartVoice}
-            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer"
-          >
-            Join Voice
-          </button>
-        ) : (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleMute}
-              className={`p-1.5 rounded-full transition-colors hover:cursor-pointer ${
-                isMuted
-                  ? "bg-red-500 hover:bg-red-600 text-white"
-                  : "bg-blue-500 hover:bg-blue-600 text-white"
-              }`}
-              title={isMuted ? "Unmute Self" : "Mute Self"}
-            >
-              {isMuted ? <MutedIcon /> : <UnmutedIcon />}
-            </button>
-            <button
-              onClick={stopVoiceChat}
-              className="bg-gray-500 hover:bg-gray-600 text-white p-1.5 rounded-full transition-colors hover:cursor-pointer"
-              title="Leave Voice"
-            >
-              <LeaveIcon />
-            </button>
-          </div>
-        )}
-      </div>
-      <ul className="text-xs lg:text-sm text-gray-600 space-y-1.5 overflow-y-auto pr-1 flex-1">
-        {playerList.length > 0 ? (
-          playerList.map(([id, name]) => {
-            const score = scores[id] || 0;
-            const isMutedForUser = userMuteStates.get(id) ?? false;
-            const isSelf = id === userId;
+    <div className="relative flex flex-col h-full select-none w-full lg:w-auto flex-1 lg:flex-initial lg:max-h-[90vh]">
+      {/* Glass backdrop */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-lg"></div>
 
-            return (
-              <li
-                key={id}
-                className={`flex items-center justify-between gap-2 p-1.5 rounded-md ${
-                  isConnected && connections.has(id) ? "bg-green-50" : ""
-                }`}
+      {/* Content container */}
+      <div className="relative p-2 lg:p-3 flex flex-col h-full">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-bold text-sm lg:text-lg text-white drop-shadow-md">
+            Players ({playerList.length})
+          </h2>
+          {!audioEnabled ? (
+            <button
+              onClick={handleStartVoice}
+              className="relative px-3 py-1 rounded-md text-xs font-medium transition-all duration-300 hover:scale-105 hover:cursor-pointer"
+            >
+              <div className="absolute inset-0 bg-green-500/80 backdrop-blur-md border border-green-400/50 rounded-md hover:bg-green-400/90 transition-all duration-300"></div>
+              <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-md"></div>
+              <span className="relative text-white drop-shadow-md">
+                Join Voice
+              </span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleMute}
+                className={`relative p-1.5 rounded-full transition-all duration-300 hover:scale-110 hover:cursor-pointer`}
+                title={isMuted ? "Unmute Self" : "Mute Self"}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm lg:text-lg flex-shrink-0">
-                    {id === currentDrawerId ? "✏️" : "👤"}
-                  </span>
-                  <span className="truncate text-xs lg:text-sm font-normal">
-                    {name === currentPlayerName ? <b>{name} (You)</b> : name}
-                  </span>
+                <div
+                  className={`absolute inset-0 backdrop-blur-md border rounded-full transition-all duration-300 ${
+                    isMuted
+                      ? "bg-red-500/80 border-red-400/50 hover:bg-red-400/90"
+                      : "bg-blue-500/80 border-blue-400/50 hover:bg-blue-400/90"
+                  }`}
+                ></div>
+                <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-full"></div>
+                <div className="relative text-white drop-shadow-md">
+                  {isMuted ? <MutedIcon /> : <UnmutedIcon />}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-indigo-600 flex-shrink-0 text-xs lg:text-sm">
-                    {score} pts
-                  </span>
-                  {audioEnabled && !isSelf && connections.has(id) && (
-                    <span
-                      className="p-1 text-gray-500"
-                      title={isMutedForUser ? "Muted" : "Unmuted"}
-                    >
-                      {isMutedForUser ? (
-                        <MutedIcon small />
-                      ) : (
-                        <UnmutedIcon small />
+              </button>
+              <button
+                onClick={stopVoiceChat}
+                className="relative p-1.5 rounded-full transition-all duration-300 hover:scale-110 hover:cursor-pointer"
+                title="Leave Voice"
+              >
+                <div className="absolute inset-0 bg-gray-500/80 backdrop-blur-md border border-gray-400/50 rounded-full hover:bg-gray-400/90 transition-all duration-300"></div>
+                <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-full"></div>
+                <div className="relative text-white drop-shadow-md">
+                  <LeaveIcon />
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+        <ul className="text-xs lg:text-sm text-white/90 space-y-1.5 overflow-y-auto pr-1 flex-1">
+          {playerList.length > 0 ? (
+            playerList.map(([id, name]) => {
+              const score = scores[id] || 0;
+              const isMutedForUser = userMuteStates.get(id) ?? false;
+              const isSelf = id === userId;
+
+              return (
+                <li key={id} className="relative">
+                  {/* Player item glass backdrop */}
+                  <div
+                    className={`absolute inset-0 backdrop-blur-md border rounded-md transition-all duration-300 ${
+                      isConnected && connections.has(id)
+                        ? "bg-green-500/20 border-green-400/40"
+                        : "bg-white/5 border-white/10"
+                    }`}
+                  ></div>
+
+                  {/* Player item content */}
+                  <div className="relative flex items-center justify-between gap-2 p-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-sm lg:text-lg flex-shrink-0">
+                        {id === currentDrawerId ? "✏️" : "👤"}
+                      </span>
+                      <span className="truncate text-xs lg:text-sm font-normal text-white/90 drop-shadow-md">
+                        {name === currentPlayerName ? (
+                          <b>{name} (You)</b>
+                        ) : (
+                          name
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-cyan-300 flex-shrink-0 text-xs lg:text-sm drop-shadow-md">
+                        {score} pts
+                      </span>
+                      {audioEnabled && !isSelf && connections.has(id) && (
+                        <span
+                          className="p-1 text-white/70 drop-shadow-md"
+                          title={isMutedForUser ? "Muted" : "Unmuted"}
+                        >
+                          {isMutedForUser ? (
+                            <MutedIcon small />
+                          ) : (
+                            <UnmutedIcon small />
+                          )}
+                        </span>
                       )}
-                    </span>
-                  )}
-                </div>
-              </li>
-            );
-          })
-        ) : (
-          <li className="text-gray-500 italic text-xs lg:text-sm">
-            No players yet...
-          </li>
-        )}
-      </ul>
+                    </div>
+                  </div>
+                </li>
+              );
+            })
+          ) : (
+            <li className="text-white/60 italic text-xs lg:text-sm drop-shadow-md text-center py-4">
+              No players yet...
+            </li>
+          )}
+        </ul>
+      </div>
     </div>
   );
 }
