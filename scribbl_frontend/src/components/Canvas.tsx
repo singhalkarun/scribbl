@@ -629,7 +629,7 @@ export default function Canvas({
                     alt="Feedback"
                     width={20}
                     height={20}
-                    className="h-5 w-5 drop-shadow-md"
+                    className="h-5 w-5 drop-shadow-md invert"
                   />
                 </a>
               </div>
@@ -645,22 +645,24 @@ export default function Canvas({
         style={{
           cursor: isDrawer
             ? isEraser
-              ? `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+              ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${
                   eraserWidth * 2
-                }" height="${eraserWidth * 2}" viewBox="0 0 ${
+                }' height='${eraserWidth * 2}' viewBox='0 0 ${
                   eraserWidth * 2
                 } ${
                   eraserWidth * 2
-                }"><circle cx="${eraserWidth}" cy="${eraserWidth}" r="${
+                }'%3E%3Ccircle cx='${eraserWidth}' cy='${eraserWidth}' r='${
                   eraserWidth - 1
-                }" fill="none" stroke="black" stroke-width="1"/></svg>') ${eraserWidth} ${eraserWidth}, auto`
-              : `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${
+                }' fill='none' stroke='black' stroke-width='1'/%3E%3C/svg%3E") ${eraserWidth} ${eraserWidth}, auto`
+              : `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='${
                   strokeWidth * 2
-                }" height="${strokeWidth * 2}" viewBox="0 0 ${
+                }' height='${strokeWidth * 2}' viewBox='0 0 ${
                   strokeWidth * 2
                 } ${
                   strokeWidth * 2
-                }"><circle cx="${strokeWidth}" cy="${strokeWidth}" r="${strokeWidth}" fill="${color}" /></svg>') ${strokeWidth} ${strokeWidth}, auto`
+                }'%3E%3Ccircle cx='${strokeWidth}' cy='${strokeWidth}' r='${strokeWidth}' fill='${encodeURIComponent(
+                  color
+                )}'/%3E%3C/svg%3E") ${strokeWidth} ${strokeWidth}, auto`
             : "not-allowed",
         }}
       >
@@ -907,7 +909,7 @@ export default function Canvas({
 
             {/* Brush size slider - improved styling */}
             {showBrushSlider && (
-              <div className="absolute bottom-full left-0 right-0 z-10 mb-1 p-3 overflow-hidden rounded-lg">
+              <div className="fixed translate-y-[-100%] left-0 right-0 mx-auto max-w-md z-50 p-3 overflow-hidden rounded-lg">
                 {/* Slider glass backdrop */}
                 <div className="absolute inset-0 bg-white/20 backdrop-blur-xl border border-white/30 rounded-lg"></div>
 

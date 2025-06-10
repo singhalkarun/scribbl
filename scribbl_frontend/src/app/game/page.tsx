@@ -473,6 +473,8 @@ export default function GamePage() {
     if (channel) {
       console.log("[GamePage] Sending start_game event");
       channel.push("start_game", {});
+      // Immediately set room status to 'started' to hide the settings panel
+      setRoomStatus("started");
     }
   };
 
@@ -1235,7 +1237,7 @@ export default function GamePage() {
             >
               {/* Main glass container */}
               <div
-                className="relative max-w-md w-full mx-4 max-h-[90%] overflow-y-auto"
+                className="relative max-w-md w-full mx-4"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Glass backdrop with enhanced effects */}
@@ -1245,79 +1247,88 @@ export default function GamePage() {
                 <div className="absolute inset-[1px] bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-3xl"></div>
 
                 {/* Content container */}
-                <div className="relative p-6 rounded-3xl">
-                  <div className="text-center mb-4">
-                    <h2 className="text-2xl font-bold text-white text-shadow-sm">
+                <div className="relative p-4 md:p-6 rounded-3xl">
+                  <div className="text-center mb-2 md:mb-4">
+                    <h2 className="text-xl md:text-2xl font-bold text-white text-shadow-sm">
                       Current Room Settings
                     </h2>
                   </div>
 
-                  <div className="space-y-4">
-                    {/* Max Players */}
-                    <div>
-                      <label className="block text-sm font-medium text-white/90 mb-1">
-                        Max Players
-                      </label>
-                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
-                        {roomSettings.maxPlayers} Players
+                  <div className="space-y-2 md:space-y-3">
+                    {/* First row - Max Players & Max Rounds */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Max Players */}
+                      <div>
+                        <label className="block text-xs md:text-sm font-medium text-white/90 mb-1">
+                          Max Players
+                        </label>
+                        <div className="w-full px-2 py-1.5 md:px-3 md:py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md text-xs md:text-sm">
+                          {roomSettings.maxPlayers} Players
+                        </div>
+                      </div>
+
+                      {/* Max Rounds */}
+                      <div>
+                        <label className="block text-xs md:text-sm font-medium text-white/90 mb-1">
+                          Max Rounds
+                        </label>
+                        <div className="w-full px-2 py-1.5 md:px-3 md:py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md text-xs md:text-sm">
+                          {roomSettings.maxRounds}{" "}
+                          {roomSettings.maxRounds === "1" ? "Round" : "Rounds"}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Max Rounds */}
-                    <div>
-                      <label className="block text-sm font-medium text-white/90 mb-1">
-                        Max Rounds
-                      </label>
-                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
-                        {roomSettings.maxRounds}{" "}
-                        {roomSettings.maxRounds === "1" ? "Round" : "Rounds"}
+                    {/* Second row - Turn Time & Hints */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Turn Time */}
+                      <div>
+                        <label className="block text-xs md:text-sm font-medium text-white/90 mb-1">
+                          Turn Time
+                        </label>
+                        <div className="w-full px-2 py-1.5 md:px-3 md:py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md text-xs md:text-sm">
+                          {roomSettings.turnTime} sec
+                        </div>
+                      </div>
+
+                      {/* Hints Allowed */}
+                      <div>
+                        <label className="block text-xs md:text-sm font-medium text-white/90 mb-1">
+                          Hints
+                        </label>
+                        <div className="w-full px-2 py-1.5 md:px-3 md:py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md text-xs md:text-sm">
+                          {roomSettings.hintsAllowed === "true" ? "Yes" : "No"}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Turn Time */}
-                    <div>
-                      <label className="block text-sm font-medium text-white/90 mb-1">
-                        Turn Time
-                      </label>
-                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
-                        {roomSettings.turnTime} seconds
+                    {/* Third row - Difficulty & Room Type */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Difficulty */}
+                      <div>
+                        <label className="block text-xs md:text-sm font-medium text-white/90 mb-1">
+                          Difficulty
+                        </label>
+                        <div className="w-full px-2 py-1.5 md:px-3 md:py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md text-xs md:text-sm">
+                          {roomSettings.difficulty.charAt(0).toUpperCase() +
+                            roomSettings.difficulty.slice(1)}
+                        </div>
                       </div>
-                    </div>
 
-                    {/* Hints Allowed */}
-                    <div>
-                      <label className="block text-sm font-medium text-white/90 mb-1">
-                        Hints Allowed
-                      </label>
-                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
-                        {roomSettings.hintsAllowed === "true" ? "Yes" : "No"}
-                      </div>
-                    </div>
-
-                    {/* Difficulty */}
-                    <div>
-                      <label className="block text-sm font-medium text-white/90 mb-1">
-                        Difficulty
-                      </label>
-                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
-                        {roomSettings.difficulty.charAt(0).toUpperCase() +
-                          roomSettings.difficulty.slice(1)}
-                      </div>
-                    </div>
-
-                    {/* Room Type */}
-                    <div>
-                      <label className="block text-sm font-medium text-white/90 mb-1">
-                        Room Type
-                      </label>
-                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
-                        {roomSettings.roomType.charAt(0).toUpperCase() +
-                          roomSettings.roomType.slice(1)}
+                      {/* Room Type */}
+                      <div>
+                        <label className="block text-xs md:text-sm font-medium text-white/90 mb-1">
+                          Room Type
+                        </label>
+                        <div className="w-full px-2 py-1.5 md:px-3 md:py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md text-xs md:text-sm">
+                          {roomSettings.roomType.charAt(0).toUpperCase() +
+                            roomSettings.roomType.slice(1)}
+                        </div>
                       </div>
                     </div>
 
                     {/* Close Button */}
-                    <div className="flex gap-3 pt-4">
+                    <div className="flex gap-2 pt-3 md:gap-3 md:pt-4">
                       <button
                         onClick={() => {
                           const url = getShareableLink();
@@ -1368,15 +1379,13 @@ export default function GamePage() {
                             fallbackCopy();
                           }
                         }}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-blue-500/80 to-indigo-500/80 text-white rounded-lg hover:from-blue-600/90 hover:to-indigo-600/90 transition-colors font-medium hover:cursor-pointer flex items-center justify-center gap-2 border border-white/20 backdrop-blur-md"
+                        className="w-full px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-blue-500/80 to-indigo-500/80 text-white rounded-lg hover:from-blue-600/90 hover:to-indigo-600/90 transition-colors font-medium hover:cursor-pointer flex items-center justify-center gap-1 md:gap-2 text-xs md:text-sm border border-white/20 backdrop-blur-md"
                       >
-                        <span id="view-only-copy-btn-text">
-                          🔗 Copy Invite Link
-                        </span>
+                        <span id="view-only-copy-btn-text">🔗 Copy Invite</span>
                       </button>
                       <button
                         onClick={() => setShowViewOnlySettings(false)}
-                        className="w-full px-4 py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-lg hover:from-indigo-600/90 hover:to-purple-600/90 transition-colors font-medium hover:cursor-pointer border border-white/20 backdrop-blur-md"
+                        className="w-full px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-lg hover:from-indigo-600/90 hover:to-purple-600/90 transition-colors font-medium hover:cursor-pointer text-xs md:text-sm border border-white/20 backdrop-blur-md"
                       >
                         Close
                       </button>
