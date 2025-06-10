@@ -551,7 +551,7 @@ export default function GamePage() {
   }
 
   return (
-    <main className="h-[100svh] w-screen flex flex-col lg:flex-row bg-gradient-to-br from-purple-50 via-white to-blue-100 overflow-hidden p-0">
+    <main className="h-[100svh] w-screen flex flex-col lg:flex-row bg-gradient-to-br from-violet-900 via-blue-900 to-indigo-900 overflow-hidden p-0">
       {/* Game Over Modal */}
       <GameOverModal
         isOpen={showGameOverModal}
@@ -562,118 +562,138 @@ export default function GamePage() {
       />
       {/* Turn Over Modal */}
       {showTurnOverModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[1000]">
-          <div className="bg-white rounded-xl p-6 shadow-2xl text-center max-w-md w-full mx-4">
-            {/* Dynamic title and emoji based on reason */}
-            {turnOverReason === "all_guessed" ? (
-              <>
-                <div className="text-4xl mb-2">🎉</div>
-                <h2 className="text-2xl font-bold text-green-600 mb-4">
-                  Everyone Guessed!
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  Amazing! All players figured out the word:{" "}
-                  <span className="font-bold text-indigo-600 text-xl">
-                    {turnOverWord}
-                  </span>
-                </p>
-              </>
-            ) : turnOverReason === "timeout" ? (
-              <>
-                <div className="text-4xl mb-2">⏰</div>
-                <h2 className="text-2xl font-bold text-orange-600 mb-4">
-                  Time's Up!
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  The time ran out! The word was:{" "}
-                  <span className="font-bold text-indigo-600 text-xl">
-                    {turnOverWord}
-                  </span>
-                </p>
-              </>
-            ) : turnOverReason === "drawer_left" ? (
-              <>
-                <div className="text-4xl mb-2">🚪</div>
-                <h2 className="text-2xl font-bold text-red-600 mb-4">
-                  Drawer Left!
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  The drawer left the game. The word was:{" "}
-                  <span className="font-bold text-indigo-600 text-xl">
-                    {turnOverWord}
-                  </span>
-                </p>
-              </>
-            ) : (
-              <>
-                <div className="text-4xl mb-2">🔄</div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-4">
-                  Turn Over!
-                </h2>
-                <p className="text-gray-600 mb-6">
-                  The word was:{" "}
-                  <span className="font-bold text-indigo-600 text-xl">
-                    {turnOverWord}
-                  </span>
-                </p>
-              </>
-            )}
-            <p className="text-gray-700 mb-2">Next turn starting in:</p>
-            <div className="text-4xl font-bold text-indigo-600 mb-6">
-              {turnOverCountdown}
-            </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-indigo-500"
-                style={{
-                  width: `${(turnOverCountdown / 3) * 100}%`,
-                  transition: "width 1s linear",
-                }}
-              ></div>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[1000]">
+          {/* Main glass container */}
+          <div className="relative max-w-md w-full mx-4">
+            {/* Glass backdrop with enhanced effects */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/10 to-transparent backdrop-blur-2xl rounded-3xl border border-white/30 shadow-2xl"></div>
+
+            {/* Inner highlight border */}
+            <div className="absolute inset-[1px] bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-3xl"></div>
+
+            {/* Content container */}
+            <div className="relative p-6 rounded-3xl text-center">
+              {/* Dynamic title and emoji based on reason */}
+              {turnOverReason === "all_guessed" ? (
+                <>
+                  <div className="text-4xl mb-2">🎉</div>
+                  <h2 className="text-2xl font-bold text-green-400 mb-4 text-shadow-sm">
+                    Everyone Guessed!
+                  </h2>
+                  <p className="text-white/80 mb-6">
+                    Amazing! All players figured out the word:{" "}
+                    <span className="font-bold text-cyan-300 text-xl text-shadow-sm">
+                      {turnOverWord}
+                    </span>
+                  </p>
+                </>
+              ) : turnOverReason === "timeout" ? (
+                <>
+                  <div className="text-4xl mb-2">⏰</div>
+                  <h2 className="text-2xl font-bold text-amber-400 mb-4 text-shadow-sm">
+                    Time's Up!
+                  </h2>
+                  <p className="text-white/80 mb-6">
+                    The time ran out! The word was:{" "}
+                    <span className="font-bold text-cyan-300 text-xl text-shadow-sm">
+                      {turnOverWord}
+                    </span>
+                  </p>
+                </>
+              ) : turnOverReason === "drawer_left" ? (
+                <>
+                  <div className="text-4xl mb-2">🚪</div>
+                  <h2 className="text-2xl font-bold text-red-400 mb-4 text-shadow-sm">
+                    Drawer Left!
+                  </h2>
+                  <p className="text-white/80 mb-6">
+                    The drawer left the game. The word was:{" "}
+                    <span className="font-bold text-cyan-300 text-xl text-shadow-sm">
+                      {turnOverWord}
+                    </span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-4xl mb-2">🔄</div>
+                  <h2 className="text-2xl font-bold text-blue-300 mb-4 text-shadow-sm">
+                    Turn Over!
+                  </h2>
+                  <p className="text-white/80 mb-6">
+                    The word was:{" "}
+                    <span className="font-bold text-cyan-300 text-xl text-shadow-sm">
+                      {turnOverWord}
+                    </span>
+                  </p>
+                </>
+              )}
+              <p className="text-white/70 mb-2">Next turn starting in:</p>
+              <div className="text-4xl font-bold text-cyan-300 mb-6 text-shadow-sm">
+                {turnOverCountdown}
+              </div>
+              <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden backdrop-blur-md border border-white/30">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-400 to-blue-400"
+                  style={{
+                    width: `${(turnOverCountdown / 3) * 100}%`,
+                    transition: "width 1s linear",
+                  }}
+                ></div>
+              </div>
             </div>
           </div>
         </div>
       )}
       {/* Word Selection Overlay */}
       {showWordSelection && isCurrentUserDrawing && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 shadow-2xl text-center max-w-md w-full mx-4">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Select Word to Draw
-            </h2>
-            <p className="text-gray-600 mb-6">
-              Click on a word to start your turn
-            </p>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50">
+          {/* Main glass container */}
+          <div className="relative max-w-md w-full mx-4">
+            {/* Glass backdrop with enhanced effects */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/10 to-transparent backdrop-blur-2xl rounded-3xl border border-white/30 shadow-2xl"></div>
 
-            <div className="space-y-3">
-              {suggestedWords.map((word, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    const channel = usePlayerStore.getState().channel;
-                    if (channel) {
-                      console.log(
-                        "[GamePage] Sending start_turn event with word:",
-                        word
-                      );
-                      channel.push("start_turn", { word });
-                      // Set the word to draw for the drawer only
-                      setWordToDraw(word);
-                      setShowWordSelection(false);
-                    }
-                  }}
-                  className="text-xl py-3 px-6 bg-indigo-600 hover:bg-indigo-700 text-white w-full rounded-lg font-semibold transition-colors hover:cursor-pointer"
-                >
-                  {word}
-                </button>
-              ))}
+            {/* Inner highlight border */}
+            <div className="absolute inset-[1px] bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-3xl"></div>
+
+            {/* Content container */}
+            <div className="relative p-6 rounded-3xl text-center">
+              <h2 className="text-2xl font-bold text-white mb-4 text-shadow-sm">
+                Select Word to Draw
+              </h2>
+              <p className="text-white/80 mb-6">
+                Click on a word to start your turn
+              </p>
+
+              <div className="space-y-3">
+                {suggestedWords.map((word, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      const channel = usePlayerStore.getState().channel;
+                      if (channel) {
+                        console.log(
+                          "[GamePage] Sending start_turn event with word:",
+                          word
+                        );
+                        channel.push("start_turn", { word });
+                        // Set the word to draw for the drawer only
+                        setWordToDraw(word);
+                        setShowWordSelection(false);
+                      }
+                    }}
+                    className="text-xl py-3 px-6 bg-gradient-to-r from-blue-500/80 to-indigo-500/80 hover:from-blue-600/90 hover:to-indigo-600/90 backdrop-blur-md text-white w-full rounded-lg font-semibold transition-colors hover:cursor-pointer border border-white/20 shadow-lg"
+                  >
+                    {word}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {/* Left Sidebar - Players and Voice Chat */}
-      <aside className="flex flex-row lg:flex-col gap-2 p-1 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-gray-200 lg:bg-transparent">
+      <aside className="flex flex-row lg:flex-col gap-2 p-1 lg:p-4 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-white/20 lg:bg-transparent">
         {/* Merged Players and Voice Chat Section */}
         <div className="w-full lg:w-auto flex-shrink-0">
           <VoiceChat
@@ -686,29 +706,37 @@ export default function GamePage() {
 
       {/* Canvas area - Fixed height on mobile, grows on lg+ */}
       <div className="px-1 h-[55vh] lg:h-auto lg:flex-1 lg:p-4 relative">
-        <div className="w-full h-full bg-white rounded-xl lg:shadow-lg flex flex-col overflow-hidden">
-          <Canvas
-            isDrawer={isCurrentUserDrawing}
-            gameStarted={roomStatus === "started"}
-            onShowSettings={() => setShowViewOnlySettings(true)}
-            roomStatus={roomStatus}
-            gameInfo={gameInfo}
-            players={players}
-            playerName={playerName}
-            timeLeft={timeLeft}
-            showWordSelection={showWordSelection}
-            wordToDraw={wordToDraw}
-            guessed={guessed}
-            revealedLetters={revealedLetters}
-            wordLength={wordLength}
-          />
+        <div className="relative w-full h-full flex flex-col overflow-hidden">
+          {/* Glass backdrop for canvas container */}
+          <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl"></div>
+
+          {/* Canvas content */}
+          <div className="relative flex flex-col h-full">
+            <Canvas
+              isDrawer={isCurrentUserDrawing}
+              gameStarted={roomStatus === "started"}
+              onShowSettings={() => setShowViewOnlySettings(true)}
+              roomStatus={roomStatus}
+              gameInfo={gameInfo}
+              players={players}
+              playerName={playerName}
+              timeLeft={timeLeft}
+              showWordSelection={showWordSelection}
+              wordToDraw={wordToDraw}
+              guessed={guessed}
+              revealedLetters={revealedLetters}
+              wordLength={wordLength}
+            />
+          </div>
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
           {roomStatus === "waiting" && isCurrentUserAdmin && (
-            <div className="absolute inset-0 bg-white z-10 select-none overflow-y-auto">
-              <div className="h-full p-4 lg:p-6 flex flex-col justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-900/90 via-blue-900/90 to-indigo-900/90 backdrop-blur-xl z-10 select-none overflow-y-auto border border-white/20 rounded-xl shadow-2xl">
+              <div className="relative h-full p-4 lg:p-6 flex flex-col justify-center">
+                {/* Inner highlight border for depth */}
+                <div className="absolute inset-[1px] border border-white/10 rounded-xl pointer-events-none"></div>
                 <div className="text-center mb-4">
-                  <h2 className="text-xl lg:text-2xl font-bold text-gray-800">
+                  <h2 className="text-xl lg:text-2xl font-bold text-white text-shadow-sm">
                     Room Settings
                   </h2>
                 </div>
@@ -719,10 +747,10 @@ export default function GamePage() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Max Players */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-2">
                         Max Players
                       </label>
-                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center bg-white/10 rounded-lg border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => {
@@ -737,7 +765,7 @@ export default function GamePage() {
                               }));
                             }
                           }}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors hover:cursor-pointer"
+                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors hover:cursor-pointer"
                         >
                           <svg
                             className="w-4 h-4"
@@ -753,7 +781,7 @@ export default function GamePage() {
                             />
                           </svg>
                         </button>
-                        <span className="flex-1 text-center py-2 text-sm font-medium text-gray-800">
+                        <span className="flex-1 text-center py-2 text-sm font-medium text-white">
                           {roomSettings.maxPlayers}
                         </span>
                         <button
@@ -770,7 +798,7 @@ export default function GamePage() {
                               }));
                             }
                           }}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors hover:cursor-pointer"
+                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors hover:cursor-pointer"
                         >
                           <svg
                             className="w-4 h-4"
@@ -791,10 +819,10 @@ export default function GamePage() {
 
                     {/* Max Rounds */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-2">
                         Max Rounds
                       </label>
-                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center bg-white/10 rounded-lg border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => {
@@ -808,7 +836,7 @@ export default function GamePage() {
                               maxRounds: rounds[newIndex],
                             }));
                           }}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors hover:cursor-pointer"
+                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors hover:cursor-pointer"
                         >
                           <svg
                             className="w-4 h-4"
@@ -824,7 +852,7 @@ export default function GamePage() {
                             />
                           </svg>
                         </button>
-                        <span className="flex-1 text-center py-2 text-sm font-medium text-gray-800">
+                        <span className="flex-1 text-center py-2 text-sm font-medium text-white">
                           {roomSettings.maxRounds}
                         </span>
                         <button
@@ -843,7 +871,7 @@ export default function GamePage() {
                               maxRounds: rounds[newIndex],
                             }));
                           }}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors hover:cursor-pointer"
+                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors hover:cursor-pointer"
                         >
                           <svg
                             className="w-4 h-4"
@@ -867,10 +895,10 @@ export default function GamePage() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Turn Time */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-2">
                         Turn Time (sec)
                       </label>
-                      <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center bg-white/10 rounded-lg border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => {
@@ -884,7 +912,7 @@ export default function GamePage() {
                               turnTime: times[newIndex],
                             }));
                           }}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-l-lg transition-colors hover:cursor-pointer"
+                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors hover:cursor-pointer"
                         >
                           <svg
                             className="w-4 h-4"
@@ -900,7 +928,7 @@ export default function GamePage() {
                             />
                           </svg>
                         </button>
-                        <span className="flex-1 text-center py-2 text-sm font-medium text-gray-800">
+                        <span className="flex-1 text-center py-2 text-sm font-medium text-white">
                           {roomSettings.turnTime}
                         </span>
                         <button
@@ -919,7 +947,7 @@ export default function GamePage() {
                               turnTime: times[newIndex],
                             }));
                           }}
-                          className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-r-lg transition-colors hover:cursor-pointer"
+                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors hover:cursor-pointer"
                         >
                           <svg
                             className="w-4 h-4"
@@ -940,10 +968,10 @@ export default function GamePage() {
 
                     {/* Hints Allowed */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-2">
                         Hints
                       </label>
-                      <div className="flex bg-gray-100 rounded-lg p-[2px] border border-gray-200">
+                      <div className="flex bg-white/10 rounded-lg p-[2px] border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() =>
@@ -954,8 +982,8 @@ export default function GamePage() {
                           }
                           className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.hintsAllowed === "false"
-                              ? "bg-red-500 text-white shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
+                              ? "bg-red-500/80 text-white shadow-sm border border-red-400/30"
+                              : "text-white/70 hover:text-white hover:bg-white/10"
                           }`}
                         >
                           ✗ No
@@ -970,8 +998,8 @@ export default function GamePage() {
                           }
                           className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.hintsAllowed === "true"
-                              ? "bg-green-500 text-white shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
+                              ? "bg-green-500/80 text-white shadow-sm border border-green-400/30"
+                              : "text-white/70 hover:text-white hover:bg-white/10"
                           }`}
                         >
                           ✓ Yes
@@ -984,10 +1012,10 @@ export default function GamePage() {
                   <div className="grid grid-cols-2 gap-3">
                     {/* Difficulty */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-2">
                         Difficulty
                       </label>
-                      <div className="flex bg-gray-100 rounded-lg p-[2px] border border-gray-200">
+                      <div className="flex bg-white/10 rounded-lg p-[2px] border border-white/20 backdrop-blur-md">
                         {["easy", "medium", "hard"].map((diff) => (
                           <button
                             key={diff}
@@ -1001,11 +1029,11 @@ export default function GamePage() {
                             className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                               roomSettings.difficulty === diff
                                 ? diff === "easy"
-                                  ? "bg-green-500 text-white shadow-sm"
+                                  ? "bg-green-500/80 text-white shadow-sm border border-green-400/30"
                                   : diff === "medium"
-                                  ? "bg-yellow-500 text-white shadow-sm"
-                                  : "bg-red-500 text-white shadow-sm"
-                                : "text-gray-600 hover:text-gray-800"
+                                  ? "bg-yellow-500/80 text-white shadow-sm border border-yellow-400/30"
+                                  : "bg-red-500/80 text-white shadow-sm border border-red-400/30"
+                                : "text-white/70 hover:text-white hover:bg-white/10"
                             }`}
                           >
                             {diff.charAt(0).toUpperCase() + diff.slice(1)}
@@ -1016,10 +1044,10 @@ export default function GamePage() {
 
                     {/* Room Type */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-2">
                         Room Type
                       </label>
-                      <div className="flex bg-gray-100 rounded-lg p-[2px] border border-gray-200">
+                      <div className="flex bg-white/10 rounded-lg p-[2px] border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() =>
@@ -1030,8 +1058,8 @@ export default function GamePage() {
                           }
                           className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.roomType === "public"
-                              ? "bg-blue-500 text-white shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
+                              ? "bg-blue-500/80 text-white shadow-sm border border-blue-400/30"
+                              : "text-white/70 hover:text-white hover:bg-white/10"
                           }`}
                         >
                           🌐 Public
@@ -1046,8 +1074,8 @@ export default function GamePage() {
                           }
                           className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.roomType === "private"
-                              ? "bg-purple-500 text-white shadow-sm"
-                              : "text-gray-600 hover:text-gray-800"
+                              ? "bg-purple-500/80 text-white shadow-sm border border-purple-400/30"
+                              : "text-white/70 hover:text-white hover:bg-white/10"
                           }`}
                         >
                           🔒 Private
@@ -1062,12 +1090,12 @@ export default function GamePage() {
                       type="button"
                       disabled={settingsUpdateStatus === "updating"}
                       onClick={() => handleUpdateRoomSettings(roomSettings)}
-                      className={`w-full px-4 py-3 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-2 text-sm ${
+                      className={`w-full px-4 py-3 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-2 text-sm border backdrop-blur-md ${
                         settingsUpdateStatus === "success"
-                          ? "bg-green-600 text-white"
+                          ? "bg-green-600/80 text-white border-green-400/30"
                           : settingsUpdateStatus === "updating"
-                          ? "bg-gray-400 text-white cursor-not-allowed"
-                          : "bg-indigo-600 text-white hover:bg-indigo-700"
+                          ? "bg-white/20 text-white/70 cursor-not-allowed border-white/10"
+                          : "bg-gradient-to-r from-blue-500/80 to-indigo-500/80 text-white hover:from-blue-600/90 hover:to-indigo-600/90 border-white/20"
                       }`}
                     >
                       {settingsUpdateStatus === "updating" && (
@@ -1119,10 +1147,10 @@ export default function GamePage() {
                 <div className="border-t border-gray-200 mt-4 pt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <button
-                      className={`py-2 px-3 rounded-lg font-semibold text-white hover:cursor-pointer text-sm ${
+                      className={`py-2 px-3 rounded-lg font-semibold text-white hover:cursor-pointer text-sm border backdrop-blur-md shadow-md ${
                         playersList.length >= 2 && !gameInfo.currentDrawer
-                          ? "bg-green-600 hover:bg-green-700"
-                          : "bg-gray-400 cursor-not-allowed"
+                          ? "bg-gradient-to-r from-green-500/80 to-emerald-500/80 hover:from-green-600/90 hover:to-emerald-600/90 border-green-400/30"
+                          : "bg-white/20 cursor-not-allowed border-white/10"
                       }`}
                       disabled={
                         playersList.length < 2 || !!gameInfo.currentDrawer
@@ -1182,12 +1210,12 @@ export default function GamePage() {
                           fallbackCopy();
                         }
                       }}
-                      className="py-2 px-3 bg-indigo-100 hover:bg-indigo-200 rounded-md font-medium text-indigo-700 transition-colors text-center hover:cursor-pointer text-sm"
+                      className="py-2 px-3 bg-white/10 hover:bg-white/20 rounded-md font-medium text-white backdrop-blur-md border border-white/20 transition-colors text-center hover:cursor-pointer text-sm shadow-md"
                     >
                       <span id="admin-copy-btn-text">🔗 {roomId}</span>
                     </button>
                   </div>
-                  <p className="text-xs text-center text-gray-500">
+                  <p className="text-xs text-center text-white/60">
                     {playersList.length < 2
                       ? "Need at least 2 players to start."
                       : gameInfo.currentDrawer
@@ -1202,147 +1230,157 @@ export default function GamePage() {
           {/* View-Only Room Settings Modal */}
           {showViewOnlySettings && (
             <div
-              className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-20"
+              className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-20"
               onClick={() => setShowViewOnlySettings(false)}
             >
+              {/* Main glass container */}
               <div
-                className="bg-white rounded-xl p-6 shadow-2xl max-w-md w-full mx-4 max-h-[90%] overflow-y-auto"
+                className="relative max-w-md w-full mx-4 max-h-[90%] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="text-center mb-4">
-                  <h2 className="text-2xl font-bold text-gray-800">
-                    Current Room Settings
-                  </h2>
-                </div>
+                {/* Glass backdrop with enhanced effects */}
+                <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/10 to-transparent backdrop-blur-2xl rounded-3xl border border-white/30 shadow-2xl"></div>
 
-                <div className="space-y-4">
-                  {/* Max Players */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Players
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
-                      {roomSettings.maxPlayers} Players
-                    </div>
+                {/* Inner highlight border */}
+                <div className="absolute inset-[1px] bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-3xl"></div>
+
+                {/* Content container */}
+                <div className="relative p-6 rounded-3xl">
+                  <div className="text-center mb-4">
+                    <h2 className="text-2xl font-bold text-white text-shadow-sm">
+                      Current Room Settings
+                    </h2>
                   </div>
 
-                  {/* Max Rounds */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Max Rounds
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
-                      {roomSettings.maxRounds}{" "}
-                      {roomSettings.maxRounds === "1" ? "Round" : "Rounds"}
+                  <div className="space-y-4">
+                    {/* Max Players */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1">
+                        Max Players
+                      </label>
+                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
+                        {roomSettings.maxPlayers} Players
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Turn Time */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Turn Time
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
-                      {roomSettings.turnTime} seconds
+                    {/* Max Rounds */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1">
+                        Max Rounds
+                      </label>
+                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
+                        {roomSettings.maxRounds}{" "}
+                        {roomSettings.maxRounds === "1" ? "Round" : "Rounds"}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Hints Allowed */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Hints Allowed
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
-                      {roomSettings.hintsAllowed === "true" ? "Yes" : "No"}
+                    {/* Turn Time */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1">
+                        Turn Time
+                      </label>
+                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
+                        {roomSettings.turnTime} seconds
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Difficulty */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Difficulty
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
-                      {roomSettings.difficulty.charAt(0).toUpperCase() +
-                        roomSettings.difficulty.slice(1)}
+                    {/* Hints Allowed */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1">
+                        Hints Allowed
+                      </label>
+                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
+                        {roomSettings.hintsAllowed === "true" ? "Yes" : "No"}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Room Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Room Type
-                    </label>
-                    <div className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md text-gray-600">
-                      {roomSettings.roomType.charAt(0).toUpperCase() +
-                        roomSettings.roomType.slice(1)}
+                    {/* Difficulty */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1">
+                        Difficulty
+                      </label>
+                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
+                        {roomSettings.difficulty.charAt(0).toUpperCase() +
+                          roomSettings.difficulty.slice(1)}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Close Button */}
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      onClick={() => {
-                        const url = getShareableLink();
-                        const buttonTextElement = document.getElementById(
-                          "view-only-copy-btn-text"
-                        );
-                        if (!buttonTextElement) return;
-                        const originalText = buttonTextElement.innerText;
+                    {/* Room Type */}
+                    <div>
+                      <label className="block text-sm font-medium text-white/90 mb-1">
+                        Room Type
+                      </label>
+                      <div className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white/80 backdrop-blur-md">
+                        {roomSettings.roomType.charAt(0).toUpperCase() +
+                          roomSettings.roomType.slice(1)}
+                      </div>
+                    </div>
 
-                        const showFeedback = (success: boolean) => {
-                          if (buttonTextElement) {
-                            buttonTextElement.innerText = success
-                              ? "Copied! 👍"
-                              : "Copy failed ❌";
-                            setTimeout(() => {
-                              buttonTextElement.innerText = originalText;
-                            }, 2000);
+                    {/* Close Button */}
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={() => {
+                          const url = getShareableLink();
+                          const buttonTextElement = document.getElementById(
+                            "view-only-copy-btn-text"
+                          );
+                          if (!buttonTextElement) return;
+                          const originalText = buttonTextElement.innerText;
+
+                          const showFeedback = (success: boolean) => {
+                            if (buttonTextElement) {
+                              buttonTextElement.innerText = success
+                                ? "Copied! 👍"
+                                : "Copy failed ❌";
+                              setTimeout(() => {
+                                buttonTextElement.innerText = originalText;
+                              }, 2000);
+                            }
+                          };
+
+                          const fallbackCopy = () => {
+                            const textArea = document.createElement("textarea");
+                            textArea.value = url;
+                            textArea.style.position = "fixed";
+                            textArea.style.top = "-999999px";
+                            textArea.style.left = "-999999px";
+                            document.body.appendChild(textArea);
+                            textArea.focus();
+                            textArea.select();
+                            let success = false;
+                            try {
+                              success = document.execCommand("copy");
+                            } catch (err) {
+                              console.error("Fallback: Unable to copy", err);
+                            }
+                            document.body.removeChild(textArea);
+                            showFeedback(success);
+                          };
+
+                          if (
+                            navigator.clipboard &&
+                            navigator.clipboard.writeText
+                          ) {
+                            navigator.clipboard
+                              .writeText(url)
+                              .then(() => showFeedback(true), fallbackCopy);
+                          } else {
+                            fallbackCopy();
                           }
-                        };
-
-                        const fallbackCopy = () => {
-                          const textArea = document.createElement("textarea");
-                          textArea.value = url;
-                          textArea.style.position = "fixed";
-                          textArea.style.top = "-999999px";
-                          textArea.style.left = "-999999px";
-                          document.body.appendChild(textArea);
-                          textArea.focus();
-                          textArea.select();
-                          let success = false;
-                          try {
-                            success = document.execCommand("copy");
-                          } catch (err) {
-                            console.error("Fallback: Unable to copy", err);
-                          }
-                          document.body.removeChild(textArea);
-                          showFeedback(success);
-                        };
-
-                        if (
-                          navigator.clipboard &&
-                          navigator.clipboard.writeText
-                        ) {
-                          navigator.clipboard
-                            .writeText(url)
-                            .then(() => showFeedback(true), fallbackCopy);
-                        } else {
-                          fallbackCopy();
-                        }
-                      }}
-                      className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium hover:cursor-pointer flex items-center justify-center gap-2"
-                    >
-                      <span id="view-only-copy-btn-text">
-                        🔗 Copy Invite Link
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => setShowViewOnlySettings(false)}
-                      className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium hover:cursor-pointer"
-                    >
-                      Close
-                    </button>
+                        }}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-blue-500/80 to-indigo-500/80 text-white rounded-lg hover:from-blue-600/90 hover:to-indigo-600/90 transition-colors font-medium hover:cursor-pointer flex items-center justify-center gap-2 border border-white/20 backdrop-blur-md"
+                      >
+                        <span id="view-only-copy-btn-text">
+                          🔗 Copy Invite Link
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => setShowViewOnlySettings(false)}
+                        className="w-full px-4 py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-lg hover:from-indigo-600/90 hover:to-purple-600/90 transition-colors font-medium hover:cursor-pointer border border-white/20 backdrop-blur-md"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1352,9 +1390,9 @@ export default function GamePage() {
       </div>
 
       {/* Right Sidebar - Chat Only */}
-      <aside className="flex flex-col gap-2 p-1 min-h-0 w-full h-[30vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-gray-200 lg:bg-transparent">
+      <aside className="flex flex-col gap-2 p-1 min-h-0 w-full h-[30vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-white/20 lg:bg-transparent">
         {/* Chat Section - Full height */}
-        <div className="flex-1 flex flex-col overflow-hidden border border-gray-200 rounded-lg shadow-sm min-h-0">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           <Chat
             wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
             onCorrectGuess={() => setGuessed(true)}
