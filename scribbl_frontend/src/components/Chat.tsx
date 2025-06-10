@@ -99,7 +99,7 @@ export default function Chat({
           placeholder={
             isDrawer ? "You cannot chat while drawing" : "Guess here"
           }
-          className={`border px-2 py-1 rounded text-sm flex-1 min-w-0 ${
+          className={`border px-3 py-1 rounded text-base flex-1 min-w-0 ${
             isInputDisabled ? "bg-gray-100 cursor-not-allowed" : ""
           }`}
           value={input}
@@ -109,11 +109,11 @@ export default function Chat({
         />
         <button
           type="submit"
-          className={`p-2 ${
+          className={`px-3 py-2 ${
             isInputDisabled
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-500 hover:bg-blue-600"
-          } text-white rounded text-sm flex items-center justify-center`}
+          } text-white rounded text-base flex items-center justify-center`}
           disabled={isInputDisabled}
           title={disabledMessage}
         >
