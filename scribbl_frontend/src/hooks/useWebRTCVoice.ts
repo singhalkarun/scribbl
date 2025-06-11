@@ -36,6 +36,55 @@ const ICE_SERVERS: RTCConfiguration = {
   ],
 };
 
+// Helper function to modify SDP for lower bitrate (optimized for 8-player voice chat)
+const modifySDPForLowBitrate = (sdp: string): string => {
+  const lines = sdp.split('\n');
+  const modifiedLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    modifiedLines.push(line);
+    
+    // Add bitrate limit for audio after m=audio line
+    if (line.startsWith('m=audio')) {
+      // Set maximum bitrate to 32kbps for audio (good quality for voice, low bandwidth)
+      modifiedLines.push('b=AS:32');
+      modifiedLines.push('b=CT:32');
+    }
+    
+    // Modify codec parameters for Opus (if present) to use lower bitrate
+    if (line.includes('a=fmtp:') && line.includes('opus')) {
+      const originalLine = line;
+      let modifiedLine = originalLine;
+      
+      // Add or modify maxaveragebitrate parameter
+      if (originalLine.includes('maxaveragebitrate=')) {
+        modifiedLine = originalLine.replace(/maxaveragebitrate=\d+/, 'maxaveragebitrate=32000');
+      } else {
+        modifiedLine = originalLine + ';maxaveragebitrate=32000';
+      }
+      
+      // Add or modify maxplaybackrate for lower CPU usage
+      if (modifiedLine.includes('maxplaybackrate=')) {
+        modifiedLine = modifiedLine.replace(/maxplaybackrate=\d+/, 'maxplaybackrate=16000');
+      } else {
+        modifiedLine = modifiedLine + ';maxplaybackrate=16000';
+      }
+      
+      // Ensure stereo is disabled to save bandwidth
+      if (modifiedLine.includes('stereo=')) {
+        modifiedLine = modifiedLine.replace(/stereo=\d+/, 'stereo=0');
+      } else {
+        modifiedLine = modifiedLine + ';stereo=0';
+      }
+      
+      modifiedLines[modifiedLines.length - 1] = modifiedLine;
+    }
+  }
+  
+  return modifiedLines.join('\n');
+};
+
 export function useWebRTCVoice() {
   const { channel, userId, players } = usePlayerStore();
   const [state, setState] = useState<WebRTCVoiceState>({
@@ -95,6 +144,10 @@ export function useWebRTCVoice() {
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          // Optimize for 8-player scenarios
+          channelCount: 1, // Force mono audio to save bandwidth
+          sampleRate: 16000, // Lower sample rate for voice chat
+          sampleSize: 16,
         },
         video: false,
       });
@@ -118,7 +171,12 @@ export function useWebRTCVoice() {
   // Create peer connection for a specific user
   const createPeerConnection = useCallback(
     (targetUserId: string): RTCPeerConnection => {
-      const peerConnection = new RTCPeerConnection(ICE_SERVERS);
+      const peerConnection = new RTCPeerConnection({
+        ...ICE_SERVERS,
+        // Optimize for 8-player scenarios
+        bundlePolicy: 'balanced', // Balance between performance and compatibility
+        rtcpMuxPolicy: 'require', // Reduce number of ports needed
+      });
 
       // Add local stream tracks
       if (localStreamRef.current) {
@@ -209,11 +267,16 @@ export function useWebRTCVoice() {
 
       try {
         const offer = await peerConnection.createOffer();
-        await peerConnection.setLocalDescription(offer);
+        // Modify SDP to reduce bitrate for better 8-player performance
+        const modifiedOffer = {
+          ...offer,
+          sdp: modifySDPForLowBitrate(offer.sdp || ''),
+        };
+        await peerConnection.setLocalDescription(modifiedOffer);
 
         channel.push("webrtc_offer", {
           target_user_id: targetUserId,
-          offer: offer,
+          offer: modifiedOffer,
           from_user_id: userId,
         });
       } catch (error) {
@@ -292,11 +355,16 @@ export function useWebRTCVoice() {
         }
 
         const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
+        // Modify SDP to reduce bitrate for better 8-player performance
+        const modifiedAnswer = {
+          ...answer,
+          sdp: modifySDPForLowBitrate(answer.sdp || ''),
+        };
+        await peerConnection.setLocalDescription(modifiedAnswer);
 
         channel.push("webrtc_answer", {
           target_user_id: fromUserId,
-          answer: answer,
+          answer: modifiedAnswer,
           from_user_id: userId,
         });
       } catch (error) {
