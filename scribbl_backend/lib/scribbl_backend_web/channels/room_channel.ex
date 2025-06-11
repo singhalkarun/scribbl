@@ -214,6 +214,11 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "similar_word", payload: payload}, socket) do
+    push(socket, "similar_word", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "room_settings_updated", payload: payload}, socket) do
     push(socket, "room_settings_updated", payload)
     {:noreply, socket}

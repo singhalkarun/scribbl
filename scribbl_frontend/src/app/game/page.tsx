@@ -443,6 +443,27 @@ export default function GamePage() {
           });
         });
 
+        // Listen for similar_word event
+        const similarWordRef = channel.on("similar_word", (payload) => {
+          console.log("[GamePage] Received similar_word:", payload);
+          const guesserName = players[payload.user_id] || "Someone";
+          const isCurrentUser = payload.user_id === userId;
+
+          // Add a system message about the similar guess
+          const messageText = isCurrentUser 
+            ? `You are close!" 🔥`
+            : `${guesserName} is close!" 🔥`;
+
+          usePlayerStore.getState().addMessage({
+            userId: "system",
+            text: messageText,
+            system: true,
+          });
+
+          // Play a different sound for similar guesses
+          playSound("letterReveal");
+        });
+
         // Cleanup listeners
         return () => {
           if (channel) {
@@ -454,6 +475,7 @@ export default function GamePage() {
             channel.off("game_over", gameOverRef);
             channel.off("score_updated", scoreUpdatedRef);
             channel.off("correct_guess", correctGuessRef);
+            channel.off("similar_word", similarWordRef);
             channel.off("letter_reveal", letterRevealRef);
             channel.off("admin_changed", adminChangedRef);
             channel.off("room_settings_updated", roomSettingsUpdatedRef);

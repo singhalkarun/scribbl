@@ -9,6 +9,7 @@ defmodule ScribblBackend.GameFlow do
   alias ScribblBackend.PlayerManager
   alias ScribblBackend.WordManager
   alias ScribblBackend.KeyManager
+  alias ScribblBackend.WordSimilarity
 
   @doc """
   Start the game in a room.
@@ -137,6 +138,8 @@ defmodule ScribblBackend.GameFlow do
     end
   end
 
+
+
   @doc """
   Handle a player's guess.
 
@@ -254,8 +257,8 @@ defmodule ScribblBackend.GameFlow do
               already_guessed = PlayerManager.has_player_guessed_correctly?(room_id, user_id, round)
 
               if already_guessed do
-                # broadcast the message
-
+                # do nothing
+                {:noreply, socket}
               else
                 # add user to non eligible guessers list
                 PlayerManager.mark_player_guessed_correctly(room_id, user_id, round)
@@ -343,18 +346,47 @@ defmodule ScribblBackend.GameFlow do
                 end
               end
             else
-              # broadcast the message
-              Phoenix.PubSub.broadcast(
-                ScribblBackend.PubSub,
-                socket.topic,
-                %{
-                  event: "new_message",
-                  payload: %{
-                    "message" => message,
-                    "user_id" => user_id
+              # Check if the guess is similar to the actual word
+              if WordSimilarity.similar?(message, word) do
+                # Broadcast similar word event
+                Phoenix.PubSub.broadcast(
+                  ScribblBackend.PubSub,
+                  socket.topic,
+                  %{
+                    event: "similar_word",
+                    payload: %{
+                      "user_id" => user_id,
+                      "message" => message
+                    }
                   }
-                }
-              )
+                )
+
+                # Also broadcast the regular message so it appears in chat
+                Phoenix.PubSub.broadcast(
+                  ScribblBackend.PubSub,
+                  socket.topic,
+                  %{
+                    event: "new_message",
+                    payload: %{
+                      "message" => message,
+                      "user_id" => user_id
+                    }
+                  }
+                )
+              else
+                # broadcast the regular message
+                Phoenix.PubSub.broadcast(
+                  ScribblBackend.PubSub,
+                  socket.topic,
+                  %{
+                    event: "new_message",
+                    payload: %{
+                      "message" => message,
+                      "user_id" => user_id
+                    }
+                  }
+                )
+              end
             end
 
             {:noreply, socket}
