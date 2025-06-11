@@ -733,29 +733,34 @@ export default function GamePage() {
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
           {roomStatus === "waiting" && isCurrentUserAdmin && (
-            <div className="absolute inset-0 bg-gradient-to-br from-violet-900/90 via-blue-900/90 to-indigo-900/90 backdrop-blur-xl z-10 select-none overflow-y-auto border border-white/20 rounded-xl shadow-2xl">
-              <div className="relative h-full p-4 lg:p-6 flex flex-col justify-center">
+            <div className="absolute inset-0 bg-gradient-to-br from-violet-900/90 via-blue-900/90 to-indigo-900/90 backdrop-blur-xl z-10 select-none sm:border sm:border-white/20 sm:rounded-xl lg:border-none lg:rounded-none shadow-2xl flex items-center justify-center">
+              <div className="relative w-full h-full max-w-md lg:max-w-none mx-auto p-2 sm:p-3 lg:p-6 flex flex-col justify-center min-h-0">
                 {/* Inner highlight border for depth */}
-                <div className="absolute inset-[1px] border border-white/10 rounded-xl pointer-events-none"></div>
-                <div className="text-center mb-4">
-                  <h2 className="text-xl lg:text-2xl font-bold text-white text-shadow-sm">
+                <div className="absolute inset-[1px] border border-white/10 rounded-xl pointer-events-none hidden lg:block"></div>
+
+                <div className="text-center mb-2 sm:mb-3">
+                  <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-white text-shadow-sm">
                     Room Settings
                   </h2>
                 </div>
 
                 {/* Mobile-optimized form with plus/minus controls */}
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {/* Row 1: Max Players & Max Rounds */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {/* Max Players */}
                     <div>
-                      <label className="block text-xs font-medium text-white/90 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-1">
                         Max Players
                       </label>
                       <div className="flex items-center bg-white/10 rounded-lg border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => {
+                            // Haptic feedback on mobile
+                            if (navigator.vibrate) {
+                              navigator.vibrate(30);
+                            }
                             const currentPlayers = parseInt(
                               roomSettings.maxPlayers
                             );
@@ -767,10 +772,10 @@ export default function GamePage() {
                               }));
                             }
                           }}
-                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors hover:cursor-pointer"
+                          className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-all duration-150 hover:cursor-pointer active:scale-95 active:bg-white/20"
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -783,12 +788,16 @@ export default function GamePage() {
                             />
                           </svg>
                         </button>
-                        <span className="flex-1 text-center py-2 text-sm font-medium text-white">
+                        <span className="flex-1 text-center py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white">
                           {roomSettings.maxPlayers}
                         </span>
                         <button
                           type="button"
                           onClick={() => {
+                            // Haptic feedback on mobile
+                            if (navigator.vibrate) {
+                              navigator.vibrate(30);
+                            }
                             const currentPlayers = parseInt(
                               roomSettings.maxPlayers
                             );
@@ -800,10 +809,10 @@ export default function GamePage() {
                               }));
                             }
                           }}
-                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors hover:cursor-pointer"
+                          className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-all duration-150 hover:cursor-pointer active:scale-95 active:bg-white/20"
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -821,13 +830,17 @@ export default function GamePage() {
 
                     {/* Max Rounds */}
                     <div>
-                      <label className="block text-xs font-medium text-white/90 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-1">
                         Max Rounds
                       </label>
                       <div className="flex items-center bg-white/10 rounded-lg border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => {
+                            // Haptic feedback on mobile
+                            if (navigator.vibrate) {
+                              navigator.vibrate(30);
+                            }
                             const rounds = ["1", "2", "3", "5", "10"];
                             const currentIndex = rounds.indexOf(
                               roomSettings.maxRounds
@@ -838,10 +851,10 @@ export default function GamePage() {
                               maxRounds: rounds[newIndex],
                             }));
                           }}
-                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors hover:cursor-pointer"
+                          className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-all duration-150 hover:cursor-pointer active:scale-95 active:bg-white/20"
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -854,12 +867,16 @@ export default function GamePage() {
                             />
                           </svg>
                         </button>
-                        <span className="flex-1 text-center py-2 text-sm font-medium text-white">
+                        <span className="flex-1 text-center py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white">
                           {roomSettings.maxRounds}
                         </span>
                         <button
                           type="button"
                           onClick={() => {
+                            // Haptic feedback on mobile
+                            if (navigator.vibrate) {
+                              navigator.vibrate(30);
+                            }
                             const rounds = ["1", "2", "3", "5", "10"];
                             const currentIndex = rounds.indexOf(
                               roomSettings.maxRounds
@@ -873,10 +890,10 @@ export default function GamePage() {
                               maxRounds: rounds[newIndex],
                             }));
                           }}
-                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors hover:cursor-pointer"
+                          className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-all duration-150 hover:cursor-pointer active:scale-95 active:bg-white/20"
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -894,16 +911,20 @@ export default function GamePage() {
                   </div>
 
                   {/* Row 2: Turn Time & Hints */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {/* Turn Time */}
                     <div>
-                      <label className="block text-xs font-medium text-white/90 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-1">
                         Turn Time (sec)
                       </label>
                       <div className="flex items-center bg-white/10 rounded-lg border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() => {
+                            // Haptic feedback on mobile
+                            if (navigator.vibrate) {
+                              navigator.vibrate(30);
+                            }
                             const times = ["30", "45", "60", "90", "120"];
                             const currentIndex = times.indexOf(
                               roomSettings.turnTime
@@ -914,10 +935,10 @@ export default function GamePage() {
                               turnTime: times[newIndex],
                             }));
                           }}
-                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-colors hover:cursor-pointer"
+                          className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-l-lg transition-all duration-150 hover:cursor-pointer active:scale-95 active:bg-white/20"
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -930,12 +951,16 @@ export default function GamePage() {
                             />
                           </svg>
                         </button>
-                        <span className="flex-1 text-center py-2 text-sm font-medium text-white">
+                        <span className="flex-1 text-center py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white">
                           {roomSettings.turnTime}
                         </span>
                         <button
                           type="button"
                           onClick={() => {
+                            // Haptic feedback on mobile
+                            if (navigator.vibrate) {
+                              navigator.vibrate(30);
+                            }
                             const times = ["30", "45", "60", "90", "120"];
                             const currentIndex = times.indexOf(
                               roomSettings.turnTime
@@ -949,10 +974,10 @@ export default function GamePage() {
                               turnTime: times[newIndex],
                             }));
                           }}
-                          className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-colors hover:cursor-pointer"
+                          className="p-1.5 sm:p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-r-lg transition-all duration-150 hover:cursor-pointer active:scale-95 active:bg-white/20"
                         >
                           <svg
-                            className="w-4 h-4"
+                            className="w-3 h-3 sm:w-4 sm:h-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -970,10 +995,10 @@ export default function GamePage() {
 
                     {/* Hints Allowed */}
                     <div>
-                      <label className="block text-xs font-medium text-white/90 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-1">
                         Hints
                       </label>
-                      <div className="flex bg-white/10 rounded-lg p-[2px] border border-white/20 backdrop-blur-md">
+                      <div className="flex bg-white/10 rounded-lg p-[1px] sm:p-[2px] border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() =>
@@ -982,7 +1007,7 @@ export default function GamePage() {
                               hintsAllowed: "false",
                             }))
                           }
-                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                          className={`flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.hintsAllowed === "false"
                               ? "bg-red-500/80 text-white shadow-sm border border-red-400/30"
                               : "text-white/70 hover:text-white hover:bg-white/10"
@@ -998,7 +1023,7 @@ export default function GamePage() {
                               hintsAllowed: "true",
                             }))
                           }
-                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                          className={`flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.hintsAllowed === "true"
                               ? "bg-green-500/80 text-white shadow-sm border border-green-400/30"
                               : "text-white/70 hover:text-white hover:bg-white/10"
@@ -1011,13 +1036,13 @@ export default function GamePage() {
                   </div>
 
                   {/* Row 3: Difficulty & Room Type */}
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     {/* Difficulty */}
                     <div>
-                      <label className="block text-xs font-medium text-white/90 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-1">
                         Difficulty
                       </label>
-                      <div className="flex bg-white/10 rounded-lg p-[2px] border border-white/20 backdrop-blur-md">
+                      <div className="flex bg-white/10 rounded-lg p-[1px] sm:p-[2px] border border-white/20 backdrop-blur-md">
                         {["easy", "medium", "hard"].map((diff) => (
                           <button
                             key={diff}
@@ -1028,7 +1053,7 @@ export default function GamePage() {
                                 difficulty: diff,
                               }))
                             }
-                            className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                            className={`flex-1 py-1.5 sm:py-2 px-0.5 sm:px-1 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                               roomSettings.difficulty === diff
                                 ? diff === "easy"
                                   ? "bg-green-500/80 text-white shadow-sm border border-green-400/30"
@@ -1046,10 +1071,10 @@ export default function GamePage() {
 
                     {/* Room Type */}
                     <div>
-                      <label className="block text-xs font-medium text-white/90 mb-2">
+                      <label className="block text-xs font-medium text-white/90 mb-1">
                         Room Type
                       </label>
-                      <div className="flex bg-white/10 rounded-lg p-[2px] border border-white/20 backdrop-blur-md">
+                      <div className="flex bg-white/10 rounded-lg p-[1px] sm:p-[2px] border border-white/20 backdrop-blur-md">
                         <button
                           type="button"
                           onClick={() =>
@@ -1058,7 +1083,7 @@ export default function GamePage() {
                               roomType: "public",
                             }))
                           }
-                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                          className={`flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.roomType === "public"
                               ? "bg-blue-500/80 text-white shadow-sm border border-blue-400/30"
                               : "text-white/70 hover:text-white hover:bg-white/10"
@@ -1074,7 +1099,7 @@ export default function GamePage() {
                               roomType: "private",
                             }))
                           }
-                          className={`flex-1 py-2 px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
+                          className={`flex-1 py-1.5 sm:py-2 px-1 sm:px-2 rounded-md text-xs font-medium transition-colors hover:cursor-pointer ${
                             roomSettings.roomType === "private"
                               ? "bg-purple-500/80 text-white shadow-sm border border-purple-400/30"
                               : "text-white/70 hover:text-white hover:bg-white/10"
@@ -1087,12 +1112,12 @@ export default function GamePage() {
                   </div>
 
                   {/* Update Button */}
-                  <div className="pt-2">
+                  <div className="pt-1 sm:pt-2">
                     <button
                       type="button"
                       disabled={settingsUpdateStatus === "updating"}
                       onClick={() => handleUpdateRoomSettings(roomSettings)}
-                      className={`w-full px-4 py-3 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-2 text-sm border backdrop-blur-md ${
+                      className={`w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg transition-all duration-300 font-medium hover:cursor-pointer flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm border backdrop-blur-md ${
                         settingsUpdateStatus === "success"
                           ? "bg-green-600/80 text-white border-green-400/30"
                           : settingsUpdateStatus === "updating"
@@ -1102,7 +1127,7 @@ export default function GamePage() {
                     >
                       {settingsUpdateStatus === "updating" && (
                         <svg
-                          className="animate-spin h-4 w-4"
+                          className="animate-spin h-3 w-3 sm:h-4 sm:w-4"
                           fill="none"
                           viewBox="0 0 24 24"
                         >
@@ -1123,7 +1148,7 @@ export default function GamePage() {
                       )}
                       {settingsUpdateStatus === "success" && (
                         <svg
-                          className="h-4 w-4"
+                          className="h-3 w-3 sm:h-4 sm:w-4"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1146,10 +1171,10 @@ export default function GamePage() {
                 </div>
 
                 {/* Game and Invite Controls */}
-                <div className="border-t border-gray-200 mt-4 pt-4 space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="border-t border-white/20 mt-2 sm:mt-4 pt-2 sm:pt-4 space-y-2 sm:space-y-3 flex-shrink-0">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
                     <button
-                      className={`py-2 px-3 rounded-lg font-semibold text-white hover:cursor-pointer text-sm border backdrop-blur-md shadow-md ${
+                      className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-semibold text-white hover:cursor-pointer text-xs sm:text-sm border backdrop-blur-md shadow-md ${
                         playersList.length >= 2 && !gameInfo.currentDrawer
                           ? "bg-gradient-to-r from-green-500/80 to-emerald-500/80 hover:from-green-600/90 hover:to-emerald-600/90 border-green-400/30"
                           : "bg-white/20 cursor-not-allowed border-white/10"
@@ -1212,7 +1237,7 @@ export default function GamePage() {
                           fallbackCopy();
                         }
                       }}
-                      className="py-2 px-3 bg-white/10 hover:bg-white/20 rounded-md font-medium text-white backdrop-blur-md border border-white/20 transition-colors text-center hover:cursor-pointer text-sm shadow-md"
+                      className="py-1.5 sm:py-2 px-2 sm:px-3 bg-white/10 hover:bg-white/20 rounded-md font-medium text-white backdrop-blur-md border border-white/20 transition-colors text-center hover:cursor-pointer text-xs sm:text-sm shadow-md"
                     >
                       <span id="admin-copy-btn-text">🔗 {roomId}</span>
                     </button>
