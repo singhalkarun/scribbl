@@ -68,10 +68,22 @@ defmodule ScribblBackend.PlayerManager do
     # Remove from voice room if they were in it
     ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, player_id)
 
+    # Remove player from non_eligible_guessers if game is active
+    if room_info.status == "active" do
+      remove_from_non_eligible_guessers(room_id, player_id, room_info.current_round)
+    end
+
     # Check if the removed player was the drawer
     {:ok, current_drawer} = GameState.get_current_drawer(room_id)
     if player_id == current_drawer do
       handle_drawer_removal(room_id)
+    else
+      # If the removed player was not the drawer and game is active,
+      # check if all remaining eligible players have guessed
+      if room_info.status == "active" && current_drawer != "" do
+        # Use GameFlow's check function to see if everyone has guessed
+        GameFlow.check_if_all_guessed_after_player_left(room_id, current_drawer, room_info.current_round)
+      end
     end
 
     # Handle admin reassignment if the admin left (regardless of game status)
@@ -397,5 +409,18 @@ defmodule ScribblBackend.PlayerManager do
       error ->
         error
     end
+  end
+
+  @doc """
+  Remove a player from the non_eligible_guessers set for a specific round.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+    - `player_id`: The ID of the player to remove.
+    - `round`: The round number.
+  """
+  def remove_from_non_eligible_guessers(room_id, player_id, round) do
+    non_eligible_guessers_key = KeyManager.non_eligible_guessers(room_id, round)
+    RedisHelper.srem(non_eligible_guessers_key, player_id)
   end
 end

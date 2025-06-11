@@ -451,4 +451,19 @@ defmodule ScribblBackend.GameFlow do
       start(room_id)
     end
   end
+
+  @doc """
+  Check if all eligible players have guessed after a player leaves.
+  This is called when a non-drawer player leaves during an active game.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+    - `drawer`: The current drawer's ID.
+    - `round`: The current round number.
+  """
+  def check_if_all_guessed_after_player_left(room_id, drawer, round) do
+    # Simply call the existing check_all_guessed function
+    # It already handles all the logic we need
+    check_all_guessed(room_id, drawer, round)
+  end
 end
