@@ -92,36 +92,48 @@ defmodule ScribblBackend.GameFlow do
         end
 
       {:ok, drawer} ->
-        # set the current drawer in the room info
-        GameState.set_current_drawer(room_id, drawer)
+        # Validate that the selected drawer is still in the room
+        {:ok, current_players} = RedisHelper.smembers(players_key)
 
-        # broadcast the drawer to all players
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          KeyManager.room_topic(room_id),
-          %{
-            event: "drawer_assigned",
-            payload: %{
-              "round" => current_round,
-              "drawer" => drawer
+        if Enum.member?(current_players, drawer) do
+          # Drawer is still in the room, proceed normally
+          # set the current drawer in the room info
+          GameState.set_current_drawer(room_id, drawer)
+
+          # broadcast the drawer to all players
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            KeyManager.room_topic(room_id),
+            %{
+              event: "drawer_assigned",
+              payload: %{
+                "round" => current_round,
+                "drawer" => drawer
+              }
             }
-          }
-        )
+          )
 
-        # generate a random word and send to the drawer
-        words = WordManager.generate_words(room_id)
+          # generate a random word and send to the drawer
+          words = WordManager.generate_words(room_id)
 
-        # send the word to the drawer
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          KeyManager.user_topic(drawer),
-          %{
-            event: "select_word",
-            payload: %{
-              "words" => words
+          # send the word to the drawer
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            KeyManager.user_topic(drawer),
+            %{
+              event: "select_word",
+              payload: %{
+                "words" => words
+              }
             }
-          }
-        )
+          )
+        else
+          # Drawer has left the room, remove them from eligible drawers and try again
+          IO.puts("[GameFlow] Selected drawer #{drawer} is no longer in room #{room_id}, removing from eligible drawers and retrying")
+          RedisHelper.srem(eligible_drawers_key, drawer)
+          # Recursively call start again to pick a new drawer
+          start(room_id)
+        end
     end
   end
 
