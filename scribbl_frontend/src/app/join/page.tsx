@@ -230,20 +230,22 @@ function JoinPageContent() {
               )}
             </div>
 
-            {/* Room ID input with glass effect */}
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-xl rounded-xl border border-white/30 group-focus-within:border-white/50 transition-all duration-300"></div>
-              <input
-                className="relative border-0 px-4 py-3 rounded-xl w-full focus:outline-none bg-transparent text-white placeholder-white/60 pl-10"
-                placeholder="Room ID (optional)"
-                value={roomIdInput}
-                onChange={handleRoomIdChange}
-                onKeyDown={handleKeyDown}
-              />
-              <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <span className="text-white/60">🔑</span>
+            {/* Room ID input with glass effect - only show if no invite room ID */}
+            {!inviteRoomId && (
+              <div className="relative group">
+                <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-xl rounded-xl border border-white/30 group-focus-within:border-white/50 transition-all duration-300"></div>
+                <input
+                  className="relative border-0 px-4 py-3 rounded-xl w-full focus:outline-none bg-transparent text-white placeholder-white/60 pl-10"
+                  placeholder="Room ID (optional)"
+                  value={roomIdInput}
+                  onChange={handleRoomIdChange}
+                  onKeyDown={handleKeyDown}
+                />
+                <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                  <span className="text-white/60">🔑</span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {inviteRoomId ? (
