@@ -143,7 +143,7 @@ export default function Chat({
             <input
               type="text"
               placeholder="Type here"
-              className="relative border-0 px-3 py-1 rounded text-base flex-1 min-w-0 bg-transparent text-white placeholder-white/60 focus:outline-none"
+              className="relative border-0 px-3 py-1 rounded text-base w-full bg-transparent text-white placeholder-white/60 focus:outline-none z-10"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               disabled={false}
