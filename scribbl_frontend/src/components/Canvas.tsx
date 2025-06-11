@@ -54,6 +54,9 @@ interface CanvasProps {
   guessed?: boolean;
   revealedLetters?: string[];
   wordLength?: number;
+  // Like/dislike functionality
+  onLikeDrawing?: () => void;
+  onDislikeDrawing?: () => void;
 }
 
 interface DrawingData {
@@ -78,6 +81,8 @@ export default function Canvas({
   guessed,
   revealedLetters,
   wordLength,
+  onLikeDrawing,
+  onDislikeDrawing,
 }: CanvasProps) {
   const canvasRef = useRef<ReactSketchCanvasRef>(null);
   const canvasContainerRef = useRef<HTMLDivElement>(null);
@@ -90,11 +95,24 @@ export default function Canvas({
   const [isEraser, setIsEraser] = useState(false);
   const [paths, setPaths] = useState<SketchPath[]>([]);
   const [showBrushSlider, setShowBrushSlider] = useState(false);
+  
+  // State for like/dislike usage per turn (user can only do one action)
+  const [actionTaken, setActionTaken] = useState<'like' | 'dislike' | null>(null);
 
   // Track drawing state
   const lastSentPointsRef = useRef<number>(0);
   const isDrawingRef = useRef<boolean>(false);
   const previousPathRef = useRef<SketchPath | null>(null);
+
+  // Reset like/dislike state when drawer changes (new turn) or game starts
+  useEffect(() => {
+    setActionTaken(null);
+  }, [gameInfo?.currentDrawer, roomStatus]);
+
+  // Additional reset when round changes
+  useEffect(() => {
+    setActionTaken(null);
+  }, [gameInfo?.currentRound]);
 
   // When paths state changes, update the canvas to match
   useEffect(() => {
@@ -203,9 +221,10 @@ export default function Canvas({
 
     // Clear canvas when a new turn starts
     const turnStartedRef = channel.on("turn_started", () => {
-      console.log("[Canvas] New turn started, clearing canvas");
+      console.log("[Canvas] New turn started, clearing canvas and resetting like/dislike");
       setPaths([]);
       setShowBrushSlider(false); // Hide brush slider when turn changes
+      setActionTaken(null); // Reset like/dislike state for new turn
     });
 
     // Cleanup listeners when component unmounts
@@ -265,6 +284,19 @@ export default function Canvas({
       setShowBrushSlider(true);
       canvasRef.current?.eraseMode(true);
     }
+  };
+
+  // Handle like/dislike with state management (user can only do one action)
+  const handleLikeClick = () => {
+    if (actionTaken || !onLikeDrawing) return;
+    setActionTaken('like');
+    onLikeDrawing();
+  };
+
+  const handleDislikeClick = () => {
+    if (actionTaken || !onDislikeDrawing) return;
+    setActionTaken('dislike');
+    onDislikeDrawing();
   };
 
   const handleClear = () => {
@@ -691,6 +723,63 @@ export default function Canvas({
             pointerEvents: isDrawer ? "auto" : "none",
           }}
         />
+        
+        {/* Like/Dislike buttons - Only show when turn has started (word selected) and user is not the drawer */}
+        {gameStarted && !isDrawer && onLikeDrawing && onDislikeDrawing && timeLeft && timeLeft > 0 && (
+          <div className="absolute top-2 right-2 flex gap-1 z-10">
+            <button
+              onClick={handleLikeClick}
+              disabled={actionTaken !== null}
+              className={`p-1 transition-all duration-200 rounded-full cursor-pointer ${
+                actionTaken !== null
+                  ? "bg-white/50 opacity-50 cursor-not-allowed" 
+                  : "bg-white/80 hover:bg-white hover:scale-125"
+              }`}
+              title={actionTaken === 'like' ? "You liked this drawing" : actionTaken === 'dislike' ? "You disliked this drawing" : "Like this drawing"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className={`w-5 h-5 ${
+                  actionTaken === 'like'
+                    ? "text-green-600" 
+                    : actionTaken !== null
+                    ? "text-green-300" 
+                    : "text-green-500 hover:text-green-600"
+                }`}
+              >
+                <path d="M7.493 18.75c-.425 0-.82-.236-.975-.632A7.48 7.48 0 016 15.375c0-1.75.599-3.358 1.602-4.634.151-.192.373-.309.6-.397.473-.183.89-.514 1.212-.924a9.042 9.042 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558-.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H14.23c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23h-.777zM2.331 10.977a11.969 11.969 0 00-.831 4.398 12 12 0 00.52 3.507c.26.85 1.084 1.368 1.973 1.368H4.9c.445 0 .72-.498.523-.898a8.963 8.963 0 01-.924-3.977c0-1.708.476-3.305 1.302-4.666.245-.403-.028-.959-.5-.959H4.25c-.832 0-1.612.453-1.918 1.227z" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={handleDislikeClick}
+              disabled={actionTaken !== null}
+              className={`p-1 transition-all duration-200 rounded-full cursor-pointer ${
+                actionTaken !== null
+                  ? "bg-white/50 opacity-50 cursor-not-allowed" 
+                  : "bg-white/80 hover:bg-white hover:scale-125"
+              }`}
+              title={actionTaken === 'dislike' ? "You disliked this drawing" : actionTaken === 'like' ? "You liked this drawing" : "Dislike this drawing"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className={`w-5 h-5 transform rotate-180 ${
+                  actionTaken === 'dislike'
+                    ? "text-red-600" 
+                    : actionTaken !== null
+                    ? "text-red-300" 
+                    : "text-red-500 hover:text-red-600"
+                }`}
+              >
+                <path d="M7.493 18.75c-.425 0-.82-.236-.975-.632A7.48 7.48 0 016 15.375c0-1.75.599-3.358 1.602-4.634.151-.192.373-.309.6-.397.473-.183.89-.514 1.212-.924a9.042 9.042 0 012.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 00.322-1.672V3a.75.75 0 01.75-.75 2.25 2.25 0 012.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558-.107 1.282.725 1.282h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 01-2.649 7.521c-.388.482-.987.729-1.605.729H14.23c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 00-1.423-.23h-.777zM2.331 10.977a11.969 11.969 0 00-.831 4.398 12 12 0 00.52 3.507c.26.85 1.084 1.368 1.973 1.368H4.9c.445 0 .72-.498.523-.898a8.963 8.963 0 01-.924-3.977c0-1.708.476-3.305 1.302-4.666.245-.403-.028-.959-.5-.959H4.25c-.832 0-1.612.453-1.918 1.227z" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Drawing tools - Improved but compact */}

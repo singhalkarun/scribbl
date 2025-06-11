@@ -464,6 +464,29 @@ export default function GamePage() {
           playSound("letterReveal");
         });
 
+        // Listen for like/dislike events
+        const drawingLikedRef = channel.on("drawing_liked", (payload) => {
+          console.log("[GamePage] Received drawing_liked:", payload);
+          const isCurrentUser = payload.user_id === userId;
+          const playerName = isCurrentUser ? "You" : (players[payload.user_id] || "Someone");
+          usePlayerStore.getState().addMessage({
+            userId: "system",
+            text: `👍 ${playerName} liked the drawing!`,
+            system: true,
+          });
+        });
+
+        const drawingDislikedRef = channel.on("drawing_disliked", (payload) => {
+          console.log("[GamePage] Received drawing_disliked:", payload);
+          const isCurrentUser = payload.user_id === userId;
+          const playerName = isCurrentUser ? "You" : (players[payload.user_id] || "Someone");
+          usePlayerStore.getState().addMessage({
+            userId: "system",
+            text: `👎 ${playerName} disliked the drawing!`,
+            system: true,
+          });
+        });
+
         // Cleanup listeners
         return () => {
           if (channel) {
@@ -479,6 +502,8 @@ export default function GamePage() {
             channel.off("letter_reveal", letterRevealRef);
             channel.off("admin_changed", adminChangedRef);
             channel.off("room_settings_updated", roomSettingsUpdatedRef);
+            channel.off("drawing_liked", drawingLikedRef);
+            channel.off("drawing_disliked", drawingDislikedRef);
 
             // Don't clear timers on normal cleanup
             // Only clear timers when specific events trigger it
@@ -536,6 +561,23 @@ export default function GamePage() {
   const getShareableLink = () => {
     const baseUrl = window.location.origin;
     return `${baseUrl}/join?roomId=${roomId}`;
+  };
+
+  // Functions to handle like/dislike
+  const handleLikeDrawing = () => {
+    const channel = usePlayerStore.getState().channel;
+    if (channel) {
+      console.log("[GamePage] Sending like_drawing event");
+      channel.push("like_drawing", {});
+    }
+  };
+
+  const handleDislikeDrawing = () => {
+    const channel = usePlayerStore.getState().channel;
+    if (channel) {
+      console.log("[GamePage] Sending dislike_drawing event");
+      channel.push("dislike_drawing", {});
+    }
   };
 
   // Display loading/error based on hook state OR if not hydrated
@@ -750,7 +792,11 @@ export default function GamePage() {
               guessed={guessed}
               revealedLetters={revealedLetters}
               wordLength={wordLength}
+              onLikeDrawing={handleLikeDrawing}
+              onDislikeDrawing={handleDislikeDrawing}
             />
+            
+
           </div>
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
