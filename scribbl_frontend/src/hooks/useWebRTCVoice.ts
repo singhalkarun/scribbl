@@ -22,11 +22,17 @@ interface WebRTCVoiceState {
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
-    {
-      urls: "turn:relay1.expressturn.com:3480",
-      username: "000000002064736110",
-      credential: "bQkxpe2zHInty7Gz5sv3zpmA97s=",
-    },
+    ...(process.env.NEXT_PUBLIC_TURN_SERVER_URL && 
+        process.env.NEXT_PUBLIC_TURN_SERVER_USERNAME && 
+        process.env.NEXT_PUBLIC_TURN_SERVER_CREDENTIAL
+      ? [
+          {
+            urls: process.env.NEXT_PUBLIC_TURN_SERVER_URL,
+            username: process.env.NEXT_PUBLIC_TURN_SERVER_USERNAME,
+            credential: process.env.NEXT_PUBLIC_TURN_SERVER_CREDENTIAL,
+          },
+        ]
+      : []),
   ],
 };
 

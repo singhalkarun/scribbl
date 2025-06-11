@@ -2,6 +2,26 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Environment Variables
+
+Create a `.env.local` file in the project root with the following variables:
+
+```bash
+# Backend URL (required)
+NEXT_PUBLIC_BACKEND_URL=http://localhost:4000
+
+# TURN Server Configuration (optional)
+# If these are not provided, only STUN servers will be used for WebRTC
+NEXT_PUBLIC_TURN_SERVER_URL=turn:your-turn-server.com:3478
+NEXT_PUBLIC_TURN_SERVER_USERNAME=your-turn-username
+NEXT_PUBLIC_TURN_SERVER_CREDENTIAL=your-turn-credential
+
+# Vercel Environment (automatically set in Vercel deployments)
+NEXT_PUBLIC_VERCEL_ENV=development
+```
+
+### Running the Development Server
+
 First, run the development server:
 
 ```bash
