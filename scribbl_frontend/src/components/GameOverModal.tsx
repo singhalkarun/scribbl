@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import { shareGameOverResults } from "@/utils/imageShare";
 
 interface GameOverModalProps {
   isOpen: boolean;
@@ -15,12 +16,29 @@ export default function GameOverModal({
   players,
   currentUserId,
 }: GameOverModalProps) {
+  const [isSharing, setIsSharing] = useState(false);
+
   if (!isOpen) return null;
 
   // Filter scores to only include current players (avoid showing "Unknown" for players who left)
   const filteredScores = Object.fromEntries(
     Object.entries(scores).filter(([playerId]) => players[playerId])
   );
+
+  const handleShare = async () => {
+    setIsSharing(true);
+    try {
+      await shareGameOverResults({
+        scores: filteredScores,
+        players,
+        currentUserId,
+      });
+    } catch (error) {
+      console.error("Error sharing:", error);
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[1000]">
@@ -121,35 +139,33 @@ export default function GameOverModal({
               ✏️
             </div>
 
-            {/* Play Again button with glass effect */}
-            <button
-              className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:cursor-pointer"
-              onClick={onClose}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 backdrop-blur-xl border border-indigo-400/50 rounded-xl group-hover:from-indigo-400/90 group-hover:to-purple-400/90 transition-all duration-300"></div>
-              <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
-              <div className="relative py-3 px-4 text-white font-semibold drop-shadow-lg">
-                Play Again
-              </div>
-            </button>
-
-            {/* For development/preview only - remove in production */}
-            {process.env.NODE_ENV === "development" && (
+            {/* Action buttons */}
+            <div className="space-y-3">
+              {/* Share Results button */}
               <button
-                className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:cursor-pointer mt-4"
-                onClick={() => {
-                  // This is a no-op in the component - parent must handle via onClose
-                  console.log("[GameOverModal] Preview close button clicked");
-                  onClose();
-                }}
+                className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:cursor-pointer"
+                onClick={handleShare}
+                disabled={isSharing}
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-gray-500/80 to-gray-600/80 backdrop-blur-xl border border-gray-400/50 rounded-xl group-hover:from-gray-400/90 group-hover:to-gray-500/90 transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-green-500/80 to-emerald-500/80 backdrop-blur-xl border border-green-400/50 rounded-xl group-hover:from-green-400/90 group-hover:to-emerald-400/90 transition-all duration-300"></div>
                 <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
-                <div className="relative py-2 px-4 text-white font-semibold drop-shadow-lg">
-                  Close Preview
+                <div className="relative py-3 px-4 text-white font-semibold drop-shadow-lg">
+                  {isSharing ? "Generating Image..." : "📱 Share Results"}
                 </div>
               </button>
-            )}
+
+              {/* Play Again button with glass effect */}
+              <button
+                className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:cursor-pointer"
+                onClick={onClose}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 backdrop-blur-xl border border-indigo-400/50 rounded-xl group-hover:from-indigo-400/90 group-hover:to-purple-400/90 transition-all duration-300"></div>
+                <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
+                <div className="relative py-3 px-4 text-white font-semibold drop-shadow-lg">
+                  Play Again
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>

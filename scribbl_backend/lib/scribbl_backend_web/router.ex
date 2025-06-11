@@ -11,6 +11,9 @@ defmodule ScribblBackendWeb.Router do
     # Room management endpoints
     get "/rooms/join-random", RoomController, :join_random
     get "/rooms/generate-id", RoomController, :generate_room_id
+
+    # Image generation endpoints
+    post "/images/game-over", ImageController, :generate_game_over_image
   end
 
   # Enable LiveDashboard in development

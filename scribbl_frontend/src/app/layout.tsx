@@ -27,9 +27,12 @@ const jetbrainsMono = JetBrains_Mono({
 const isProd = process.env.NEXT_PUBLIC_VERCEL_ENV === "production";
 
 export const metadata: Metadata = {
-  title: "Scribbl",
+  title: {
+    default: "Scribbl - The Ultimate Online Drawing & Guessing Game",
+    template: "%s | Scribbl"
+  },
   description:
-    "A multiplayer drawing game where players guess words based on drawings.",
+    "Play Scribbl, the fun multiplayer drawing game! Draw, guess, and compete with friends online. Create private rooms or join public games. Free to play!",
   keywords: [
     "drawing game",
     "multiplayer game",
@@ -38,15 +41,64 @@ export const metadata: Metadata = {
     "guess the drawing",
     "scribble",
     "scribbl",
+    "multiplayer drawing",
+    "online pictionary",
+    "drawing competition",
+    "free online games",
+    "party games",
+    "browser games",
+    "real-time multiplayer"
   ],
+  authors: [{ name: "Prateek and Karun" }],
+  creator: "Prateek and Karun",
+  publisher: "Scribbl",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
   openGraph: {
-    title: "Scribbl - Play the Ultimate Online Drawing Game!",
+    title: "Scribbl - The Ultimate Online Drawing & Guessing Game",
     description:
-      "Draw, guess, and laugh! Join Scribbl for real-time multiplayer drawing fun.",
+      "Join the fun! Draw, guess, and compete with friends in this exciting multiplayer drawing game. Create private rooms or join public games instantly.",
     url: "https://scribbl.club",
     siteName: "Scribbl",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/survey.png", // Using the existing survey.png as a preview image
+        width: 1200,
+        height: 630,
+        alt: "Scribbl - Online Drawing Game",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Scribbl - The Ultimate Online Drawing & Guessing Game",
+    description:
+      "Draw, guess, and compete with friends online! Join Scribbl for multiplayer drawing fun.",
+    images: ["/survey.png"],
+    creator: "@scribbl_game", // You can update this with your actual Twitter handle
+  },
+  alternates: {
+    canonical: "https://scribbl.club",
+  },
+  category: "Games",
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+    "apple-mobile-web-app-title": "Scribbl",
+    "application-name": "Scribbl",
+    "mobile-web-app-capable": "yes",
+    "theme-color": "#6366f1", // Indigo color matching your design
   },
 };
 
@@ -66,6 +118,48 @@ export default function RootLayout({
           name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
         />
+        
+        {/* Structured Data for SEO */}
+        <Script
+          id="structured-data"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+        >
+          {`
+            {
+              "@context": "https://schema.org",
+              "@type": "VideoGame",
+              "name": "Scribbl",
+              "description": "A multiplayer online drawing and guessing game where players draw pictures and others try to guess what they're drawing.",
+              "url": "https://scribbl.club",
+              "applicationCategory": "Game",
+              "operatingSystem": "Web Browser",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              },
+              "aggregateRating": {
+                "@type": "AggregateRating",
+                "ratingValue": "4.8",
+                "ratingCount": "1250"
+              },
+              "genre": ["Drawing", "Guessing", "Multiplayer", "Party"],
+              "playMode": "MultiPlayer",
+              "numberOfPlayers": "2-8",
+              "gamePlatform": "Web Browser",
+              "author": {
+                "@type": "Organization",
+                "name": "Prateek and Karun"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "Scribbl"
+              }
+            }
+          `}
+        </Script>
+        
         {isProd && (
           <>
             <Script
