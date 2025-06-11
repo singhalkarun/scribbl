@@ -58,6 +58,10 @@ defmodule ScribblBackend.PlayerManager do
       :ok
   """
   def remove_player(room_id, player_id) do
+    # Check if the removed player was the admin BEFORE removing them
+    {:ok, room_info} = GameState.get_room(room_id)
+    was_admin = player_id == room_info.admin_id
+
     room_key = KeyManager.room_players(room_id)
     RedisHelper.srem(room_key, player_id)
 
@@ -70,11 +74,8 @@ defmodule ScribblBackend.PlayerManager do
       handle_drawer_removal(room_id)
     end
 
-    # Check if the removed player was the admin
-    {:ok, room_info} = GameState.get_room(room_id)
-
-    # Only check for admin reassignment if the game hasn't started yet
-    if room_info.status == "waiting" && player_id == room_info.admin_id do
+    # Handle admin reassignment if the admin left (regardless of game status)
+    if was_admin do
       handle_admin_removal(room_id)
     end
 
@@ -117,32 +118,46 @@ defmodule ScribblBackend.PlayerManager do
     - `room_id`: The ID of the room where the admin left.
   """
   def handle_admin_removal(room_id) do
-    # Get the list of remaining players
-    case get_players(room_id) do
-      {:ok, []} ->
-        # No players left, no need to assign new admin
-        :ok
+    # Get the list of players and current admin
+    with {:ok, players} <- get_players(room_id),
+         {:ok, current_admin} <- GameState.get_room_admin(room_id) do
 
-      {:ok, players} ->
-        # Choose a random player as the new admin
-        new_admin = Enum.random(players)
+      # Check if current admin is valid
+      if current_admin != nil and current_admin != "" and Enum.member?(players, current_admin) do
+        # Admin is valid, no change needed
+        {:ok, current_admin}
+      else
+        # Need to assign a new admin
+        case players do
+          [] ->
+            # No players left, clear admin
+            GameState.set_room_admin(room_id, "")
+            {:ok, nil}
 
-        # Set the new admin
-        GameState.set_room_admin(room_id, new_admin)
+          available_players ->
+            # Choose a random player as the new admin
+            new_admin = Enum.random(available_players)
 
-        # Broadcast the admin change to all players
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          KeyManager.room_topic(room_id),
-          %{
-            event: "admin_changed",
-            payload: %{
-              "admin_id" => new_admin
-            }
-          }
-        )
+            # Set the new admin
+            GameState.set_room_admin(room_id, new_admin)
 
-      _ -> :ok
+            # Broadcast the admin change to all players
+            Phoenix.PubSub.broadcast(
+              ScribblBackend.PubSub,
+              KeyManager.room_topic(room_id),
+              %{
+                event: "admin_changed",
+                payload: %{
+                  "admin_id" => new_admin
+                }
+              }
+            )
+
+            {:ok, new_admin}
+        end
+      end
+    else
+      error -> error
     end
   end
 
@@ -362,6 +377,25 @@ defmodule ScribblBackend.PlayerManager do
           end
         end
       _ -> :ok
+    end
+  end
+
+  @doc """
+  Check if room has a valid admin and fix if necessary.
+  This is a utility function to prevent admin-related bugs.
+
+  ## Parameters
+    - `room_id`: The ID of the room to check.
+
+  ## Returns
+    :ok if admin is valid or was successfully reassigned, {:error, reason} otherwise.
+  """
+  def ensure_valid_admin(room_id) do
+    case handle_admin_removal(room_id) do
+      {:ok, _admin_id} ->
+        :ok
+      error ->
+        error
     end
   end
 end

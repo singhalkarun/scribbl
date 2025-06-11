@@ -71,8 +71,17 @@ defmodule ScribblBackendWeb.RoomChannel do
     # Add player to the room (capacity was already checked in join/3)
     PlayerManager.add_player(room_id, user_id)
 
+    # Ensure room has a valid admin before sending room_info
+    case PlayerManager.ensure_valid_admin(room_id) do
+      :ok -> :ok  # Admin is valid or was successfully reassigned
+      {:error, _reason} -> :ok  # Continue anyway, but log the issue
+    end
+
+    # Get updated room info after potential admin fix
+    {:ok, updated_room_info} = GameState.get_room(room_id)
+
     # Push the room info to the current socket
-    push(socket, "room_info", room_info)
+    push(socket, "room_info", updated_room_info)
 
     # Send current voice room state
     case ScribblBackend.VoiceRoomManager.get_voice_room_members(room_id) do
@@ -85,7 +94,7 @@ defmodule ScribblBackendWeb.RoomChannel do
     end
 
     # If game is active, send all players' scores and canvas data
-    if room_info.status == "active" do
+    if updated_room_info.status == "active" do
       # Get current drawer
       {:ok, current_drawer} = GameState.get_current_drawer(room_id)
 
