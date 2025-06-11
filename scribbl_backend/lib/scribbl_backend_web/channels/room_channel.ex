@@ -235,7 +235,15 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "drawing_liked", payload: payload}, socket) do
+    push(socket, "drawing_liked", payload)
+    {:noreply, socket}
+  end
 
+  def handle_info(%{event: "drawing_disliked", payload: payload}, socket) do
+    push(socket, "drawing_disliked", payload)
+    {:noreply, socket}
+  end
 
   def handle_info({:exclude_user, user_id_to_exclude, message}, socket) do
     # Only push the message to the socket if the user is not the one to exclude
@@ -582,6 +590,42 @@ defmodule ScribblBackendWeb.RoomChannel do
       {:error, reason} ->
         push(socket, "error", %{"message" => reason})
     end
+
+    {:noreply, socket}
+  end
+
+  def handle_in("like_drawing", %{}, socket) do
+    user_id = socket.assigns.user_id
+
+    # Broadcast like event to all players in the room
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      socket.topic,
+      %{
+        event: "drawing_liked",
+        payload: %{
+          "user_id" => user_id
+        }
+      }
+    )
+
+    {:noreply, socket}
+  end
+
+  def handle_in("dislike_drawing", %{}, socket) do
+    user_id = socket.assigns.user_id
+
+    # Broadcast dislike event to all players in the room
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      socket.topic,
+      %{
+        event: "drawing_disliked",
+        payload: %{
+          "user_id" => user_id
+        }
+      }
+    )
 
     {:noreply, socket}
   end
