@@ -226,7 +226,7 @@ function JoinPageContent() {
                 <span className="text-white/60">👤</span>
               </div>
               {nameError && (
-                <div className="absolute inset-0 bg-red-500/20 backdrop-blur-xl rounded-xl border border-red-400/50"></div>
+                <div className="absolute inset-0 bg-red-500/20 backdrop-blur-xl rounded-xl border border-red-400/50 pointer-events-none"></div>
               )}
             </div>
 
