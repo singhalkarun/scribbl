@@ -5,6 +5,9 @@ on:
     branches:
       - main
       - dev
+    paths:
+      - 'scribbl_backend/**'
+      - '.github/workflows/build-and-push.yaml'
   release:
     types: [published]
 env:
