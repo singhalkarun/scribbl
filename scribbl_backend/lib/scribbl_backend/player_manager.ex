@@ -257,10 +257,34 @@ defmodule ScribblBackend.PlayerManager do
         RedisHelper.set(player_score_key, new_score)
         {:ok, new_score}
 
-      {:ok, nil} ->
+      _error ->
+        # If there's no current score, just set it to the provided score
         RedisHelper.set(player_score_key, score)
         {:ok, score}
+    end
+  end
 
+  @doc """
+  Get a player's current score.
+
+  ## Parameters
+    - `room_id`: The ID of the room the player is in.
+    - `player_id`: The ID of the player to get the score for.
+
+  ## Returns
+    - `{:ok, score}` - The player's current score as an integer.
+    - `{:ok, 0}` - If the player has no score yet.
+    - `{:error, reason}` - If there was an error retrieving the score.
+  """
+  def get_player_score(room_id, player_id) do
+    player_score_key = KeyManager.player_score(room_id, player_id)
+
+    case RedisHelper.get(player_score_key) do
+      {:ok, current_score} when is_binary(current_score) ->
+        {:ok, String.to_integer(current_score)}
+      {:ok, nil} ->
+        # If no score exists yet, return 0
+        {:ok, 0}
       error ->
         error
     end
@@ -425,5 +449,57 @@ defmodule ScribblBackend.PlayerManager do
   def remove_from_non_eligible_guessers(room_id, player_id, round) do
     non_eligible_guessers_key = KeyManager.non_eligible_guessers(room_id, round)
     RedisHelper.srem(non_eligible_guessers_key, player_id)
+  end
+
+  @doc """
+  Get a player's current streak.
+  """
+  def get_player_streak(player_id) do
+    streak_key = "player:#{player_id}:streak"
+    case RedisHelper.get(streak_key) do
+      {:ok, streak} when is_binary(streak) -> {:ok, String.to_integer(streak)}
+      {:ok, nil} -> {:ok, 0}
+      error -> error
+    end
+  end
+
+  @doc """
+  Increment a player's streak by 1 (or set to 1 if not present).
+  """
+  def increment_player_streak(player_id) do
+    streak_key = "player:#{player_id}:streak"
+    case RedisHelper.get(streak_key) do
+      {:ok, streak} when is_binary(streak) ->
+        new_streak = String.to_integer(streak) + 1
+        RedisHelper.set(streak_key, new_streak)
+        {:ok, new_streak}
+      _ ->
+        RedisHelper.set(streak_key, 1)
+        {:ok, 1}
+    end
+  end
+
+  @doc """
+  Reset a player's streak to 0.
+  """
+  def reset_player_streak(player_id) do
+    streak_key = "player:#{player_id}:streak"
+    RedisHelper.set(streak_key, 0)
+    :ok
+  end
+
+  @doc """
+  Clear all player streaks for a room.
+  """
+  def clear_all_player_streaks(room_id) do
+    case get_players(room_id) do
+      {:ok, players} ->
+        Enum.each(players, fn player_id ->
+          reset_player_streak(player_id)
+        end)
+        :ok
+      _ ->
+        :ok
+    end
   end
 end

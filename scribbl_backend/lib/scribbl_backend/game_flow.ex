@@ -15,6 +15,14 @@ defmodule ScribblBackend.GameFlow do
   @word_selection_timeout 10
   @turn_transition_delay 3
 
+  # Scoring constants
+  @base_points 50
+  @speed_bonus_max 50
+  @rank_bonus_map %{1 => 30, 2 => 20, 3 => 10, 4 => 5}
+  @drawer_multiplier %{1 => 0.60, 2 => 0.50, 3 => 0.40, 4 => 0.30}
+  @drawer_multiplier_default 0.20
+  @all_guessed_bonus 40
+
   @doc """
   Start the game in a room.
 
@@ -52,6 +60,8 @@ defmodule ScribblBackend.GameFlow do
         if String.to_integer(current_round) >= String.to_integer(max_rounds) do
           # Clear all player scores before ending the game
           PlayerManager.clear_all_player_scores(room_id)
+          # Clear all player streaks before ending the game
+          PlayerManager.clear_all_player_streaks(room_id)
 
           # end the game
           GameState.set_room_status(room_id, "finished")
@@ -276,34 +286,44 @@ defmodule ScribblBackend.GameFlow do
                 # Get time remaining on the timer - this determines the score
                 {:ok, time_remaining_seconds} = RedisHelper.ttl(room_timer_key)
 
-                # Calculate the score to be awarded for this correct guess
-                # Score is based on the time remaining. More time left = more points
-                score_awarded_for_this_guess = max(0, time_remaining_seconds)
+                # Fetch turn_time from room info (default 60 if not set)
+                {:ok, room_info} = GameState.get_room(room_id)
+                turn_time = case room_info.turn_time do
+                  nil -> 60
+                  "" -> 60
+                  t -> String.to_integer(t)
+                end
 
-                # Update the guesser's score
-                {:ok, guesser_new_total_score} = PlayerManager.update_player_score(room_id, user_id, score_awarded_for_this_guess)
+                # Calculate speed bonus based on time remaining
+                speed_bonus = round((time_remaining_seconds / turn_time) * @speed_bonus_max)
 
                 # Get count of players who have guessed correctly (including current one)
                 non_eligible_guessers_key = KeyManager.non_eligible_guessers(room_id, round)
                 {:ok, num_non_eligible_players} = RedisHelper.scard(non_eligible_guessers_key)
 
-                # Drawer Scoring: Award points to the drawer based on how many players have guessed
-                # and how quickly this particular player guessed.
-                points_for_drawer_from_this_guess =
-                  cond do
-                    num_non_eligible_players == 1 -> score_awarded_for_this_guess # 100% for the 1st guesser
-                    num_non_eligible_players == 2 -> round(score_awarded_for_this_guess * 0.5) # 50% for the 2nd
-                    num_non_eligible_players == 3 -> round(score_awarded_for_this_guess * 0.25) # 25% for the 3rd
-                    num_non_eligible_players >= 4 -> round(score_awarded_for_this_guess * 0.10) # 10% for 4th+
-                    true -> 0 # Default case
-                  end
+                # Order of this guesser (1-based)
+                rank = num_non_eligible_players  # already includes current guesser
+                rank_bonus = Map.get(@rank_bonus_map, rank, 0)
 
-                # Ensure points are non-negative
-                actual_points_for_drawer = max(0, points_for_drawer_from_this_guess)
+                # When a player guesses correctly, increment their streak
+                {:ok, streak} = PlayerManager.increment_player_streak(user_id)
+                streak_bonus = min(streak * 10, 30)
 
-                if actual_points_for_drawer > 0 do
+                # Calculate guesser's points (including streak bonus)
+                guesser_points = @base_points + speed_bonus + rank_bonus + streak_bonus
+
+                # Update the guesser's score
+                {:ok, guesser_new_total_score} = PlayerManager.update_player_score(room_id, user_id, guesser_points)
+
+                # Drawer earns a fraction that decreases as more people guess
+                drawer_mult = Map.get(@drawer_multiplier, rank, @drawer_multiplier_default)
+                drawer_points = round(guesser_points * drawer_mult)
+                # Ensure positive
+                drawer_points = max(0, drawer_points)
+
+                if drawer_points > 0 do
                   # Update drawer's score
-                  {:ok, drawer_new_total_score} = PlayerManager.update_player_score(room_id, drawer, actual_points_for_drawer)
+                  {:ok, drawer_new_total_score} = PlayerManager.update_player_score(room_id, drawer, drawer_points)
 
                   # Broadcast score update for drawer
                   Phoenix.PubSub.broadcast(
@@ -331,7 +351,7 @@ defmodule ScribblBackend.GameFlow do
                   }
                 )
 
-                # broadcast score update for guesser
+                # broadcast score update for guesser, including streak bonus
                 Phoenix.PubSub.broadcast(
                   ScribblBackend.PubSub,
                   socket.topic,
@@ -339,7 +359,9 @@ defmodule ScribblBackend.GameFlow do
                     event: "score_updated",
                     payload: %{
                       "user_id" => user_id,
-                      "score" => guesser_new_total_score
+                      "score" => guesser_new_total_score,
+                      "streak_bonus" => streak_bonus,
+                      "streak" => streak
                     }
                   }
                 )
@@ -351,9 +373,28 @@ defmodule ScribblBackend.GameFlow do
                 if num_players >= 2 do
                   # Check if all players except the drawer have guessed correctly
                   if num_non_eligible_players == num_players - 1 do
+                    # All players have guessed correctly, award bonus to drawer
+                    {:ok, drawer_current_score} = PlayerManager.get_player_score(room_id, drawer)
+                    {:ok, _} = PlayerManager.update_player_score(room_id, drawer, @all_guessed_bonus)
+
+                    # Broadcast updated drawer score with all-guessed bonus
+                    Phoenix.PubSub.broadcast(
+                      ScribblBackend.PubSub,
+                      socket.topic,
+                      %{
+                        event: "score_updated",
+                        payload: %{
+                          "user_id" => drawer,
+                          "score" => drawer_current_score + @all_guessed_bonus
+                        }
+                      }
+                    )
+
                     check_all_guessed(room_id, drawer, round)
                   end
                 end
+
+                # After turn ends, for all players who did NOT guess correctly, reset their streak to 0. (This will be handled in check_all_guessed.)
               end
             else
               # Check if the guess is similar to the actual word
@@ -430,6 +471,13 @@ defmodule ScribblBackend.GameFlow do
 
     # Get all players who have guessed correctly
     {:ok, guessed_players} = RedisHelper.smembers(non_eligible_guessers_key)
+
+    # Reset streak for all non-drawer players who did NOT guess correctly
+    missed_players = non_drawer_players -- guessed_players
+    # Only reset streak for missed guessers, not the drawer
+    Enum.each(missed_players, fn player_id ->
+      PlayerManager.reset_player_streak(player_id)
+    end)
 
     # Check if all non-drawer players have guessed correctly
     if length(non_drawer_players) > 0 && length(guessed_players) >= length(non_drawer_players) do
