@@ -158,6 +158,28 @@ defmodule ScribblBackend.KeyManager do
   def reveal_timer_lock(room_id, word), do: "lock:#{reveal_timer(room_id)}:#{word}"
 
   @doc """
+  Get the lock key for a word selection timer.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for the word selection timer lock.
+  """
+  def word_selection_timer_lock(room_id), do: "lock:#{word_selection_timer(room_id)}"
+
+  @doc """
+  Get the lock key for a turn transition timer.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for the turn transition timer lock.
+  """
+  def turn_transition_timer_lock(room_id), do: "lock:#{turn_transition_timer(room_id)}"
+
+  @doc """
   Get a pattern to match all keys for a room.
 
   ## Parameters
@@ -189,6 +211,30 @@ defmodule ScribblBackend.KeyManager do
     The PubSub topic for the user.
   """
   def user_topic(user_id), do: "user:#{user_id}"
+
+  @doc """
+  Get the key for the word selection timer in a room.
+  This timer automatically selects a word if the drawer doesn't choose within the time limit.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for the word selection timer.
+  """
+  def word_selection_timer(room_id), do: "#{@room_prefix}{#{room_id}}:word_selection_timer"
+
+  @doc """
+  Get the key for the turn transition timer in a room.
+  This timer creates a 3-second delay after turn over events before starting the next turn.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for the turn transition timer.
+  """
+  def turn_transition_timer(room_id), do: "#{@room_prefix}{#{room_id}}:turn_transition_timer"
 
   @doc """
   Get the key for the set of public rooms.

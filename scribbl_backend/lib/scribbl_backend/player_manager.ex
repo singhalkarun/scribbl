@@ -101,6 +101,9 @@ defmodule ScribblBackend.PlayerManager do
       # Clear all player scores before ending the game
       clear_all_player_scores(room_id)
 
+      # Clean up all game-related timers before game over
+      GameFlow.cleanup_game_timers(room_id)
+
       # send the game over event to all players
       Phoenix.PubSub.broadcast(
         ScribblBackend.PubSub,
@@ -204,11 +207,11 @@ defmodule ScribblBackend.PlayerManager do
         RedisHelper.del(KeyManager.current_word(room_id))
         RedisHelper.del(KeyManager.revealed_indices(room_id))
 
-        # Start the next turn
-        GameFlow.start(room_id)
+        # Start the next turn after 3 seconds to allow turn over modal to finish
+        GameFlow.start_delayed(room_id)
       _ ->
         # No word was set yet or there was an error, just start the next turn
-        GameFlow.start(room_id)
+        GameFlow.start_delayed(room_id)
     end
   end
 

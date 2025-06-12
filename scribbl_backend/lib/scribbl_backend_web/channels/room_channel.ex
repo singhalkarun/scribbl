@@ -160,6 +160,11 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "word_auto_selected", payload: payload}, socket) do
+    push(socket, "word_auto_selected", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "start_turn", payload: payload}, socket) do
     push(socket, "start_turn", payload)
     {:noreply, socket}
@@ -489,13 +494,17 @@ defmodule ScribblBackendWeb.RoomChannel do
   def handle_in("start_turn", %{"word" => word}, socket) do
     room_id = String.split(socket.topic, ":") |> List.last()
 
-    # Start the turn with the selected word
-    {:ok, turn_info} = WordManager.start_turn(room_id, word)
-
     # Get current drawer to verify that the request is from the drawer
     {:ok, current_drawer} = GameState.get_current_drawer(room_id)
 
     if socket.assigns.user_id == current_drawer do
+      # Clear the word selection timer since drawer has chosen manually
+      word_selection_timer_key = ScribblBackend.KeyManager.word_selection_timer(room_id)
+      ScribblBackend.RedisHelper.del(word_selection_timer_key)
+
+      # Start the turn with the selected word
+      {:ok, turn_info} = WordManager.start_turn(room_id, word)
+
       # Broadcast turn started event to all players
       Phoenix.PubSub.broadcast(
         ScribblBackend.PubSub,

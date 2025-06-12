@@ -53,6 +53,7 @@ export default function GamePage() {
   const [wordLength, setWordLength] = useState(0);
   const [showWordSelection, setShowWordSelection] = useState(false);
   const [suggestedWords, setSuggestedWords] = useState<string[]>([]);
+  const [wordSelectionCountdown, setWordSelectionCountdown] = useState(10);
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameJustEnded, setGameJustEnded] = useState(false);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
@@ -73,6 +74,7 @@ export default function GamePage() {
   const [showViewOnlySettings, setShowViewOnlySettings] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const wordSelectionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const router = useRouter();
 
@@ -90,6 +92,10 @@ export default function GamePage() {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
         countdownTimerRef.current = null;
+      }
+      if (wordSelectionTimerRef.current) {
+        clearInterval(wordSelectionTimerRef.current);
+        wordSelectionTimerRef.current = null;
       }
     };
   }, []);
@@ -238,6 +244,48 @@ export default function GamePage() {
           setSuggestedWords(payload.words);
           console.log("[GamePage] Set suggestedWords to:", payload.words);
           setShowWordSelection(true);
+          
+          // Start 10-second countdown for auto-selection
+          setWordSelectionCountdown(10);
+          if (wordSelectionTimerRef.current) {
+            clearInterval(wordSelectionTimerRef.current);
+          }
+          
+          wordSelectionTimerRef.current = setInterval(() => {
+            setWordSelectionCountdown((prev) => {
+              if (prev <= 1) {
+                // Clear the timer when it reaches 0
+                if (wordSelectionTimerRef.current) {
+                  clearInterval(wordSelectionTimerRef.current);
+                  wordSelectionTimerRef.current = null;
+                }
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        });
+
+        // Listen for word_auto_selected event (only sent to the drawer when timeout occurs)
+        const wordAutoSelectedRef = channel.on("word_auto_selected", (payload) => {
+          console.log("[GamePage] Received word_auto_selected:", payload);
+          
+          // Clear the word selection timer
+          if (wordSelectionTimerRef.current) {
+            clearInterval(wordSelectionTimerRef.current);
+            wordSelectionTimerRef.current = null;
+          }
+          
+          // Set the word that was automatically selected
+          setWordToDraw(payload.word);
+          // Hide the word selection overlay if it's still showing
+          setShowWordSelection(false);
+          // Show a notification about the auto-selection
+          usePlayerStore.getState().addMessage({
+            userId: "system",
+            text: payload.message || "Word auto-selected due to timeout!",
+            system: true,
+          });
         });
 
         // Listen for letter_reveal event
@@ -278,9 +326,13 @@ export default function GamePage() {
           // Reset revealed letters for new turn
           setRevealedLetters([]);
 
-          // If the word selection overlay is showing, hide it
+          // If the word selection overlay is showing, hide it and clear the timer
           if (showWordSelection) {
             setShowWordSelection(false);
+            if (wordSelectionTimerRef.current) {
+              clearInterval(wordSelectionTimerRef.current);
+              wordSelectionTimerRef.current = null;
+            }
           }
 
           // Ensure we have the correct drawer for this turn
@@ -514,6 +566,7 @@ export default function GamePage() {
             channel.off("room_settings_updated", roomSettingsUpdatedRef);
             channel.off("drawing_liked", drawingLikedRef);
             channel.off("drawing_disliked", drawingDislikedRef);
+            channel.off("word_auto_selected", wordAutoSelectedRef);
 
             // Don't clear timers on normal cleanup
             // Only clear timers when specific events trigger it
@@ -736,15 +789,42 @@ export default function GamePage() {
               <h2 className="text-2xl font-bold text-white mb-4 text-shadow-sm">
                 Select Word to Draw
               </h2>
-              <p className="text-white/80 mb-6">
+              <p className="text-white/80 mb-4">
                 Click on a word to start your turn
               </p>
+              
+              {/* Countdown Timer */}
+              <div className="mb-6">
+                <p className="text-white/70 text-sm mb-2">
+                  Auto-selecting in: <span className={`font-bold ${wordSelectionCountdown <= 3 ? 'text-red-300' : 'text-cyan-300'}`}>
+                    {wordSelectionCountdown}s
+                  </span>
+                </p>
+                <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden backdrop-blur-md border border-white/30">
+                  <div
+                    className={`h-full transition-all duration-1000 ease-linear ${
+                      wordSelectionCountdown <= 3 
+                        ? 'bg-gradient-to-r from-red-400 to-red-500' 
+                        : 'bg-gradient-to-r from-cyan-400 to-blue-400'
+                    }`}
+                    style={{
+                      width: `${(wordSelectionCountdown / 10) * 100}%`,
+                    }}
+                  ></div>
+                </div>
+              </div>
 
               <div className="space-y-3">
                 {suggestedWords.map((word, index) => (
                   <button
                     key={index}
                     onClick={() => {
+                      // Clear the word selection timer since user made a choice
+                      if (wordSelectionTimerRef.current) {
+                        clearInterval(wordSelectionTimerRef.current);
+                        wordSelectionTimerRef.current = null;
+                      }
+                      
                       const channel = usePlayerStore.getState().channel;
                       if (channel) {
                         console.log(

@@ -11,6 +11,10 @@ defmodule ScribblBackend.GameFlow do
   alias ScribblBackend.KeyManager
   alias ScribblBackend.WordSimilarity
 
+  # Timer duration constants (in seconds)
+  @word_selection_timeout 10
+  @turn_transition_delay 3
+
   @doc """
   Start the game in a room.
 
@@ -62,6 +66,9 @@ defmodule ScribblBackend.GameFlow do
               payload: %{}
             }
           )
+
+          # Clean up all game-related timers before game over
+          cleanup_game_timers(room_id)
 
           # Clean up the room state
           GameState.reset_game_state(room_id)
@@ -116,6 +123,9 @@ defmodule ScribblBackend.GameFlow do
 
           # generate a random word and send to the drawer
           words = WordManager.generate_words(room_id)
+
+          # Set up word selection timer for automatic selection
+          setup_word_selection_timer(room_id, words)
 
           # send the word to the drawer
           Phoenix.PubSub.broadcast(
@@ -447,8 +457,8 @@ defmodule ScribblBackend.GameFlow do
       RedisHelper.del(KeyManager.turn_timer(room_id))
       RedisHelper.del(KeyManager.reveal_timer(room_id))
 
-      # Start the next turn
-      start(room_id)
+      # Start the next turn after 3 seconds to allow turn over modal to finish
+      start_delayed(room_id)
     end
   end
 
@@ -465,5 +475,42 @@ defmodule ScribblBackend.GameFlow do
     # Simply call the existing check_all_guessed function
     # It already handles all the logic we need
     check_all_guessed(room_id, drawer, round)
+  end
+
+  @doc """
+  Start the next turn after a 3-second delay.
+  This allows the frontend turn over modal to complete before showing word selection.
+  Uses Redis key expiration for reliability across container restarts.
+
+  ## Parameters
+    - `room_id`: The ID of the room to start the next turn in.
+  """
+  def start_delayed(room_id) do
+    # Set a Redis key that expires after the transition delay
+    # TimeoutWatcher will handle the expiration and start the next turn
+    turn_transition_timer_key = KeyManager.turn_transition_timer(room_id)
+    RedisHelper.setex(turn_transition_timer_key, @turn_transition_delay, "start_next_turn")
+  end
+
+    # Set up the word selection timer with the available words stored in Redis.
+  defp setup_word_selection_timer(room_id, words) do
+    word_selection_timer_key = KeyManager.word_selection_timer(room_id)
+    words_json = Jason.encode!(words)
+    RedisHelper.setex(word_selection_timer_key, @word_selection_timeout, words_json)
+  end
+
+  @doc """
+  Clean up all game-related timers for a room.
+  This should be called when the game ends to prevent any timers from firing after game over.
+
+  ## Parameters
+    - `room_id`: The ID of the room to clean up timers for.
+  """
+  def cleanup_game_timers(room_id) do
+    # Clean up all possible active timers
+    RedisHelper.del(KeyManager.turn_timer(room_id))
+    RedisHelper.del(KeyManager.reveal_timer(room_id))
+    RedisHelper.del(KeyManager.word_selection_timer(room_id))
+    RedisHelper.del(KeyManager.turn_transition_timer(room_id))
   end
 end
