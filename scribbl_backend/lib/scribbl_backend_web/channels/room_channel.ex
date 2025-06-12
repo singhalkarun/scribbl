@@ -112,7 +112,8 @@ defmodule ScribblBackendWeb.RoomChannel do
             # Send turn started event with word length and time remaining
             push(socket, "turn_started", %{
               "word_length" => Integer.to_string(word_state.word_length),
-              "time_remaining" => word_state.time_remaining
+              "time_remaining" => word_state.time_remaining,
+              "special_chars" => word_state.special_chars
             })
 
             # Send letter reveal event with revealed word

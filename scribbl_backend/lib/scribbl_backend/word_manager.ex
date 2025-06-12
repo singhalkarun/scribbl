@@ -127,9 +127,24 @@ defmodule ScribblBackend.WordManager do
     # Reset canvas data before starting new turn
     RedisHelper.del(room_canvas_key)
 
-    # Reset revealed indices for the new word
+    # Initialize revealed indices with spaces and hyphens for the new word
     revealed_key = KeyManager.revealed_indices(room_id)
-    RedisHelper.del(revealed_key)
+
+    # Find space and hyphen indices that should be pre-revealed
+    word_graphemes = String.graphemes(word)
+    special_char_indices = word_graphemes
+      |> Enum.with_index()
+      |> Enum.filter(fn {char, _index} -> char == " " or char == "-" end)
+      |> Enum.map(fn {_char, index} -> index end)
+
+    # Set the initial revealed indices to include special characters
+    if special_char_indices != [] do
+      initial_revealed_json = Jason.encode!(special_char_indices)
+      RedisHelper.set(revealed_key, initial_revealed_json)
+    else
+      # If no special characters, just delete any existing revealed indices
+      RedisHelper.del(revealed_key)
+    end
 
     # set the word in Redis
     RedisHelper.set(
@@ -160,7 +175,17 @@ defmodule ScribblBackend.WordManager do
       end
     end
 
-    {:ok, %{"word_length" => Integer.to_string(String.length(word)), "time_remaining" => turn_time}}
+    # Create special_chars from the already computed word_graphemes
+    special_chars = word_graphemes
+      |> Enum.with_index()
+      |> Enum.filter(fn {char, _index} -> char == " " or char == "-" end)
+      |> Enum.map(fn {char, index} -> %{index: index, char: char} end)
+
+    {:ok, %{
+      "word_length" => Integer.to_string(String.length(word)),
+      "time_remaining" => turn_time,
+      "special_chars" => special_chars
+    }}
   end
 
   @doc """
@@ -271,17 +296,28 @@ defmodule ScribblBackend.WordManager do
           {:error, :word_not_found}
 
         {:ok, word} ->
+          word_graphemes = String.graphemes(word)
+
+          # Find indices of spaces and hyphens that should always be revealed
+          special_char_indices = word_graphemes
+            |> Enum.with_index()
+            |> Enum.filter(fn {char, _index} -> char == " " or char == "-" end)
+            |> Enum.map(fn {_char, index} -> index end)
+            |> MapSet.new()
+
           # Get the current revealed indices
           revealed_indices = case RedisHelper.get(revealed_key) do
             {:ok, nil} ->
-              MapSet.new()
+              # If no revealed indices exist, start with special characters pre-revealed
+              special_char_indices
             {:ok, revealed_json} ->
-              Jason.decode!(revealed_json) |> MapSet.new()
+              # Merge existing revealed indices with special characters
+              existing_indices = Jason.decode!(revealed_json) |> MapSet.new()
+              MapSet.union(existing_indices, special_char_indices)
             _ ->
-              MapSet.new()
+              special_char_indices
           end
 
-          word_graphemes = String.graphemes(word)
           all_indices = 0..(length(word_graphemes) - 1)
           remaining_indices = Enum.reject(all_indices, &MapSet.member?(revealed_indices, &1))
 
@@ -337,20 +373,30 @@ defmodule ScribblBackend.WordManager do
         {:error, :word_not_found}
 
       {:ok, word} ->
+        word_graphemes = String.graphemes(word)
+
+        # Find indices of spaces and hyphens that should always be revealed
+        special_char_indices = word_graphemes
+          |> Enum.with_index()
+          |> Enum.filter(fn {char, _index} -> char == " " or char == "-" end)
+          |> Enum.map(fn {_char, index} -> index end)
+          |> MapSet.new()
+
         # Get the current revealed indices
         revealed_indices = case RedisHelper.get(revealed_key) do
           {:ok, nil} ->
-            MapSet.new()
+            # If no revealed indices exist, start with special characters pre-revealed
+            special_char_indices
           {:ok, revealed_json} ->
-            Jason.decode!(revealed_json) |> MapSet.new()
+            # Merge existing revealed indices with special characters
+            existing_indices = Jason.decode!(revealed_json) |> MapSet.new()
+            MapSet.union(existing_indices, special_char_indices)
           _ ->
-            MapSet.new()
+            special_char_indices
         end
 
         # Get the time remaining for the turn
         {:ok, time_remaining} = RedisHelper.ttl(turn_timer_key)
-
-        word_graphemes = String.graphemes(word)
 
         # Construct the partially revealed word as a list
         revealed_word = word_graphemes
@@ -359,10 +405,17 @@ defmodule ScribblBackend.WordManager do
             if MapSet.member?(revealed_indices, i), do: char, else: "_"
           end)
 
+        # Find space and hyphen indices in the word
+        special_chars = word_graphemes
+          |> Enum.with_index()
+          |> Enum.filter(fn {char, _index} -> char == " " or char == "-" end)
+          |> Enum.map(fn {char, index} -> %{index: index, char: char} end)
+
         {:ok, %{
           word_length: String.length(word),
           revealed_word: revealed_word,
-          time_remaining: time_remaining
+          time_remaining: time_remaining,
+          special_chars: special_chars
         }}
 
       error ->

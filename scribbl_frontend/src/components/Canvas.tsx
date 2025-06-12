@@ -54,6 +54,7 @@ interface CanvasProps {
   guessed?: boolean;
   revealedLetters?: string[];
   wordLength?: number;
+  specialChars?: {index: number, char: string}[];
   // Like/dislike functionality
   onLikeDrawing?: () => void;
   onDislikeDrawing?: () => void;
@@ -81,6 +82,7 @@ export default function Canvas({
   guessed,
   revealedLetters,
   wordLength,
+  specialChars,
   onLikeDrawing,
   onDislikeDrawing,
 }: CanvasProps) {
@@ -548,12 +550,28 @@ export default function Canvas({
 
                     if (revealedLetters && revealedLetters.length > 0) {
                       return revealedLetters
-                        .map((letter, index) => letter || "_")
-                        .join(" ");
+                        .map((letter, index) => {
+                          // If this index is a space or hyphen, show the actual character
+                          const specialChar = specialChars?.find(sc => sc.index === index);
+                          if (specialChar) {
+                            return specialChar.char;
+                          }
+                          return letter || "_";
+                        })
+                        .join("");
                     }
 
                     if (wordLength && wordLength > 0) {
-                      return Array(wordLength).fill("_").join(" ");
+                      return Array(wordLength).fill("_")
+                        .map((char, index) => {
+                          // If this index is a space or hyphen, show the actual character  
+                          const specialChar = specialChars?.find(sc => sc.index === index);
+                          if (specialChar) {
+                            return specialChar.char;
+                          }
+                          return char;
+                        })
+                        .join("");
                     }
 
                     return "";

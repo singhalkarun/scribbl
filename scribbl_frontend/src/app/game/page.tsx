@@ -56,6 +56,7 @@ export default function GamePage() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameJustEnded, setGameJustEnded] = useState(false);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
+  const [specialChars, setSpecialChars] = useState<{index: number, char: string}[]>([]);
   // New states for turn over modal
   const [showTurnOverModal, setShowTurnOverModal] = useState(false);
   const [turnOverWord, setTurnOverWord] = useState("");
@@ -263,6 +264,14 @@ export default function GamePage() {
           );
           setWordLength(wordLengthValue);
 
+          // Set special characters if provided
+          if (payload.special_chars) {
+            setSpecialChars(payload.special_chars);
+            console.log("[GamePage] Setting special chars:", payload.special_chars);
+          } else {
+            setSpecialChars([]);
+          }
+
           // Make sure room status is set to "started"
           setRoomStatus("started");
 
@@ -383,6 +392,7 @@ export default function GamePage() {
           setWordToDraw("");
           setWordLength(0);
           setRevealedLetters([]);
+          setSpecialChars([]);
         });
 
         // Listen for game_over event
@@ -792,6 +802,7 @@ export default function GamePage() {
               guessed={guessed}
               revealedLetters={revealedLetters}
               wordLength={wordLength}
+              specialChars={specialChars}
               onLikeDrawing={handleLikeDrawing}
               onDislikeDrawing={handleDislikeDrawing}
             />
