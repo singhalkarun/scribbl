@@ -450,7 +450,7 @@ export default function GamePage() {
           const isCurrentUser = payload.user_id === userId;
 
           // Add a system message about the similar guess
-          const messageText = isCurrentUser 
+          const messageText = isCurrentUser
             ? `You are close!" 🔥`
             : `${guesserName} is close!" 🔥`;
 
@@ -468,7 +468,9 @@ export default function GamePage() {
         const drawingLikedRef = channel.on("drawing_liked", (payload) => {
           console.log("[GamePage] Received drawing_liked:", payload);
           const isCurrentUser = payload.user_id === userId;
-          const playerName = isCurrentUser ? "You" : (players[payload.user_id] || "Someone");
+          const playerName = isCurrentUser
+            ? "You"
+            : players[payload.user_id] || "Someone";
           usePlayerStore.getState().addMessage({
             userId: "system",
             text: `👍 ${playerName} liked the drawing!`,
@@ -479,7 +481,9 @@ export default function GamePage() {
         const drawingDislikedRef = channel.on("drawing_disliked", (payload) => {
           console.log("[GamePage] Received drawing_disliked:", payload);
           const isCurrentUser = payload.user_id === userId;
-          const playerName = isCurrentUser ? "You" : (players[payload.user_id] || "Someone");
+          const playerName = isCurrentUser
+            ? "You"
+            : players[payload.user_id] || "Someone";
           usePlayerStore.getState().addMessage({
             userId: "system",
             text: `👎 ${playerName} disliked the drawing!`,
@@ -758,10 +762,10 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Left Sidebar - Players and Voice Chat */}
-      <aside className="flex flex-row lg:flex-col gap-2 p-1 lg:p-4 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-white/20 lg:bg-transparent">
+      {/* Left Sidebar - Players and Voice Chat - Only visible on desktop */}
+      <aside className="hidden lg:flex flex-col gap-2 p-4 min-h-0 w-72 xl:w-80 flex-none h-screen border-r border-white/20 bg-transparent">
         {/* Merged Players and Voice Chat Section */}
-        <div className="w-full lg:w-auto flex-shrink-0">
+        <div className="w-full flex-shrink-0">
           <VoiceChat
             scores={scores}
             currentDrawerId={gameInfo.currentDrawer}
@@ -770,7 +774,7 @@ export default function GamePage() {
         </div>
       </aside>
 
-      {/* Canvas area - Fixed height on mobile, grows on lg+ */}
+      {/* Canvas area - Same height on mobile, grows on lg+ */}
       <div className="px-1 h-[55vh] lg:h-auto lg:flex-1 lg:p-4 relative">
         <div className="relative w-full h-full flex flex-col overflow-hidden">
           {/* Glass backdrop for canvas container */}
@@ -795,8 +799,6 @@ export default function GamePage() {
               onLikeDrawing={handleLikeDrawing}
               onDislikeDrawing={handleDislikeDrawing}
             />
-            
-
           </div>
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
@@ -1491,10 +1493,19 @@ export default function GamePage() {
         </div>
       </div>
 
-      {/* Right Sidebar - Chat Only */}
-      <aside className="flex flex-col gap-2 p-1 min-h-0 w-full h-[30vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-white/20 lg:bg-transparent">
-        {/* Chat Section - Full height */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+      {/* Bottom Section on Mobile / Right Sidebar on Desktop */}
+      <aside className="flex flex-row lg:flex-col gap-2 p-1 min-h-0 w-full h-[45vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-white/20 lg:bg-transparent">
+        {/* Players Section - Only visible on mobile, positioned left */}
+        <div className="w-1/2 lg:hidden flex-shrink-0">
+          <VoiceChat
+            scores={scores}
+            currentDrawerId={gameInfo.currentDrawer}
+            currentPlayerName={playerName}
+          />
+        </div>
+
+        {/* Chat Section - Equal width on mobile, full height on desktop */}
+        <div className="w-1/2 lg:w-full flex-col overflow-hidden min-h-0 flex lg:flex-1">
           <Chat
             wordToGuess={isCurrentUserDrawing ? "" : wordToDraw}
             onCorrectGuess={() => setGuessed(true)}

@@ -170,11 +170,7 @@ export default function VoiceChat({
                         {id === currentDrawerId ? "✏️" : "👤"}
                       </span>
                       <span className="truncate text-xs lg:text-sm font-normal text-white/90 drop-shadow-md">
-                        {name === currentPlayerName ? (
-                          <b>{name} (You)</b>
-                        ) : (
-                          name
-                        )}
+                        {isSelf ? <b>{name} (You)</b> : name}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

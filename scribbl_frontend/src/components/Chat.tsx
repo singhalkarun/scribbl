@@ -57,8 +57,8 @@ export default function Chat({
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-lg"></div>
 
       {/* Content container */}
-      <div className="relative flex flex-col flex-1 p-3 overflow-hidden">
-        <h2 className="font-semibold text-lg mb-2 text-white drop-shadow-md">
+      <div className="relative flex flex-col flex-1 p-2 lg:p-3 overflow-hidden">
+        <h2 className="font-bold text-sm lg:text-lg mb-2 text-white drop-shadow-md">
           Chat
         </h2>
 
@@ -142,7 +142,7 @@ export default function Chat({
             ></div>
             <input
               type="text"
-              placeholder="Type here"
+              placeholder="Guess here"
               className="relative border-0 px-3 py-1 rounded text-base w-full bg-transparent text-white placeholder-white/60 focus:outline-none z-10"
               value={input}
               onChange={(e) => setInput(e.target.value)}
