@@ -6,8 +6,11 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import BackgroundMusic from "@/components/BackgroundMusic";
 import InstructionsModal from "@/components/InstructionsModal";
 
-// Available avatars - cool options
-const AVATARS = ["👽", "🤡", "🐵", "🦄", "🤖", "🦊", "🐲", "🦁"];
+// Available avatars - expanded funny options
+const AVATARS = [
+  "👽", "🤡", "🐵", "🦄", "🤖", "🦊", "🐲", "🦁", 
+  "🐙", "🦉", "🐸", "🐼", "🦝", "👻", "🐰", "🦈"
+];
 
 // Component to handle URL parameters
 function JoinPageContent() {
@@ -236,16 +239,16 @@ function JoinPageContent() {
               )}
             </div>
 
-            {/* Avatar Selection - Fixed Layout */}
+            {/* Avatar Selection - Single Row with Overflow */}
             <div className="relative group">
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-xl rounded-xl border border-white/30 group-focus-within:border-white/50 transition-all duration-300"></div>
-              <div className="relative py-2 px-1">
-                <div className="flex justify-center flex-wrap gap-1">
+              <div className="relative py-2 px-2 overflow-x-auto scrollbar-hide">
+                <div className="flex justify-start space-x-2 min-w-max px-1">
                   {AVATARS.map((avatar) => (
                     <button
                       key={avatar}
                       onClick={() => setSelectedAvatar(avatar)}
-                      className={`w-9 h-9 flex items-center justify-center text-lg rounded-lg transition-all duration-300 hover:bg-white/20 ${
+                      className={`w-8 h-8 flex items-center justify-center text-base rounded-lg transition-all duration-300 hover:bg-white/20 flex-shrink-0 ${
                         selectedAvatar === avatar ? "bg-white/30 ring-1 ring-cyan-300" : ""
                       }`}
                     >
