@@ -14,6 +14,7 @@ export function useRoomChannel() {
     socket,
     playerName,
     roomId,
+    avatar,
     setChannel,
     setUserId,
     updatePlayers,
@@ -48,7 +49,10 @@ export function useRoomChannel() {
 
     // Check if room_type is stored in sessionStorage for private rooms
     const roomType = sessionStorage.getItem("roomType");
-    const channelParams: any = { name: playerName };
+    const channelParams: any = { 
+      name: playerName,
+      avatar: avatar // Include avatar in channel params
+    };
     if (roomType) {
       channelParams.room_type = roomType;
       // Clear the room type from session storage after use

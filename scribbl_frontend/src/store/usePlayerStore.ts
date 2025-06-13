@@ -7,6 +7,7 @@ interface PlayerMeta {
   name: string;
   phx_ref: string;
   joined_at: number; // Assuming timestamp
+  avatar?: string; // Add avatar field
 }
 
 // Define the structure for the presence state object received from Phoenix
@@ -33,14 +34,17 @@ interface PlayerStore {
   socket: Socket | null;
   players: { [userId: string]: string }; // Map of userId to playerName
   playerTimestamps: { [userId: string]: number }; // Map to track joined_at timestamps
+  playerAvatars: { [userId: string]: string }; // Map of userId to avatar
   scores: { [userId: string]: number }; // Add scores state
   messages: Message[]; // Add messages state
+  avatar: string; // Current user's avatar
   setPlayerName: (name: string) => void;
   setRoomId: (roomId: string) => void;
   setChannel: (channel: Channel | null) => void;
   setSocket: (socket: Socket) => void;
   setUserId: (userId: string) => void;
   setAdminId: (adminId: string) => void;
+  setAvatar: (avatar: string) => void; // Add avatar setter
   updatePlayers: (presenceState: PresenceState) => void; // Action to update players
   applyPresenceDiff: (diff: {
     joins: PresenceState;
@@ -63,12 +67,15 @@ export const usePlayerStore = create<PlayerStore>()(
       socket: null,
       players: {}, // Initial state for players
       playerTimestamps: {}, // Initialize playerTimestamps
+      playerAvatars: {}, // Initialize playerAvatars
       scores: {}, // Initialize scores
       messages: [], // Initial messages state
+      avatar: "👤", // Default avatar
       setPlayerName: (name) => set({ playerName: name }),
       setRoomId: (roomId) => set({ roomId }),
       setChannel: (channel) => set({ channel }),
       setSocket: (socket) => set({ socket }),
+      setAvatar: (avatar) => set({ avatar }),
       setUserId: (userId) => {
         // Added userId setter implementation + logging
         console.log(`[Store] Setting userId to: ${userId}`);
@@ -84,6 +91,7 @@ export const usePlayerStore = create<PlayerStore>()(
           let currentUserId = state.userId; // Keep existing ID if already set
           const newPlayers: { [userId: string]: string } = {};
           const newTimestamps: { [userId: string]: number } = {};
+          const newAvatars: { [userId: string]: string } = {};
 
           Object.keys(presenceState).forEach((userId) => {
             if (presenceState[userId].metas.length > 0) {
@@ -95,9 +103,11 @@ export const usePlayerStore = create<PlayerStore>()(
               );
               const playerName = latestMeta.name;
               const joinedAt = latestMeta.joined_at;
+              const avatar = latestMeta.avatar || "👤"; // Use default if not provided
 
               newPlayers[userId] = playerName;
               newTimestamps[userId] = joinedAt;
+              newAvatars[userId] = avatar;
 
               // If we haven't found our ID yet, check if this player is us
               if (!currentUserId && playerName === state.playerName) {
@@ -113,12 +123,14 @@ export const usePlayerStore = create<PlayerStore>()(
           return {
             players: newPlayers,
             playerTimestamps: newTimestamps,
+            playerAvatars: newAvatars,
           };
         }),
       applyPresenceDiff: (diff) =>
         set((state) => {
           const updatedPlayers = { ...state.players };
           const updatedTimestamps = { ...state.playerTimestamps };
+          const updatedAvatars = { ...state.playerAvatars };
 
           // Handle joins
           Object.keys(diff.joins).forEach((userId) => {
@@ -135,6 +147,7 @@ export const usePlayerStore = create<PlayerStore>()(
               if (newJoinedAt > currentTimestamp) {
                 updatedPlayers[userId] = latestNewMeta.name;
                 updatedTimestamps[userId] = newJoinedAt;
+                updatedAvatars[userId] = latestNewMeta.avatar || "👤"; // Use default if not provided
                 console.log(
                   `[Store] Added/Updated player ${latestNewMeta.name} with timestamp ${newJoinedAt}`
                 );
@@ -161,6 +174,7 @@ export const usePlayerStore = create<PlayerStore>()(
               if (leaveJoinedAt >= currentTimestamp) {
                 delete updatedPlayers[userId];
                 delete updatedTimestamps[userId];
+                delete updatedAvatars[userId];
                 console.log(
                   `[Store] Removed player with userId ${userId}, timestamp ${leaveJoinedAt}`
                 );
@@ -181,6 +195,7 @@ export const usePlayerStore = create<PlayerStore>()(
           return {
             players: updatedPlayers,
             playerTimestamps: updatedTimestamps,
+            playerAvatars: updatedAvatars,
           };
         }),
       addMessage: (message) =>

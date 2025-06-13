@@ -15,7 +15,7 @@ export default function VoiceChat({
   currentDrawerId,
   currentPlayerName,
 }: VoiceChatProps) {
-  const { players, userId } = usePlayerStore();
+  const { players, userId, playerAvatars } = usePlayerStore();
   const {
     isConnected,
     isMuted,
@@ -151,6 +151,7 @@ export default function VoiceChat({
               const score = scores[id] || 0;
               const isMutedForUser = userMuteStates.get(id) ?? false;
               const isSelf = id === userId;
+              const avatar = playerAvatars[id] || "👤";
 
               return (
                 <li key={id} className="relative">
@@ -167,7 +168,7 @@ export default function VoiceChat({
                   <div className="relative flex items-center justify-between gap-2 p-1.5">
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="text-sm lg:text-lg flex-shrink-0">
-                        {id === currentDrawerId ? "✏️" : "👤"}
+                        {id === currentDrawerId ? "✏️" : avatar}
                       </span>
                       <span className="truncate text-xs lg:text-sm font-normal text-white/90 drop-shadow-md">
                         {name === currentPlayerName ? (

@@ -13,6 +13,8 @@ defmodule ScribblBackendWeb.RoomChannel do
 
   def join("room:" <> room_id, %{"name" => name} = params, socket) do
     user_id = socket.assigns.user_id
+    # Get avatar from params or use default
+    avatar = Map.get(params, "avatar", "👤")
 
     # Get or create the room first
     {:ok, room_info} = case GameState.get_room(room_id) do
@@ -42,7 +44,8 @@ defmodule ScribblBackendWeb.RoomChannel do
       # Track the user's presence via Phoenix Presence
       Presence.track(socket, socket.assigns.user_id, %{
         name: name,
-        joined_at: :os.system_time(:milli_seconds)
+        joined_at: :os.system_time(:milli_seconds),
+        avatar: avatar
       })
 
       # add the socket to user specific topic

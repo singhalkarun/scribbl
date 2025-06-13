@@ -4,6 +4,7 @@ export interface GameOverData {
   scores: { [key: string]: number };
   players: { [key: string]: string };
   currentUserId: string;
+  playerAvatars?: { [key: string]: string };
 }
 
 export async function generateGameOverImage(data: GameOverData): Promise<Blob> {
@@ -15,13 +16,16 @@ export async function generateGameOverImage(data: GameOverData): Promise<Blob> {
   const winner = sortedScores[0];
   const winnerName = winner ? data.players[winner[0]] : "Winner";
   const winnerScore = winner ? winner[1] : 0;
+  const winnerAvatar = winner && data.playerAvatars ? data.playerAvatars[winner[0]] || "👤" : "👤";
 
   // Prepare data for API
   const requestData = {
     scores: data.scores,
     players: data.players,
+    player_avatars: data.playerAvatars || {},
     winner_name: winnerName,
     winner_score: winnerScore.toString(),
+    winner_avatar: winnerAvatar,
     total_players: Object.keys(data.players).length.toString(),
   };
 

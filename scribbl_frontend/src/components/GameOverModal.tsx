@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { shareGameOverResults } from "@/utils/imageShare";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 interface GameOverModalProps {
   isOpen: boolean;
@@ -17,6 +18,7 @@ export default function GameOverModal({
   currentUserId,
 }: GameOverModalProps) {
   const [isSharing, setIsSharing] = useState(false);
+  const { playerAvatars } = usePlayerStore();
 
   if (!isOpen) return null;
 
@@ -32,6 +34,7 @@ export default function GameOverModal({
         scores: filteredScores,
         players,
         currentUserId,
+        playerAvatars
       });
     } catch (error) {
       console.error("Error sharing:", error);
@@ -75,6 +78,9 @@ export default function GameOverModal({
                     if (index === 0) medal = "🥇";
                     else if (index === 1) medal = "🥈";
                     else if (index === 2) medal = "🥉";
+                    
+                    // Get player avatar
+                    const avatar = playerAvatars[playerId] || "👤";
 
                     return (
                       <div key={playerId} className="relative transition-all">
@@ -97,6 +103,7 @@ export default function GameOverModal({
                             <span className="font-bold text-white/90 w-8 drop-shadow-md">
                               {medal || `${index + 1}.`}
                             </span>
+                            <span className="text-lg mr-1">{avatar}</span>
                             <span
                               className={`font-medium drop-shadow-md ${
                                 playerId === currentUserId

@@ -5,12 +5,14 @@ defmodule ScribblBackendWeb.ImageController do
     # Extract parameters
     scores = params["scores"] || %{}
     players = params["players"] || %{}
+    player_avatars = params["player_avatars"] || %{}
     winner_name = params["winner_name"] || "Winner"
     winner_score = params["winner_score"] || "0"
+    winner_avatar = params["winner_avatar"] || "👤"
     total_players = params["total_players"] || "0"
 
     # Generate SVG content
-    svg_content = generate_svg(winner_name, winner_score, total_players, scores, players)
+    svg_content = generate_svg(winner_name, winner_score, winner_avatar, total_players, scores, players, player_avatars)
 
     conn
     |> put_resp_content_type("image/svg+xml")
@@ -18,7 +20,7 @@ defmodule ScribblBackendWeb.ImageController do
     |> send_resp(200, svg_content)
   end
 
-  defp generate_svg(winner_name, winner_score, total_players, scores, players) do
+  defp generate_svg(winner_name, winner_score, winner_avatar, total_players, scores, players, player_avatars) do
     # Get top 3 players for display
     sorted_scores =
       scores
@@ -27,7 +29,7 @@ defmodule ScribblBackendWeb.ImageController do
       |> Enum.take(3)
 
     # Generate player list HTML
-    player_list = generate_player_list(sorted_scores, players)
+    player_list = generate_player_list(sorted_scores, players, player_avatars)
 
     """
     <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
@@ -66,7 +68,7 @@ defmodule ScribblBackendWeb.ImageController do
 
       <!-- Winner section -->
       <text x="400" y="220" text-anchor="middle" fill="#22d3ee"
-            style="font-family:Arial,sans-serif;font-size:28px;font-weight:bold;">🎉 #{winner_name} Wins! 🎉</text>
+            style="font-family:Arial,sans-serif;font-size:28px;font-weight:bold;">#{winner_avatar} #{winner_name} Wins! 🎉</text>
 
       <text x="400" y="260" text-anchor="middle" fill="#a5f3fc"
             style="font-family:Arial,sans-serif;font-size:20px;">#{winner_score} points</text>
@@ -91,11 +93,12 @@ defmodule ScribblBackendWeb.ImageController do
     """
   end
 
-  defp generate_player_list(sorted_scores, players) do
+  defp generate_player_list(sorted_scores, players, player_avatars) do
     sorted_scores
     |> Enum.with_index()
     |> Enum.map(fn {{player_id, score}, index} ->
       player_name = Map.get(players, player_id, "Unknown")
+      player_avatar = Map.get(player_avatars, player_id, "👤")
       y_position = 320 + (index * 40)
 
       medal = case index do
@@ -114,7 +117,7 @@ defmodule ScribblBackendWeb.ImageController do
 
       """
       <text x="150" y="#{y_position}" fill="#{color}"
-            style="font-family:Arial,sans-serif;font-size:18px;font-weight:bold;">#{medal} #{player_name}</text>
+            style="font-family:Arial,sans-serif;font-size:18px;font-weight:bold;">#{medal} #{player_avatar} #{player_name}</text>
       <text x="650" y="#{y_position}" text-anchor="end" fill="#22d3ee"
             style="font-family:Arial,sans-serif;font-size:18px;font-weight:bold;">#{score} pts</text>
       """

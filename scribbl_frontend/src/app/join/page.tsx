@@ -6,6 +6,9 @@ import { usePlayerStore } from "@/store/usePlayerStore";
 import BackgroundMusic from "@/components/BackgroundMusic";
 import InstructionsModal from "@/components/InstructionsModal";
 
+// Available avatars - cool options
+const AVATARS = ["👽", "🤡", "🐵", "🦄", "🤖", "🦊", "🐲", "🦁"];
+
 // Component to handle URL parameters
 function JoinPageContent() {
   const [name, setName] = useState("");
@@ -14,12 +17,14 @@ function JoinPageContent() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [joinMode, setJoinMode] = useState<"play" | "create" | null>(null);
   const [roomIdInput, setRoomIdInput] = useState("");
+  const [selectedAvatar, setSelectedAvatar] = useState("👽");
 
   const router = useRouter();
   const searchParams = useSearchParams();
   const socket = usePlayerStore((s) => s.socket);
   const setPlayerName = usePlayerStore((s) => s.setPlayerName);
   const setRoomIdGlobal = usePlayerStore((s) => s.setRoomId);
+  const setAvatar = usePlayerStore((s) => s.setAvatar);
 
   // Check if there's a room ID in URL params (from invite link)
   const inviteRoomId = searchParams.get("roomId");
@@ -120,10 +125,11 @@ function JoinPageContent() {
       }
 
       console.log(
-        `[JoinPage] Setting player name: ${name.trim()} and room ID: ${finalRoomId}`
+        `[JoinPage] Setting player name: ${name.trim()}, room ID: ${finalRoomId}, and avatar: ${selectedAvatar}`
       );
       setPlayerName(name.trim());
       setRoomIdGlobal(finalRoomId);
+      setAvatar(selectedAvatar);
 
       // Store room type if it's private so we can pass it to the socket connection
       if (roomType === "private") {
@@ -223,11 +229,31 @@ function JoinPageContent() {
                 onKeyDown={handleKeyDown}
               />
               <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
-                <span className="text-white/60">👤</span>
+                <span className="text-white/60">{selectedAvatar}</span>
               </div>
               {nameError && (
                 <div className="absolute inset-0 bg-red-500/20 backdrop-blur-xl rounded-xl border border-red-400/50 pointer-events-none"></div>
               )}
+            </div>
+
+            {/* Avatar Selection - Fixed Layout */}
+            <div className="relative group">
+              <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-xl rounded-xl border border-white/30 group-focus-within:border-white/50 transition-all duration-300"></div>
+              <div className="relative py-2 px-1">
+                <div className="flex justify-center flex-wrap gap-1">
+                  {AVATARS.map((avatar) => (
+                    <button
+                      key={avatar}
+                      onClick={() => setSelectedAvatar(avatar)}
+                      className={`w-9 h-9 flex items-center justify-center text-lg rounded-lg transition-all duration-300 hover:bg-white/20 ${
+                        selectedAvatar === avatar ? "bg-white/30 ring-1 ring-cyan-300" : ""
+                      }`}
+                    >
+                      {avatar}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {/* Room ID input with glass effect - only show if no invite room ID */}
@@ -246,55 +272,55 @@ function JoinPageContent() {
                 </div>
               </div>
             )}
-          </div>
 
-          {inviteRoomId ? (
-            <div className="mt-6 relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 backdrop-blur-xl rounded-xl border border-blue-400/40"></div>
-              <div className="relative p-4">
-                <p className="text-white/90 text-sm text-center drop-shadow-md">
-                  You've been invited to join room:{" "}
-                  <strong className="text-cyan-300">{inviteRoomId}</strong>
-                </p>
+            {inviteRoomId ? (
+              <div className="mt-6 relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/30 to-cyan-500/30 backdrop-blur-xl rounded-xl border border-blue-400/40"></div>
+                <div className="relative p-4">
+                  <p className="text-white/90 text-sm text-center drop-shadow-md">
+                    You've been invited to join room:{" "}
+                    <strong className="text-cyan-300">{inviteRoomId}</strong>
+                  </p>
+                </div>
               </div>
-            </div>
-          ) : null}
+            ) : null}
 
-          <div className="mt-8 space-y-3">
-            {/* Join button with enhanced glass effect */}
-            <button
-              onClick={() => handleJoin("play")}
-              disabled={!socket || isJoining}
-              className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed hover:cursor-pointer"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/80 to-green-500/80 backdrop-blur-xl border border-emerald-400/50 rounded-xl group-hover:from-emerald-400/90 group-hover:to-green-400/90 transition-all duration-300"></div>
-              <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
-              <div className="relative px-6 py-3 text-white font-semibold drop-shadow-lg">
-                {isJoining && joinMode === "play"
-                  ? "Joining..."
-                  : inviteRoomId
-                  ? `Join Room ${inviteRoomId}`
-                  : roomIdInput.trim()
-                  ? `Join Room ${roomIdInput.trim()}`
-                  : "Join Public Game"}
-              </div>
-            </button>
-
-            {!inviteRoomId && (
+            <div className="mt-8 space-y-3">
+              {/* Join button with enhanced glass effect */}
               <button
-                onClick={() => handleJoin("create", "private")}
+                onClick={() => handleJoin("play")}
                 disabled={!socket || isJoining}
                 className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed hover:cursor-pointer"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/80 to-purple-500/80 backdrop-blur-xl border border-blue-400/50 rounded-xl group-hover:from-blue-400/90 group-hover:to-purple-400/90 transition-all duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/80 to-green-500/80 backdrop-blur-xl border border-emerald-400/50 rounded-xl group-hover:from-emerald-400/90 group-hover:to-green-400/90 transition-all duration-300"></div>
                 <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
                 <div className="relative px-6 py-3 text-white font-semibold drop-shadow-lg">
-                  {isJoining && joinMode === "create"
-                    ? "Creating..."
-                    : "Host Private Game"}
+                  {isJoining && joinMode === "play"
+                    ? "Joining..."
+                    : inviteRoomId
+                    ? `Join Room ${inviteRoomId}`
+                    : roomIdInput.trim()
+                    ? `Join Room ${roomIdInput.trim()}`
+                    : "Join Public Game"}
                 </div>
               </button>
-            )}
+
+              {!inviteRoomId && (
+                <button
+                  onClick={() => handleJoin("create", "private")}
+                  disabled={!socket || isJoining}
+                  className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed hover:cursor-pointer"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/80 to-purple-500/80 backdrop-blur-xl border border-blue-400/50 rounded-xl group-hover:from-blue-400/90 group-hover:to-purple-400/90 transition-all duration-300"></div>
+                  <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
+                  <div className="relative px-6 py-3 text-white font-semibold drop-shadow-lg">
+                    {isJoining && joinMode === "create"
+                      ? "Creating..."
+                      : "Host Private Game"}
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
