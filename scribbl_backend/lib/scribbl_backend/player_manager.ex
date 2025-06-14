@@ -10,6 +10,14 @@ defmodule ScribblBackend.PlayerManager do
   alias ScribblBackend.WordManager
   alias ScribblBackend.GameFlow
 
+  # Add key functions for kick voting
+  @doc """
+  Generate a Redis key for storing kick votes for a player in a room.
+  """
+  def kick_votes_key(room_id, target_player_id) do
+    "room:#{room_id}:kick_votes:#{target_player_id}"
+  end
+
   @doc """
   Add a player to the game room.
 
@@ -125,6 +133,158 @@ defmodule ScribblBackend.PlayerManager do
     GameState.check_and_cleanup_empty_room(room_id)
   end
 
+  # Add kick player functionality
+
+  @doc """
+  Vote to kick a player from the room.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+    - `voter_id`: The ID of the player voting to kick.
+    - `target_player_id`: The ID of the player to be kicked.
+
+  ## Returns
+    - `{:ok, votes_count, required_votes}`: If the vote was registered successfully.
+    - `{:error, reason}`: If there was an error.
+  """
+  def vote_to_kick(room_id, voter_id, target_player_id) do
+    # Check if both players are in the room
+    {:ok, players} = get_players(room_id)
+
+    cond do
+      !Enum.member?(players, voter_id) ->
+        {:error, "Voter is not in the room"}
+      !Enum.member?(players, target_player_id) ->
+        {:error, "Target player is not in the room"}
+      voter_id == target_player_id ->
+        {:error, "Cannot vote to kick yourself"}
+      true ->
+        # Add vote to Redis set - using a set ensures each player can only vote once
+        votes_key = kick_votes_key(room_id, target_player_id)
+        RedisHelper.sadd(votes_key, voter_id)
+
+        # Get current votes count
+        {:ok, votes_list} = RedisHelper.smembers(votes_key)
+        votes_count = length(votes_list)
+
+        # Calculate required votes (more than half of players)
+        required_votes = ceil(length(players) / 2)
+
+        # Check if enough votes to kick
+        if votes_count >= required_votes do
+          # Kick the player
+          kick_player(room_id, target_player_id)
+          {:ok, votes_count, required_votes, true}
+        else
+          {:ok, votes_count, required_votes, false}
+        end
+    end
+  end
+
+  @doc """
+  Kick a player from the room (when enough votes are reached).
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+    - `player_id`: The ID of the player to be kicked.
+  """
+  def kick_player(room_id, player_id) do
+    # Clean up votes for this player
+    votes_key = kick_votes_key(room_id, player_id)
+    RedisHelper.del(votes_key)
+
+    # Remove player from room
+    remove_player(room_id, player_id)
+
+    # Reset all kick votes in the room to prevent lingering votes
+    reset_all_kick_votes(room_id)
+
+    # Broadcast kick event to all players including the kicked player
+    # Frontend will determine if current user is the one being kicked and show appropriate UI
+    # Frontend already has player names, so we only send player_id
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      KeyManager.room_topic(room_id),
+      %{
+        event: "player_kicked",
+        payload: %{
+          "player_id" => player_id
+        }
+      }
+    )
+
+    :ok
+  end
+
+  @doc """
+  Get the current kick votes for a player.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+    - `target_player_id`: The ID of the player.
+
+  ## Returns
+    - `{:ok, voters, required_votes}`: The list of voters and required votes.
+    - `{:error, reason}`: If there was an error.
+  """
+  def get_kick_votes(room_id, target_player_id) do
+    # Check if player is in the room
+    {:ok, players} = get_players(room_id)
+
+    if !Enum.member?(players, target_player_id) do
+      {:error, "Target player is not in the room"}
+    else
+      # Get current votes
+      votes_key = kick_votes_key(room_id, target_player_id)
+      {:ok, voters} = RedisHelper.smembers(votes_key)
+
+      # Calculate required votes
+      required_votes = ceil(length(players) / 2)
+
+      {:ok, voters, required_votes}
+    end
+  end
+
+  @doc """
+  Clear all kick votes for a specific player.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+    - `target_player_id`: The ID of the player.
+  """
+  def clear_kick_votes(room_id, target_player_id) do
+    votes_key = kick_votes_key(room_id, target_player_id)
+    RedisHelper.del(votes_key)
+  end
+
+  @doc """
+  Reset all kick votes in a room.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+  """
+  def reset_all_kick_votes(room_id) do
+    # Get all players in the room
+    {:ok, players} = get_players(room_id)
+
+    # Clear kick votes for each player
+    Enum.each(players, fn player_id ->
+      clear_kick_votes(room_id, player_id)
+    end)
+
+    # Broadcast that votes have been reset
+    Phoenix.PubSub.broadcast(
+      ScribblBackend.PubSub,
+      KeyManager.room_topic(room_id),
+      %{
+        event: "kick_votes_reset",
+        payload: %{}
+      }
+    )
+
+    :ok
+  end
+
   @doc """
   Handle the scenario when the admin leaves the game before it starts.
   Randomly selects a new admin from the remaining players.
@@ -173,45 +333,6 @@ defmodule ScribblBackend.PlayerManager do
       end
     else
       error -> error
-    end
-  end
-
-  @doc """
-  Handle the scenario when the drawer leaves the game.
-
-  ## Parameters
-    - `room_id`: The ID of the room where the drawer left.
-  """
-  def handle_drawer_removal(room_id) do
-    # Get current word (if any) to end the turn properly
-    case WordManager.get_current_word(room_id) do
-      {:ok, word} when not is_nil(word) ->
-        # End the turn
-        Phoenix.PubSub.broadcast(
-          ScribblBackend.PubSub,
-          KeyManager.room_topic(room_id),
-          %{
-            event: "turn_over",
-            payload: %{
-              "reason" => "drawer_left",
-              "word" => word
-            }
-          }
-        )
-
-        # Clear any remaining timers
-        RedisHelper.del(KeyManager.turn_timer(room_id))
-        RedisHelper.del(KeyManager.reveal_timer(room_id))
-
-        # clear the current word
-        RedisHelper.del(KeyManager.current_word(room_id))
-        RedisHelper.del(KeyManager.revealed_indices(room_id))
-
-        # Start the next turn after 3 seconds to allow turn over modal to finish
-        GameFlow.start_delayed(room_id)
-      _ ->
-        # No word was set yet or there was an error, just start the next turn
-        GameFlow.start_delayed(room_id)
     end
   end
 
@@ -500,6 +621,45 @@ defmodule ScribblBackend.PlayerManager do
         :ok
       _ ->
         :ok
+    end
+  end
+
+  @doc """
+  Handle the scenario when the drawer leaves the game.
+
+  ## Parameters
+    - `room_id`: The ID of the room where the drawer left.
+  """
+  def handle_drawer_removal(room_id) do
+    # Get current word (if any) to end the turn properly
+    case WordManager.get_current_word(room_id) do
+      {:ok, word} when not is_nil(word) ->
+        # End the turn
+        Phoenix.PubSub.broadcast(
+          ScribblBackend.PubSub,
+          KeyManager.room_topic(room_id),
+          %{
+            event: "turn_over",
+            payload: %{
+              "reason" => "drawer_left",
+              "word" => word
+            }
+          }
+        )
+
+        # Clear any remaining timers
+        RedisHelper.del(KeyManager.turn_timer(room_id))
+        RedisHelper.del(KeyManager.reveal_timer(room_id))
+
+        # clear the current word
+        RedisHelper.del(KeyManager.current_word(room_id))
+        RedisHelper.del(KeyManager.revealed_indices(room_id))
+
+        # Start the next turn after 3 seconds to allow turn over modal to finish
+        GameFlow.start_delayed(room_id)
+      _ ->
+        # No word was set yet or there was an error, just start the next turn
+        GameFlow.start_delayed(room_id)
     end
   end
 end

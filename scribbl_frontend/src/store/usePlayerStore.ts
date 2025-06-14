@@ -25,6 +25,15 @@ export interface Message {
   senderName?: string; // Added senderName
 }
 
+// Define kick vote info interface
+export interface KickVoteInfo {
+  target_player_id: string;
+  votes_count: number;
+  required_votes: number;
+  kicked: boolean;
+  voters?: string[]; // Array of user IDs who voted to kick
+}
+
 interface PlayerStore {
   playerName: string;
   roomId: string;
@@ -38,6 +47,8 @@ interface PlayerStore {
   scores: { [userId: string]: number }; // Add scores state
   messages: Message[]; // Add messages state
   avatar: string; // Current user's avatar
+  kickVoteInfo: KickVoteInfo | null; // Current kick vote info
+  playerKicked: boolean; // Whether the current player has been kicked
   setPlayerName: (name: string) => void;
   setRoomId: (roomId: string) => void;
   setChannel: (channel: Channel | null) => void;
@@ -52,6 +63,8 @@ interface PlayerStore {
   }) => void; // Action for diffs
   addMessage: (message: Message) => void; // Signature uses updated Message type
   updateScore: (userId: string, score: number) => void; // Add score update function
+  setKickVoteInfo: (info: KickVoteInfo | null) => void; // Set kick vote info
+  setPlayerKicked: (kicked: boolean) => void; // Set player kicked status
   clearPlayerInfo: () => void;
   _hasHydrated: boolean; // Flag to track hydration state
 }
@@ -71,6 +84,8 @@ export const usePlayerStore = create<PlayerStore>()(
       scores: {}, // Initialize scores
       messages: [], // Initial messages state
       avatar: "👤", // Default avatar
+      kickVoteInfo: null, // Initialize kick vote info
+      playerKicked: false, // Initialize player kicked status
       setPlayerName: (name) => set({ playerName: name }),
       setRoomId: (roomId) => set({ roomId }),
       setChannel: (channel) => set({ channel }),
@@ -85,6 +100,14 @@ export const usePlayerStore = create<PlayerStore>()(
         // Add admin ID setter implementation + logging
         console.log(`[Store] Setting adminId to: ${adminId}`);
         set({ adminId });
+      },
+      setKickVoteInfo: (info) => {
+        console.log(`[Store] Setting kickVoteInfo:`, info);
+        set({ kickVoteInfo: info });
+      },
+      setPlayerKicked: (kicked) => {
+        console.log(`[Store] Setting playerKicked to:`, kicked);
+        set({ playerKicked: kicked });
       },
       updatePlayers: (presenceState) =>
         set((state) => {
@@ -223,7 +246,31 @@ export const usePlayerStore = create<PlayerStore>()(
           return { scores: newScores };
         }),
       clearPlayerInfo: () => {
-        set({ playerName: "", roomId: "", userId: "", adminId: "" });
+        console.log("[Store] Clearing player info to prevent auto-rejoin");
+        
+        // Force clear localStorage first to ensure player can't rejoin
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('player-info-storage');
+          // Also clear session storage in case it contains any room info
+          sessionStorage.removeItem('roomType');
+        }
+        
+        // Reset all state values
+        set({ 
+          playerName: "", 
+          roomId: "", 
+          userId: "", 
+          adminId: "",
+          kickVoteInfo: null,
+          playerKicked: false,
+          players: {},
+          playerTimestamps: {},
+          playerAvatars: {},
+          scores: {},
+          messages: [],
+          // Clear the persisted state in localStorage to prevent auto-rejoin
+          _hasHydrated: true
+        });
       },
       _hasHydrated: false, // Flag to track hydration state
     }),

@@ -28,6 +28,20 @@ function JoinPageContent() {
   const setPlayerName = usePlayerStore((s) => s.setPlayerName);
   const setRoomIdGlobal = usePlayerStore((s) => s.setRoomId);
   const setAvatar = usePlayerStore((s) => s.setAvatar);
+  const setPlayerKicked = usePlayerStore((s) => s.setPlayerKicked);
+
+  // Reset kicked status and ensure we have a clean state when joining page is loaded
+  useEffect(() => {
+    // Reset kicked status
+    setPlayerKicked(false);
+    
+    // Clear any existing room ID to prevent auto-joining previous room
+    const currentRoomId = usePlayerStore.getState().roomId;
+    if (currentRoomId) {
+      console.log("[JoinPage] Clearing previous room ID to prevent auto-join:", currentRoomId);
+      usePlayerStore.getState().clearPlayerInfo();
+    }
+  }, [setPlayerKicked]);
 
   // Check if there's a room ID in URL params (from invite link)
   const inviteRoomId = searchParams.get("roomId");
