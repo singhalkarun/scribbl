@@ -54,6 +54,7 @@ export default function GamePage() {
   const [showWordSelection, setShowWordSelection] = useState(false);
   const [suggestedWords, setSuggestedWords] = useState<string[]>([]);
   const [wordSelectionCountdown, setWordSelectionCountdown] = useState(10);
+  const [hasSkippedWords, setHasSkippedWords] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [gameJustEnded, setGameJustEnded] = useState(false);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
@@ -231,6 +232,9 @@ export default function GamePage() {
             currentRound: payload.round,
           }));
           setCurrentTurnDrawer(payload.drawer); // Store the drawer for this turn
+          
+          // Reset hasSkippedWords when a new drawer is assigned
+          setHasSkippedWords(false);
 
           // Always hide game over modal when a new drawer is assigned (new game/turn started)
           console.log("[GamePage] Hiding GameOverModal - new drawer assigned");
@@ -264,6 +268,12 @@ export default function GamePage() {
               return prev - 1;
             });
           }, 1000);
+          
+          // Reset hasSkippedWords when a new drawer is assigned
+          // This is important for when a new player becomes the drawer
+          if (payload.is_new_drawer) {
+            setHasSkippedWords(false);
+          }
         });
 
         // Listen for word_auto_selected event (only sent to the drawer when timeout occurs)
@@ -286,6 +296,29 @@ export default function GamePage() {
             text: payload.message || "Word auto-selected due to timeout!",
             system: true,
           });
+        });
+
+        // Listen for words_skipped event
+        const wordsSkippedRef = channel.on("words_skipped", (payload) => {
+          console.log("[GamePage] Received words_skipped:", payload);
+          
+          // Check if the current user is the drawer who skipped
+          const isCurrentUserDrawer = payload.drawer === userId;
+          
+          // Get the player name from the drawer ID
+          const drawerName = players[payload.drawer] || "The drawer";
+          
+          // Show a notification about the skipped words
+          usePlayerStore.getState().addMessage({
+            userId: "system",
+            text: isCurrentUserDrawer ? 
+              "You skipped to get new words." : 
+              `${drawerName} skipped to get new words.`,
+            system: true,
+          });
+          
+          // Play a sound effect for skipping words
+          playSound("letterReveal");
         });
 
         // Listen for letter_reveal event
@@ -552,21 +585,23 @@ export default function GamePage() {
         // Cleanup listeners
         return () => {
           if (channel) {
+            // Clean up all event listeners
             channel.off("room_info", roomInfoRef);
+            channel.off("admin_changed", adminChangedRef);
+            channel.off("room_settings_updated", roomSettingsUpdatedRef);
             channel.off("drawer_assigned", drawerAssignedRef);
             channel.off("select_word", selectWordRef);
+            channel.off("letter_reveal", letterRevealRef);
             channel.off("turn_started", turnStartedRef);
             channel.off("turn_over", turnOverRef);
             channel.off("game_over", gameOverRef);
             channel.off("score_updated", scoreUpdatedRef);
             channel.off("correct_guess", correctGuessRef);
             channel.off("similar_word", similarWordRef);
-            channel.off("letter_reveal", letterRevealRef);
-            channel.off("admin_changed", adminChangedRef);
-            channel.off("room_settings_updated", roomSettingsUpdatedRef);
             channel.off("drawing_liked", drawingLikedRef);
             channel.off("drawing_disliked", drawingDislikedRef);
             channel.off("word_auto_selected", wordAutoSelectedRef);
+            channel.off("words_skipped", wordsSkippedRef);
 
             // Don't clear timers on normal cleanup
             // Only clear timers when specific events trigger it
@@ -843,6 +878,33 @@ export default function GamePage() {
                   </button>
                 ))}
               </div>
+              
+              {/* Skip Words Button - Only show if user hasn't skipped yet */}
+              {!hasSkippedWords && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => {
+                      // Clear the word selection timer since user is skipping
+                      if (wordSelectionTimerRef.current) {
+                        clearInterval(wordSelectionTimerRef.current);
+                        wordSelectionTimerRef.current = null;
+                      }
+                      
+                      const channel = usePlayerStore.getState().channel;
+                      if (channel) {
+                        console.log("[GamePage] Sending skip_words event");
+                        channel.push("skip_words", {});
+                        setHasSkippedWords(true);
+                        // Reset countdown when new words are requested
+                        setWordSelectionCountdown(10);
+                      }
+                    }}
+                    className="text-sm py-2 px-4 bg-gradient-to-r from-orange-500/80 to-amber-500/80 hover:from-orange-600/90 hover:to-amber-600/90 backdrop-blur-md text-white rounded-lg font-medium transition-colors hover:cursor-pointer border border-white/20 shadow-lg"
+                  >
+                    Don't know these words? Skip (1 time only)
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

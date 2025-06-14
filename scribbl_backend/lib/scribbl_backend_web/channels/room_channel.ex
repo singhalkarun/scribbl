@@ -268,6 +268,11 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "words_skipped", payload: payload}, socket) do
+    push(socket, "words_skipped", payload)
+    {:noreply, socket}
+  end
+
   def handle_info({:exclude_user, user_id_to_exclude, message}, socket) do
     # Only push the message to the socket if the user is not the one to exclude
     if socket.assigns.user_id != user_id_to_exclude do
@@ -515,6 +520,55 @@ defmodule ScribblBackendWeb.RoomChannel do
         %{
           event: "turn_started",
           payload: turn_info
+        }
+      )
+    else
+      # Send error to the user
+      push(socket, "error", %{"message" => "You are not the drawer"})
+    end
+
+    {:noreply, socket}
+  end
+
+  def handle_in("skip_words", %{}, socket) do
+    room_id = String.split(socket.topic, ":") |> List.last()
+
+    # Get current drawer to verify that the request is from the drawer
+    {:ok, current_drawer} = GameState.get_current_drawer(room_id)
+
+    if socket.assigns.user_id == current_drawer do
+      # Clear the word selection timer since drawer is requesting new words
+      word_selection_timer_key = ScribblBackend.KeyManager.word_selection_timer(room_id)
+      ScribblBackend.RedisHelper.del(word_selection_timer_key)
+
+      # Generate new words
+      new_words = WordManager.generate_words(room_id)
+
+      # Set up new word selection timer
+      GameFlow.setup_word_selection_timer(room_id, new_words)
+
+      # Send the new words to the drawer
+      Phoenix.PubSub.broadcast(
+        ScribblBackend.PubSub,
+        KeyManager.user_topic(current_drawer),
+        %{
+          event: "select_word",
+          payload: %{
+            "words" => new_words,
+            "is_new_drawer" => false
+          }
+        }
+      )
+
+      # Broadcast to all players that the drawer is skipping words
+      Phoenix.PubSub.broadcast(
+        ScribblBackend.PubSub,
+        socket.topic,
+        %{
+          event: "words_skipped",
+          payload: %{
+            "drawer" => current_drawer
+          }
         }
       )
     else

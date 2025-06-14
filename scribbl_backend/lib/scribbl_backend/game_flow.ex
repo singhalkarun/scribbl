@@ -126,7 +126,8 @@ defmodule ScribblBackend.GameFlow do
               event: "drawer_assigned",
               payload: %{
                 "round" => current_round,
-                "drawer" => drawer
+                "drawer" => drawer,
+                "is_new_drawer" => true
               }
             }
           )
@@ -144,7 +145,8 @@ defmodule ScribblBackend.GameFlow do
             %{
               event: "select_word",
               payload: %{
-                "words" => words
+                "words" => words,
+                "is_new_drawer" => true
               }
             }
           )
@@ -541,7 +543,7 @@ defmodule ScribblBackend.GameFlow do
   end
 
     # Set up the word selection timer with the available words stored in Redis.
-  defp setup_word_selection_timer(room_id, words) do
+  def setup_word_selection_timer(room_id, words) do
     word_selection_timer_key = KeyManager.word_selection_timer(room_id)
     words_json = Jason.encode!(words)
     RedisHelper.setex(word_selection_timer_key, @word_selection_timeout, words_json)
