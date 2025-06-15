@@ -198,6 +198,16 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info(%{event: "player_kicked", payload: payload}, socket) do
+    push(socket, "player_kicked", payload)
+    {:noreply, socket}
+  end
+
+  def handle_info(%{event: "kick_vote_update", payload: payload}, socket) do
+    push(socket, "kick_vote_update", payload)
+    {:noreply, socket}
+  end
+
   def handle_info(%{event: "drawing", payload: payload}, socket) do
     push(socket, "drawing", payload)
     {:noreply, socket}
@@ -711,9 +721,97 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:noreply, socket}
   end
 
-  # Catch-all to ignore any unhandled events
+  # Add handlers for kick vote messages
+  def handle_in("vote_to_kick", %{"target_player_id" => target_player_id}, socket) do
+    room_id = String.split(socket.topic, ":") |> List.last()
+    voter_id = socket.assigns.user_id
+
+    case PlayerManager.vote_to_kick(room_id, voter_id, target_player_id) do
+      {:ok, votes_count, required_votes, kicked} ->
+        # Get the list of voters - handle case where player might already be gone
+        voters = case PlayerManager.get_kick_votes(room_id, target_player_id) do
+          {:ok, voters_list, _} -> voters_list
+          {:error, _} -> [] # Player might already be gone
+        end
+
+        # Only broadcast vote update if player wasn't kicked
+        # This prevents the flickering issue where kick_vote_update arrives after player_kicked
+        if !kicked do
+          # Broadcast vote status to all players
+          # Don't send player names - frontend already has them
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "kick_vote_update",
+              payload: %{
+                "target_player_id" => target_player_id,
+                "votes_count" => votes_count,
+                "required_votes" => required_votes,
+                "kicked" => kicked,
+                "voters" => voters
+              }
+            }
+          )
+
+          # Let frontend handle the message formatting with player names
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            socket.topic,
+            %{
+              event: "new_message",
+              payload: %{
+                "user_id" => "system",
+                "message_type" => "kick_vote",
+                "voter_id" => voter_id,
+                "target_id" => target_player_id,
+                "votes_count" => votes_count,
+                "required_votes" => required_votes,
+                "system" => true
+              }
+            }
+          )
+        end
+
+        {:reply, {:ok, %{
+          "votes_count" => votes_count,
+          "required_votes" => required_votes,
+          "kicked" => kicked,
+          "voters" => voters
+        }}, socket}
+
+      {:error, reason} ->
+        # Return error response properly instead of crashing
+        {:reply, {:error, %{"reason" => reason}}, socket}
+    end
+  end
+
+  def handle_in("get_kick_votes", %{"target_player_id" => target_player_id}, socket) do
+    room_id = String.split(socket.topic, ":") |> List.last()
+
+    # Check if target player is still in the room
+    {:ok, players} = PlayerManager.get_players(room_id)
+
+    if Enum.member?(players, target_player_id) do
+      case PlayerManager.get_kick_votes(room_id, target_player_id) do
+        {:ok, voters, required_votes} ->
+          {:reply, {:ok, %{
+            "voters" => voters,
+            "required_votes" => required_votes,
+            "votes_count" => length(voters)
+          }}, socket}
+
+        {:error, reason} ->
+          {:reply, {:error, %{"reason" => reason}}, socket}
+      end
+    else
+      # Player is no longer in the room
+      {:reply, {:error, %{"reason" => "Target player is not in the room"}}, socket}
+    end
+  end
+
   def handle_in(_event, _payload, socket) do
-    {:noreply, socket}
+    {:reply, {:error, %{reason: "Unknown event"}}, socket}
   end
 
   def terminate(_reason, socket) do
