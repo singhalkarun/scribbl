@@ -9,6 +9,8 @@ import GameOverModal from "@/components/GameOverModal";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
 import { useSoundEffects } from "@/utils/useSoundEffects";
+import KickPlayerModal from "@/components/KickPlayerModal";
+import KickedModal from "@/components/KickedModal";
 
 export default function GamePage() {
   const {
@@ -23,7 +25,7 @@ export default function GamePage() {
     updateScore,
   } = usePlayerStore();
 
-  const { connectionState, sendMessage } = useRoomChannel();
+  const { connectionState, sendMessage, voteToKick } = useRoomChannel();
   // Use a very low volume (0.1 = 10%) for sound effects
   const { playSound } = useSoundEffects(0.1);
 
@@ -76,6 +78,10 @@ export default function GamePage() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const wordSelectionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Add kick player state
+  const [showKickPlayerModal, setShowKickPlayerModal] = useState(false);
+  const playerKicked = usePlayerStore((state) => state.playerKicked);
 
   const router = useRouter();
 
@@ -678,6 +684,45 @@ export default function GamePage() {
     }
   };
 
+  // Add kick player functionality
+  const handleVoteToKick = (playerId: string) => {
+    if (voteToKick) {
+      voteToKick(playerId)
+        .then((resp: any) => {
+          console.log("[GamePage] Vote to kick registered:", resp);
+          if (resp.kicked) {
+            setShowKickPlayerModal(false);
+          }
+        })
+        .catch((error: any) => {
+          console.error("[GamePage] Vote to kick failed:", error);
+          // Show error toast or message
+        });
+    }
+  };
+
+  // If player is kicked, show the kicked modal, clear any active timers, and redirect to join page
+  useEffect(() => {
+    if (playerKicked) {
+      // Clear any active timers to prevent memory leaks
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+        countdownTimerRef.current = null;
+      }
+      if (wordSelectionTimerRef.current) {
+        clearInterval(wordSelectionTimerRef.current);
+        wordSelectionTimerRef.current = null;
+      }
+      
+      // Force redirect to join page
+      router.replace('/join');
+    }
+  }, [playerKicked, router]);
+
   // Display loading/error based on hook state OR if not hydrated
   if (
     !_hasHydrated ||
@@ -712,6 +757,11 @@ export default function GamePage() {
         Unexpected connection state: {connectionState}
       </div>
     );
+  }
+
+  // If player is kicked, show the kicked modal
+  if (playerKicked) {
+    return <KickedModal />;
   }
 
   return (
@@ -1393,9 +1443,10 @@ export default function GamePage() {
 
                 {/* Game and Invite Controls */}
                 <div className="border-t border-white/20 mt-2 sm:mt-4 pt-2 sm:pt-4 space-y-2 sm:space-y-3 flex-shrink-0">
-                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  {/* Start Game, Copy Invite, and Vote to Kick buttons in one row */}
+                  <div className="grid grid-cols-3 gap-1 sm:gap-2">
                     <button
-                      className={`py-1.5 sm:py-2 px-2 sm:px-3 rounded-lg font-semibold text-white hover:cursor-pointer text-xs sm:text-sm border backdrop-blur-md shadow-md ${
+                      className={`py-1.5 sm:py-2 px-1 sm:px-2 rounded-lg font-semibold text-white hover:cursor-pointer text-xs sm:text-sm border backdrop-blur-md shadow-md ${
                         playersList.length >= 2 && !gameInfo.currentDrawer
                           ? "bg-gradient-to-r from-green-500/80 to-emerald-500/80 hover:from-green-600/90 hover:to-emerald-600/90 border-green-400/30"
                           : "bg-white/20 cursor-not-allowed border-white/10"
@@ -1458,11 +1509,31 @@ export default function GamePage() {
                           fallbackCopy();
                         }
                       }}
-                      className="py-1.5 sm:py-2 px-2 sm:px-3 bg-white/10 hover:bg-white/20 rounded-md font-medium text-white backdrop-blur-md border border-white/20 transition-colors text-center hover:cursor-pointer text-xs sm:text-sm shadow-md"
+                      className="py-1.5 sm:py-2 px-1 sm:px-2 bg-white/10 hover:bg-white/20 rounded-md font-medium text-white backdrop-blur-md border border-white/20 transition-colors text-center hover:cursor-pointer text-xs sm:text-sm shadow-md"
                     >
                       <span id="admin-copy-btn-text">🔗 {roomId}</span>
                     </button>
+                    
+                    <button
+                      onClick={() => setShowKickPlayerModal(true)}
+                      className="py-1.5 sm:py-2 px-1 sm:px-2 bg-red-500/80 hover:bg-red-600/80 text-white rounded-lg transition-colors duration-200 flex items-center justify-center gap-1 text-xs sm:text-sm border border-white/20 backdrop-blur-md shadow-md"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-3 w-3 sm:h-4 sm:w-4 mr-1"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                      Kick
+                    </button>
                   </div>
+                  
                   <p className="text-xs text-center text-white/60">
                     {playersList.length < 2
                       ? "Need at least 2 players to start."
@@ -1573,8 +1644,33 @@ export default function GamePage() {
                       </div>
                     </div>
 
-                    {/* Close Button */}
-                    <div className="flex gap-2 pt-3 md:gap-3 md:pt-4">
+                    {/* Add Vote to Kick button */}
+                    <div className="mt-4 border-t border-white/20 pt-4">
+                      <button
+                        onClick={() => {
+                          setShowViewOnlySettings(false);
+                          setShowKickPlayerModal(true);
+                        }}
+                        className="w-full bg-red-500/80 hover:bg-red-600/80 text-white px-3 py-2 rounded-lg text-sm transition-colors duration-200 flex items-center justify-center"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 mr-2"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                        Vote to Kick Player
+                      </button>
+                    </div>
+
+                    {/* Copy Invite Button */}
+                    <div className="mt-4">
                       <button
                         onClick={() => {
                           const url = getShareableLink();
@@ -1629,9 +1725,12 @@ export default function GamePage() {
                       >
                         <span id="view-only-copy-btn-text">🔗 Copy Invite</span>
                       </button>
+                    </div>
+
+                    <div className="text-center mt-4">
                       <button
                         onClick={() => setShowViewOnlySettings(false)}
-                        className="w-full px-3 py-1.5 md:px-4 md:py-2 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 text-white rounded-lg hover:from-indigo-600/90 hover:to-purple-600/90 transition-colors font-medium hover:cursor-pointer text-xs md:text-sm border border-white/20 backdrop-blur-md"
+                        className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white text-sm transition-colors"
                       >
                         Close
                       </button>
@@ -1657,6 +1756,13 @@ export default function GamePage() {
           />
         </div>
       </aside>
+
+      {/* Kick Player Modal */}
+      <KickPlayerModal
+        isOpen={showKickPlayerModal}
+        onClose={() => setShowKickPlayerModal(false)}
+        onVote={handleVoteToKick}
+      />
     </main>
   );
 }
