@@ -20,7 +20,8 @@ function JoinPageContent() {
   const [showInstructions, setShowInstructions] = useState(false);
   const [joinMode, setJoinMode] = useState<"play" | "create" | null>(null);
   const [roomIdInput, setRoomIdInput] = useState("");
-  const [selectedAvatar, setSelectedAvatar] = useState("👽");
+  const storeAvatar = usePlayerStore((s) => s.avatar);
+  const [selectedAvatar, setSelectedAvatar] = useState(storeAvatar || "👽");
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -34,7 +35,7 @@ function JoinPageContent() {
   useEffect(() => {
     // Reset kicked status
     setPlayerKicked(false);
-    
+
     // Clear any existing room ID to prevent auto-joining previous room
     const currentRoomId = usePlayerStore.getState().roomId;
     if (currentRoomId) {

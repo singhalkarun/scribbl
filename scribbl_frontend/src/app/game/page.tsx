@@ -58,9 +58,10 @@ export default function GamePage() {
   const [wordSelectionCountdown, setWordSelectionCountdown] = useState(10);
   const [hasSkippedWords, setHasSkippedWords] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [gameJustEnded, setGameJustEnded] = useState(false);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
-  const [specialChars, setSpecialChars] = useState<{index: number, char: string}[]>([]);
+  const [specialChars, setSpecialChars] = useState<
+    { index: number; char: string }[]
+  >([]);
   // New states for turn over modal
   const [showTurnOverModal, setShowTurnOverModal] = useState(false);
   const [turnOverWord, setTurnOverWord] = useState("");
@@ -238,7 +239,7 @@ export default function GamePage() {
             currentRound: payload.round,
           }));
           setCurrentTurnDrawer(payload.drawer); // Store the drawer for this turn
-          
+
           // Reset hasSkippedWords when a new drawer is assigned
           setHasSkippedWords(false);
 
@@ -254,13 +255,13 @@ export default function GamePage() {
           setSuggestedWords(payload.words);
           console.log("[GamePage] Set suggestedWords to:", payload.words);
           setShowWordSelection(true);
-          
+
           // Start 10-second countdown for auto-selection
           setWordSelectionCountdown(10);
           if (wordSelectionTimerRef.current) {
             clearInterval(wordSelectionTimerRef.current);
           }
-          
+
           wordSelectionTimerRef.current = setInterval(() => {
             setWordSelectionCountdown((prev) => {
               if (prev <= 1) {
@@ -274,7 +275,7 @@ export default function GamePage() {
               return prev - 1;
             });
           }, 1000);
-          
+
           // Reset hasSkippedWords when a new drawer is assigned
           // This is important for when a new player becomes the drawer
           if (payload.is_new_drawer) {
@@ -283,46 +284,49 @@ export default function GamePage() {
         });
 
         // Listen for word_auto_selected event (only sent to the drawer when timeout occurs)
-        const wordAutoSelectedRef = channel.on("word_auto_selected", (payload) => {
-          console.log("[GamePage] Received word_auto_selected:", payload);
-          
-          // Clear the word selection timer
-          if (wordSelectionTimerRef.current) {
-            clearInterval(wordSelectionTimerRef.current);
-            wordSelectionTimerRef.current = null;
+        const wordAutoSelectedRef = channel.on(
+          "word_auto_selected",
+          (payload) => {
+            console.log("[GamePage] Received word_auto_selected:", payload);
+
+            // Clear the word selection timer
+            if (wordSelectionTimerRef.current) {
+              clearInterval(wordSelectionTimerRef.current);
+              wordSelectionTimerRef.current = null;
+            }
+
+            // Set the word that was automatically selected
+            setWordToDraw(payload.word);
+            // Hide the word selection overlay if it's still showing
+            setShowWordSelection(false);
+            // Show a notification about the auto-selection
+            usePlayerStore.getState().addMessage({
+              userId: "system",
+              text: payload.message || "Word auto-selected due to timeout!",
+              system: true,
+            });
           }
-          
-          // Set the word that was automatically selected
-          setWordToDraw(payload.word);
-          // Hide the word selection overlay if it's still showing
-          setShowWordSelection(false);
-          // Show a notification about the auto-selection
-          usePlayerStore.getState().addMessage({
-            userId: "system",
-            text: payload.message || "Word auto-selected due to timeout!",
-            system: true,
-          });
-        });
+        );
 
         // Listen for words_skipped event
         const wordsSkippedRef = channel.on("words_skipped", (payload) => {
           console.log("[GamePage] Received words_skipped:", payload);
-          
+
           // Check if the current user is the drawer who skipped
           const isCurrentUserDrawer = payload.drawer === userId;
-          
+
           // Get the player name from the drawer ID
           const drawerName = players[payload.drawer] || "The drawer";
-          
+
           // Show a notification about the skipped words
           usePlayerStore.getState().addMessage({
             userId: "system",
-            text: isCurrentUserDrawer ? 
-              "You skipped to get new words." : 
-              `${drawerName} skipped to get new words.`,
+            text: isCurrentUserDrawer
+              ? "You skipped to get new words."
+              : `${drawerName} skipped to get new words.`,
             system: true,
           });
-          
+
           // Play a sound effect for skipping words
           playSound("letterReveal");
         });
@@ -354,7 +358,10 @@ export default function GamePage() {
           // Set special characters if provided
           if (payload.special_chars) {
             setSpecialChars(payload.special_chars);
-            console.log("[GamePage] Setting special chars:", payload.special_chars);
+            console.log(
+              "[GamePage] Setting special chars:",
+              payload.special_chars
+            );
           } else {
             setSpecialChars([]);
           }
@@ -551,7 +558,7 @@ export default function GamePage() {
           const isCurrentUser = payload.user_id === userId;
 
           // Add a system message about the similar guess
-          const messageText = isCurrentUser 
+          const messageText = isCurrentUser
             ? `You are close!" 🔥`
             : `${guesserName} is close!" 🔥`;
 
@@ -569,7 +576,9 @@ export default function GamePage() {
         const drawingLikedRef = channel.on("drawing_liked", (payload) => {
           console.log("[GamePage] Received drawing_liked:", payload);
           const isCurrentUser = payload.user_id === userId;
-          const playerName = isCurrentUser ? "You" : (players[payload.user_id] || "Someone");
+          const playerName = isCurrentUser
+            ? "You"
+            : players[payload.user_id] || "Someone";
           usePlayerStore.getState().addMessage({
             userId: "system",
             text: `👍 ${playerName} liked the drawing!`,
@@ -580,7 +589,9 @@ export default function GamePage() {
         const drawingDislikedRef = channel.on("drawing_disliked", (payload) => {
           console.log("[GamePage] Received drawing_disliked:", payload);
           const isCurrentUser = payload.user_id === userId;
-          const playerName = isCurrentUser ? "You" : (players[payload.user_id] || "Someone");
+          const playerName = isCurrentUser
+            ? "You"
+            : players[payload.user_id] || "Someone";
           usePlayerStore.getState().addMessage({
             userId: "system",
             text: `👎 ${playerName} disliked the drawing!`,
@@ -717,9 +728,9 @@ export default function GamePage() {
         clearInterval(wordSelectionTimerRef.current);
         wordSelectionTimerRef.current = null;
       }
-      
+
       // Force redirect to join page
-      router.replace('/join');
+      router.replace("/join");
     }
   }, [playerKicked, router]);
 
@@ -877,20 +888,27 @@ export default function GamePage() {
               <p className="text-white/80 mb-4">
                 Click on a word to start your turn
               </p>
-              
+
               {/* Countdown Timer */}
               <div className="mb-6">
                 <p className="text-white/70 text-sm mb-2">
-                  Auto-selecting in: <span className={`font-bold ${wordSelectionCountdown <= 3 ? 'text-red-300' : 'text-cyan-300'}`}>
+                  Auto-selecting in:{" "}
+                  <span
+                    className={`font-bold ${
+                      wordSelectionCountdown <= 3
+                        ? "text-red-300"
+                        : "text-cyan-300"
+                    }`}
+                  >
                     {wordSelectionCountdown}s
                   </span>
                 </p>
                 <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden backdrop-blur-md border border-white/30">
                   <div
                     className={`h-full transition-all duration-1000 ease-linear ${
-                      wordSelectionCountdown <= 3 
-                        ? 'bg-gradient-to-r from-red-400 to-red-500' 
-                        : 'bg-gradient-to-r from-cyan-400 to-blue-400'
+                      wordSelectionCountdown <= 3
+                        ? "bg-gradient-to-r from-red-400 to-red-500"
+                        : "bg-gradient-to-r from-cyan-400 to-blue-400"
                     }`}
                     style={{
                       width: `${(wordSelectionCountdown / 10) * 100}%`,
@@ -909,7 +927,7 @@ export default function GamePage() {
                         clearInterval(wordSelectionTimerRef.current);
                         wordSelectionTimerRef.current = null;
                       }
-                      
+
                       const channel = usePlayerStore.getState().channel;
                       if (channel) {
                         console.log(
@@ -928,7 +946,7 @@ export default function GamePage() {
                   </button>
                 ))}
               </div>
-              
+
               {/* Skip Words Button - Only show if user hasn't skipped yet */}
               {!hasSkippedWords && (
                 <div className="mt-4">
@@ -939,7 +957,7 @@ export default function GamePage() {
                         clearInterval(wordSelectionTimerRef.current);
                         wordSelectionTimerRef.current = null;
                       }
-                      
+
                       const channel = usePlayerStore.getState().channel;
                       if (channel) {
                         console.log("[GamePage] Sending skip_words event");
@@ -961,7 +979,7 @@ export default function GamePage() {
       )}
 
       {/* Left Sidebar - Players and Voice Chat */}
-      <aside className="flex flex-row lg:flex-col gap-2 p-1 lg:p-4 min-h-0 w-full h-[20vh] lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-white/20 lg:bg-transparent">
+      <aside className="flex flex-row flex-shrink-0 lg:flex-col gap-2 p-1 lg:p-4 min-h-0 w-full lg:w-72 xl:w-80 lg:flex-none lg:h-screen lg:border-r lg:border-white/20 lg:bg-transparent">
         {/* Merged Players and Voice Chat Section */}
         <div className="w-full lg:w-auto flex-shrink-0">
           <VoiceChat
@@ -973,7 +991,7 @@ export default function GamePage() {
       </aside>
 
       {/* Canvas area - Fixed height on mobile, grows on lg+ */}
-      <div className="px-1 h-[55vh] lg:h-auto lg:flex-1 lg:p-4 relative">
+      <div className="px-1 flex-shrink-0 min-h-[360px] lg:h-auto lg:flex-1 lg:p-4 relative">
         <div className="relative w-full h-full flex flex-col overflow-hidden">
           {/* Glass backdrop for canvas container */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl"></div>
@@ -998,8 +1016,6 @@ export default function GamePage() {
               onLikeDrawing={handleLikeDrawing}
               onDislikeDrawing={handleDislikeDrawing}
             />
-            
-
           </div>
 
           {/* Room Settings Overlay - Only show to admin when game hasn't started */}
@@ -1513,7 +1529,7 @@ export default function GamePage() {
                     >
                       <span id="admin-copy-btn-text">🔗 {roomId}</span>
                     </button>
-                    
+
                     <button
                       onClick={() => setShowKickPlayerModal(true)}
                       className="py-1.5 sm:py-2 px-1 sm:px-2 bg-red-500/80 hover:bg-red-600/80 text-white rounded-lg transition-colors duration-200 flex items-center justify-center gap-1 text-xs sm:text-sm border border-white/20 backdrop-blur-md shadow-md"
@@ -1533,7 +1549,7 @@ export default function GamePage() {
                       Kick
                     </button>
                   </div>
-                  
+
                   <p className="text-xs text-center text-white/60">
                     {playersList.length < 2
                       ? "Need at least 2 players to start."
@@ -1744,7 +1760,7 @@ export default function GamePage() {
       </div>
 
       {/* Right Sidebar - Chat Only */}
-      <aside className="flex flex-col gap-2 p-1 min-h-0 w-full h-[30vh] lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-white/20 lg:bg-transparent">
+      <aside className="flex flex-col gap-2 p-1 flex-1 min-h-0 w-full lg:w-72 xl:w-80 lg:flex-none lg:p-4 lg:h-screen lg:border-l lg:border-white/20 lg:bg-transparent">
         {/* Chat Section - Full height */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           <Chat
