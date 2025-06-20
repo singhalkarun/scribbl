@@ -69,7 +69,7 @@ interface PlayerStore {
   setPlayerKicked: (kicked: boolean) => void; // Set player kicked status
   clearPlayerInfo: () => void;
   _hasHydrated: boolean; // Flag to track hydration state
-  
+
   // For backward compatibility with existing code
   get kickVoteInfo(): KickVoteInfo | null;
 }
@@ -112,7 +112,7 @@ export const usePlayerStore = create<PlayerStore>()(
           set({ kickVoteInfoMap: {} });
           return;
         }
-        
+
         console.log(`[Store] Setting kickVoteInfo for player ${info.target_player_id}:`, info);
         set((state) => ({
           kickVoteInfoMap: {
@@ -287,20 +287,21 @@ export const usePlayerStore = create<PlayerStore>()(
         }),
       clearPlayerInfo: () => {
         console.log("[Store] Clearing player info to prevent auto-rejoin");
-        
+
         // Force clear localStorage first to ensure player can't rejoin
         if (typeof window !== 'undefined') {
           localStorage.removeItem('player-info-storage');
           // Also clear session storage in case it contains any room info
           sessionStorage.removeItem('roomType');
         }
-        
+
         // Reset all state values
-        set({ 
-          playerName: "", 
-          roomId: "", 
-          userId: "", 
+        set({
+          playerName: "",
+          roomId: "",
+          userId: "",
           adminId: "",
+          avatar: "",
           kickVoteInfoMap: {},
           playerKicked: false,
           players: {},
@@ -321,6 +322,7 @@ export const usePlayerStore = create<PlayerStore>()(
         roomId: state.roomId,
         userId: state.userId,
         adminId: state.adminId,
+        avatar: state.avatar,
       }),
       // Set hydration flag once storage is read
       onRehydrateStorage: () => (state, error) => {

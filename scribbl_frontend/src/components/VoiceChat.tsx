@@ -91,12 +91,12 @@ export default function VoiceChat({
   const playerList = Object.entries(players);
 
   return (
-    <div className="relative flex flex-col h-full select-none w-full lg:w-auto flex-1 lg:flex-initial lg:max-h-[90vh]">
+    <div className="relative flex flex-col h-auto w-full lg:h-full lg:w-auto lg:flex-1 lg:max-h-[90vh]">
       {/* Glass backdrop */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-white/5 to-transparent backdrop-blur-xl border border-white/20 rounded-lg"></div>
 
       {/* Content container */}
-      <div className="relative p-2 lg:p-3 flex flex-col h-full">
+      <div className="relative p-2 lg:p-3 flex flex-col h-auto lg:h-full">
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-bold text-sm lg:text-lg text-white drop-shadow-md">
             Players ({playerList.length})
@@ -145,7 +145,7 @@ export default function VoiceChat({
             </div>
           )}
         </div>
-        <ul className="text-xs lg:text-sm text-white/90 space-y-1.5 overflow-y-auto pr-1 flex-1">
+        <ul className="flex flex-row overflow-x-auto space-x-2 text-xs lg:text-sm text-white/90 pr-1 flex-1 lg:flex-col lg:overflow-y-auto lg:space-x-0 lg:space-y-1.5">
           {playerList.length > 0 ? (
             playerList.map(([id, name]) => {
               const score = scores[id] || 0;
@@ -154,7 +154,10 @@ export default function VoiceChat({
               const avatar = playerAvatars[id] || "👤";
 
               return (
-                <li key={id} className="relative">
+                <li
+                  key={id}
+                  className="relative flex-shrink-0 min-w-[110px] max-w-[140px] lg:min-w-0 lg:max-w-none"
+                >
                   {/* Player item glass backdrop */}
                   <div
                     className={`absolute inset-0 backdrop-blur-md border rounded-md transition-all duration-300 ${
@@ -165,20 +168,16 @@ export default function VoiceChat({
                   ></div>
 
                   {/* Player item content */}
-                  <div className="relative flex items-center justify-between gap-2 p-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
+                  <div className="relative flex flex-col lg:flex-row items-center justify-between gap-1 lg:gap-2 p-1 lg:p-1.5">
+                    <div className="flex items-center gap-1 lg:gap-2 min-w-0">
                       <span className="text-sm lg:text-lg flex-shrink-0">
                         {id === currentDrawerId ? "✏️" : avatar}
                       </span>
-                      <span className="truncate text-xs lg:text-sm font-normal text-white/90 drop-shadow-md">
-                        {name === currentPlayerName ? (
-                          <b>{name} (You)</b>
-                        ) : (
-                          name
-                        )}
+                      <span className="truncate text-xs lg:text-sm font-normal text-white/90 drop-shadow-md max-w-[70px] lg:max-w-[100px]">
+                        {isSelf ? <b>{name} (You)</b> : name}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 lg:gap-2">
                       <span className="font-medium text-cyan-300 flex-shrink-0 text-xs lg:text-sm drop-shadow-md">
                         {score} pts
                       </span>
