@@ -43,7 +43,8 @@ defmodule ScribblBackend.MixProject do
       {:phoenix_pubsub_redis, "~> 3.0"},
       {:uuid, "~> 1.1"},
       {:redix, "~> 1.5"},
-      {:cors_plug, "~> 3.0"}
+      {:cors_plug, "~> 3.0"},
+      {:httpoison, "~> 2.0"}
     ]
   end
 

@@ -14,6 +14,9 @@ defmodule ScribblBackendWeb.Router do
 
     # Image generation endpoints
     post "/images/game-over", ImageController, :generate_game_over_image
+
+    # OTP endpoints
+    get "/otp/send", OTPController, :send_otp
   end
 
   # Enable LiveDashboard in development
