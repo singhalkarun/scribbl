@@ -44,7 +44,9 @@ defmodule ScribblBackend.MixProject do
       {:uuid, "~> 1.1"},
       {:redix, "~> 1.5"},
       {:cors_plug, "~> 3.0"},
-      {:httpoison, "~> 2.0"}
+      {:httpoison, "~> 2.0"},
+      {:ecto_sql, "~> 3.10"},
+      {:postgrex, "~> 0.19.0"}
     ]
   end
 
@@ -57,7 +59,9 @@ defmodule ScribblBackend.MixProject do
   defp aliases do
     [
       setup: ["deps.get"],
-      test: ["test"]
+      test: ["test"],
+      "ecto.setup": ["ecto.create", "ecto.migrate"],
+      "ecto.reset": ["ecto.drop", "ecto.setup"]
     ]
   end
 end

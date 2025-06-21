@@ -9,6 +9,7 @@ defmodule ScribblBackend.Application do
   def start(_type, _args) do
     children = [
       ScribblBackendWeb.Telemetry,
+      ScribblBackend.Repo,
       {DNSCluster, query: Application.get_env(:scribbl_backend, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub,
        name: ScribblBackend.PubSub,

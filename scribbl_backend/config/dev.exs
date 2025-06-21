@@ -2,6 +2,16 @@ import Config
 
 config :logger, level: :debug
 
+# Configure your database
+config :scribbl_backend, ScribblBackend.Repo,
+  username: "postgres",
+  password: "postgres",
+  hostname: "localhost",
+  database: "scribbl_backend_dev",
+  stacktrace: true,
+  show_sensitive_data_on_connection_error: true,
+  pool_size: 10
+
 # For development, we disable any cache and enable
 # debugging and code reloading.
 #

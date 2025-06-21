@@ -20,6 +20,13 @@ if System.get_env("PHX_SERVER") do
   config :scribbl_backend, ScribblBackendWeb.Endpoint, server: true
 end
 
+# Configure the database for all environments from DATABASE_URL
+if database_url = System.get_env("DATABASE_URL") do
+  config :scribbl_backend, ScribblBackend.Repo,
+    url: database_url,
+    pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
+end
+
 # CORS Configuration
 cors_origins =
   case System.get_env("CORS_ALLOWED_ORIGINS") do

@@ -8,7 +8,8 @@
 import Config
 
 config :scribbl_backend,
-  generators: [timestamp_type: :utc_datetime]
+  generators: [timestamp_type: :utc_datetime],
+  ecto_repos: [ScribblBackend.Repo]
 
 # Configures the endpoint
 config :scribbl_backend, ScribblBackendWeb.Endpoint,
