@@ -10,7 +10,7 @@ services:
       - pgdata:/var/lib/postgresql/data
 
   scribbl_backend_1:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
@@ -24,7 +24,7 @@ services:
       - postgres
 
   scribbl_backend_2:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
@@ -38,7 +38,7 @@ services:
       - postgres
 
   scribbl_backend_3:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
@@ -52,7 +52,7 @@ services:
       - postgres
 
   scribbl_backend_4:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
