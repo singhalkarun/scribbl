@@ -1,3 +1,7 @@
 api.{$DOMAIN_NAME} {
   reverse_proxy scribbl_backend_1:4000 scribbl_backend_2:4000 scribbl_backend_3:4000 scribbl_backend_4:4000
 }
+
+auth.{$DOMAIN_NAME} {
+  reverse_proxy auth:8080
+}
