@@ -21,8 +21,8 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Final stage - minimal Alpine image
 FROM alpine:3.21
 
-# Install wget for health checks and CA certificates
-RUN apk add --no-cache wget ca-certificates
+# Install CA certificates for HTTPS
+RUN apk add --no-cache ca-certificates
 
 # Create non-root user
 RUN addgroup -g 1001 -S appuser && \
@@ -38,9 +38,5 @@ RUN chown appuser:appuser /auth-service
 USER appuser
 
 EXPOSE 8080
-
-# Add health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 CMD ["/auth-service"] 
