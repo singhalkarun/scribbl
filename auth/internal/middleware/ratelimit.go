@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -49,19 +48,31 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		var phone string
+		var originalBody []byte
+		
 		if strings.Contains(r.URL.Path, "/auth/request-otp") {
+			// Read the entire body first
+			var err error
+			originalBody, err = io.ReadAll(r.Body)
+			if err != nil {
+				sendJSONError(w, "Failed to read request body", http.StatusBadRequest)
+				return
+			}
+			r.Body.Close()
+			
+			// Try to parse the phone number for rate limiting
 			type req struct {
 				Phone string `json:"phone"`
 			}
 			var body req
-			if err := json.NewDecoder(r.Body).Decode(&body); err == nil {
+			if json.Unmarshal(originalBody, &body) == nil {
 				phone = body.Phone
 			}
-			if phone != "" {
-				jsonBody := fmt.Sprintf(`{"phone":"%s"}`, phone)
-				r.Body = io.NopCloser(strings.NewReader(jsonBody))
-			}
+			
+			// Always reconstruct the body for the handler to use
+			r.Body = io.NopCloser(strings.NewReader(string(originalBody)))
 		}
+		
 		if phone != "" {
 			key := "rl:" + phone
 			count, _ := storage.RedisClient.Incr(storage.GetContext(), key).Result()

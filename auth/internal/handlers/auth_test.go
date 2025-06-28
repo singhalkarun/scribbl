@@ -477,3 +477,270 @@ func TestSpecialPhoneOTPFormat(t *testing.T) {
 		t.Errorf("Test phone OTP has wrong length: expected 4, got %d", len(otp))
 	}
 }
+
+// TestJSONErrorResponses tests that all error scenarios return proper JSON format
+func TestJSONErrorResponses(t *testing.T) {
+	os.Setenv("SECRET_KEY_BASE", "testsecret")
+	storage.InitRedis()
+	origSend := utils.SendOTPWith2Factor
+	utils.SendOTPWith2Factor = mockSendOTPWith2Factor
+	defer func() { utils.SendOTPWith2Factor = origSend }()
+	flushRedis()
+
+	// Helper function to validate error response JSON structure
+	validateErrorResponse := func(t *testing.T, body []byte, expectedError string, expectedMessage string, expectedCode int) {
+		var errorResp ErrorResponse
+		if err := json.Unmarshal(body, &errorResp); err != nil {
+			t.Fatalf("Failed to decode error response as JSON: %v", err)
+		}
+		if errorResp.Error != expectedError {
+			t.Errorf("Expected error type '%s', got '%s'", expectedError, errorResp.Error)
+		}
+		if errorResp.Message != expectedMessage {
+			t.Errorf("Expected message '%s', got '%s'", expectedMessage, errorResp.Message)
+		}
+		if errorResp.Code != expectedCode {
+			t.Errorf("Expected code %d, got %d", expectedCode, errorResp.Code)
+		}
+	}
+
+	t.Run("request-otp empty body", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/auth/request-otp", bytes.NewReader([]byte("{}")))
+		rec := httptest.NewRecorder()
+		RequestOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Phone number is required", 400)
+	})
+
+	t.Run("request-otp invalid JSON", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/auth/request-otp", bytes.NewReader([]byte("invalid-json")))
+		rec := httptest.NewRecorder()
+		RequestOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Invalid JSON format in request body", 400)
+	})
+
+	t.Run("request-otp malformed JSON with newlines", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/auth/request-otp", bytes.NewReader([]byte("{\n    \n}")))
+		rec := httptest.NewRecorder()
+		RequestOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Phone number is required", 400)
+	})
+
+	t.Run("request-otp invalid phone format", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"phone": "invalid-phone"})
+		req := httptest.NewRequest("POST", "/auth/request-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		RequestOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Phone number must be in E.164 format (e.g., +919876543210)", 400)
+	})
+
+	t.Run("verify-otp empty body", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader([]byte("{}")))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Phone number is required", 400)
+	})
+
+	t.Run("verify-otp invalid JSON", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader([]byte("not-json")))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Invalid JSON format in request body", 400)
+	})
+
+	t.Run("verify-otp missing phone", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"otp": "1234"})
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Phone number is required", 400)
+	})
+
+	t.Run("verify-otp missing OTP", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"phone": "+919876543210"})
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "OTP is required", 400)
+	})
+
+	t.Run("verify-otp invalid phone format", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"phone": "invalid", "otp": "1234"})
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "Phone number must be in E.164 format (e.g., +919876543210)", 400)
+	})
+
+	t.Run("verify-otp invalid OTP format", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"phone": "+919876543210", "otp": "123"})
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("Expected 400, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST", "OTP must be exactly 4 digits", 400)
+	})
+
+	t.Run("verify-otp invalid/expired OTP", func(t *testing.T) {
+		body, _ := json.Marshal(map[string]string{"phone": "+919876543210", "otp": "1234"})
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf("Expected 401, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "UNAUTHORIZED", "Invalid or expired OTP. Please request a new one", 401)
+	})
+
+	t.Run("verify-otp missing JWT secret", func(t *testing.T) {
+		// Store valid OTP first
+		phone := "+919876543210"
+		otp := "1234"
+		expireAt := time.Now().Add(5 * time.Minute)
+		models.StoreOTP(phone, otp, expireAt)
+
+		// Temporarily unset SECRET_KEY_BASE
+		originalSecret := os.Getenv("SECRET_KEY_BASE")
+		os.Unsetenv("SECRET_KEY_BASE")
+		defer os.Setenv("SECRET_KEY_BASE", originalSecret)
+
+		body, _ := json.Marshal(map[string]string{"phone": phone, "otp": otp})
+		req := httptest.NewRequest("POST", "/auth/verify-otp", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		VerifyOTPHandler(rec, req)
+		
+		if rec.Code != http.StatusInternalServerError {
+			t.Fatalf("Expected 500, got %d", rec.Code)
+		}
+		validateErrorResponse(t, rec.Body.Bytes(), "INTERNAL_SERVER_ERROR", "Authentication service configuration error", 500)
+	})
+}
+
+// TestRateLimitJSONResponse tests that rate limiting returns proper JSON format
+func TestRateLimitJSONResponse(t *testing.T) {
+	storage.InitRedis()
+	flushRedis()
+	origSend := utils.SendOTPWith2Factor
+	utils.SendOTPWith2Factor = mockSendOTPWith2Factor
+	defer func() { utils.SendOTPWith2Factor = origSend }()
+	
+	server := setupTestServer()
+	defer server.Close()
+	client := server.Client()
+	
+	phone := "+919990001111"
+	body, _ := json.Marshal(map[string]string{"phone": phone})
+	url := server.URL + "/auth/request-otp"
+	
+	// Make 5 requests to hit the rate limit
+	for i := 0; i < 5; i++ {
+		resp, err := client.Post(url, "application/json", bytes.NewReader(body))
+		if err != nil {
+			t.Fatalf("http post error: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected 200, got %d on attempt %d", resp.StatusCode, i+1)
+		}
+		resp.Body.Close()
+	}
+	
+	// 6th request should be rate limited with proper JSON response
+	resp, err := client.Post(url, "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatalf("http post error: %v", err)
+	}
+	if resp.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d on rate limit", resp.StatusCode)
+	}
+	
+	// Validate JSON response structure
+	var errorResp ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&errorResp); err != nil {
+		t.Fatalf("Failed to decode rate limit response as JSON: %v", err)
+	}
+	resp.Body.Close()
+	
+	if errorResp.Error != "TOO_MANY_REQUESTS" {
+		t.Errorf("Expected error type 'TOO_MANY_REQUESTS', got '%s'", errorResp.Error)
+	}
+	if errorResp.Message != "Rate limit exceeded. Please try again later" {
+		t.Errorf("Expected specific rate limit message, got '%s'", errorResp.Message)
+	}
+	if errorResp.Code != 429 {
+		t.Errorf("Expected code 429, got %d", errorResp.Code)
+	}
+}
+
+// TestMiddlewareBodyReconstruction tests that the rate limit middleware properly reconstructs request body
+func TestMiddlewareBodyReconstruction(t *testing.T) {
+	storage.InitRedis()
+	flushRedis()
+	origSend := utils.SendOTPWith2Factor
+	utils.SendOTPWith2Factor = mockSendOTPWith2Factor
+	defer func() { utils.SendOTPWith2Factor = origSend }()
+	
+	// Test with empty JSON body that should trigger "Phone number is required"
+	server := setupTestServer()
+	defer server.Close()
+	client := server.Client()
+	
+	url := server.URL + "/auth/request-otp"
+	resp, err := client.Post(url, "application/json", bytes.NewReader([]byte("{}")))
+	if err != nil {
+		t.Fatalf("http post error: %v", err)
+	}
+	
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+	
+	var errorResp ErrorResponse
+	if err := json.NewDecoder(resp.Body).Decode(&errorResp); err != nil {
+		t.Fatalf("Failed to decode response as JSON: %v", err)
+	}
+	resp.Body.Close()
+	
+	// This should be "Phone number is required" not "Invalid JSON format"
+	if errorResp.Message != "Phone number is required" {
+		t.Errorf("Expected 'Phone number is required', got '%s' - middleware didn't properly reconstruct body", errorResp.Message)
+	}
+}
