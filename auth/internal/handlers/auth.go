@@ -29,6 +29,39 @@ type AuthResponse struct {
 	Token   string `json:"token,omitempty"`
 }
 
+// ErrorResponse represents a standardized error response
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+}
+
+// sendJSONError sends a JSON error response
+func sendJSONError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	
+	var errorType string
+	switch statusCode {
+	case http.StatusBadRequest:
+		errorType = "BAD_REQUEST"
+	case http.StatusUnauthorized:
+		errorType = "UNAUTHORIZED"
+	case http.StatusInternalServerError:
+		errorType = "INTERNAL_SERVER_ERROR"
+	default:
+		errorType = "ERROR"
+	}
+	
+	response := ErrorResponse{
+		Error:   errorType,
+		Message: message,
+		Code:    statusCode,
+	}
+	
+	json.NewEncoder(w).Encode(response)
+}
+
 // validatePhoneFormat validates E.164 format (must start with + followed by country code and number)
 func validatePhoneFormat(phone string) error {
 	// E.164 format validation: + followed by country code (1-3 digits) and subscriber number
@@ -51,15 +84,20 @@ func validateOTPFormat(otp string) error {
 
 func RequestOTPHandler(w http.ResponseWriter, r *http.Request) {
 	var req RequestOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Phone == "" {
-		log.Printf("Invalid OTP request: %v", err)
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Invalid JSON in OTP request: %v", err)
+		sendJSONError(w, "Invalid JSON format in request body", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Phone == "" {
+		sendJSONError(w, "Phone number is required", http.StatusBadRequest)
 		return
 	}
 
 	// Validate phone format (E.164 format validation)
 	if err := validatePhoneFormat(req.Phone); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -67,55 +105,74 @@ func RequestOTPHandler(w http.ResponseWriter, r *http.Request) {
 	expireAt := time.Now().Add(5 * time.Minute)
 	if err := utils.SendOTPWith2Factor(req.Phone, otp); err != nil {
 		log.Printf("Failed to send OTP to phone %s: %v", req.Phone, err)
-		http.Error(w, "Failed to send OTP", http.StatusInternalServerError)
+		sendJSONError(w, "Failed to send OTP. Please try again later", http.StatusInternalServerError)
 		return
 	}
 	if err := models.StoreOTP(req.Phone, otp, expireAt); err != nil {
 		log.Printf("Failed to store OTP for phone %s: %v", req.Phone, err)
-		http.Error(w, "Failed to store OTP", http.StatusInternalServerError)
+		sendJSONError(w, "Failed to process OTP request. Please try again later", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(AuthResponse{Message: "OTP sent"})
+	json.NewEncoder(w).Encode(AuthResponse{Message: "OTP sent successfully"})
 }
 
 func VerifyOTPHandler(w http.ResponseWriter, r *http.Request) {
 	var req VerifyOTPRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Phone == "" || req.OTP == "" {
-		http.Error(w, "Invalid request", http.StatusBadRequest)
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		log.Printf("Invalid JSON in verify OTP request: %v", err)
+		sendJSONError(w, "Invalid JSON format in request body", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Phone == "" {
+		sendJSONError(w, "Phone number is required", http.StatusBadRequest)
+		return
+	}
+	
+	if req.OTP == "" {
+		sendJSONError(w, "OTP is required", http.StatusBadRequest)
 		return
 	}
 
 	// Validate phone format for verify as well
 	if err := validatePhoneFormat(req.Phone); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Validate OTP format
 	if err := validateOTPFormat(req.OTP); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		sendJSONError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if !models.VerifyOTP(req.Phone, req.OTP) {
-		http.Error(w, "Invalid or expired OTP", http.StatusUnauthorized)
+		sendJSONError(w, "Invalid or expired OTP. Please request a new one", http.StatusUnauthorized)
 		return
 	}
 	if err := models.CreateUserIfNotExists(req.Phone); err != nil {
-		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		log.Printf("Failed to create user for phone %s: %v", req.Phone, err)
+		sendJSONError(w, "Failed to create user account. Please try again later", http.StatusInternalServerError)
 		return
 	}
 	jwtSecret := os.Getenv("SECRET_KEY_BASE")
+	if jwtSecret == "" {
+		log.Printf("SECRET_KEY_BASE environment variable not set")
+		sendJSONError(w, "Authentication service configuration error", http.StatusInternalServerError)
+		return
+	}
+	
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"phone": req.Phone,
 		"exp":   time.Now().Add(24 * time.Hour).Unix(),
 	})
 	tokenString, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
-		http.Error(w, "Failed to sign token", http.StatusInternalServerError)
+		log.Printf("Failed to sign JWT token: %v", err)
+		sendJSONError(w, "Failed to generate authentication token", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(AuthResponse{Message: "Authenticated", Token: tokenString})
+	json.NewEncoder(w).Encode(AuthResponse{Message: "Authentication successful", Token: tokenString})
 }
