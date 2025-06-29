@@ -23,7 +23,7 @@ type ErrorResponse struct {
 func sendJSONError(w http.ResponseWriter, message string, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	
+
 	var errorType string
 	switch statusCode {
 	case http.StatusTooManyRequests:
@@ -31,13 +31,13 @@ func sendJSONError(w http.ResponseWriter, message string, statusCode int) {
 	default:
 		errorType = "ERROR"
 	}
-	
+
 	response := ErrorResponse{
 		Error:   errorType,
 		Message: message,
 		Code:    statusCode,
 	}
-	
+
 	json.NewEncoder(w).Encode(response)
 }
 
@@ -49,7 +49,7 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 		}
 		var phone string
 		var originalBody []byte
-		
+
 		if strings.Contains(r.URL.Path, "/auth/request-otp") {
 			// Read the entire body first
 			var err error
@@ -59,7 +59,7 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 				return
 			}
 			r.Body.Close()
-			
+
 			// Try to parse the phone number for rate limiting
 			type req struct {
 				Phone string `json:"phone"`
@@ -68,18 +68,18 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 			if json.Unmarshal(originalBody, &body) == nil {
 				phone = body.Phone
 			}
-			
+
 			// Always reconstruct the body for the handler to use
 			r.Body = io.NopCloser(strings.NewReader(string(originalBody)))
 		}
-		
+
 		if phone != "" {
 			key := "rl:" + phone
 			count, _ := storage.RedisClient.Incr(storage.GetContext(), key).Result()
 			if count == 1 {
 				storage.RedisClient.Expire(storage.GetContext(), key, time.Minute)
 			}
-			
+
 			// Get rate limit from environment variable, default to 5 if not set or invalid
 			rateLimitStr := os.Getenv("RATE_LIMIT_PER_MINUTE")
 			rateLimit := 5 // Default value
@@ -88,7 +88,7 @@ func RateLimitMiddleware(next http.Handler) http.Handler {
 					rateLimit = parsedLimit
 				}
 			}
-			
+
 			if count > int64(rateLimit) {
 				sendJSONError(w, "Rate limit exceeded. Please try again later", http.StatusTooManyRequests)
 				return

@@ -14,7 +14,7 @@ func CorsMiddleware(next http.Handler) http.Handler {
 			// Default to localhost for development
 			allowedOrigins = "http://localhost:3000,http://localhost:3001"
 		}
-		
+
 		origin := r.Header.Get("Origin")
 		if origin != "" {
 			origins := strings.Split(allowedOrigins, ",")
@@ -25,11 +25,11 @@ func CorsMiddleware(next http.Handler) http.Handler {
 				}
 			}
 		}
-		
+
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		w.Header().Set("Access-Control-Allow-Credentials", "true")
-		
+
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return

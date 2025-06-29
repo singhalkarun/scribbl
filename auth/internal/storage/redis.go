@@ -22,15 +22,15 @@ func InitRedis() {
 		if host == "" {
 			host = "localhost"
 		}
-		
+
 		port := os.Getenv("REDIS_PORT")
 		if port == "" {
 			port = "6379"
 		}
-		
+
 		addr := host + ":" + port
 		password := os.Getenv("REDIS_PASSWORD")
-		
+
 		// Parse Redis DB (defaults to 0)
 		dbStr := os.Getenv("REDIS_DB")
 		if dbStr == "" {
@@ -41,7 +41,7 @@ func InitRedis() {
 			log.Printf("Invalid REDIS_DB value '%s', using default 0", dbStr)
 			db = 0
 		}
-		
+
 		RedisClient = redis.NewClient(&redis.Options{
 			Addr:         addr,
 			Password:     password,
@@ -53,11 +53,11 @@ func InitRedis() {
 			MinIdleConns: 5,
 			MaxRetries:   3,
 		})
-		
+
 		// Test Redis connection during startup with timeout
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		
+
 		_, pingErr := RedisClient.Ping(ctx).Result()
 		if pingErr != nil {
 			log.Fatalf("Failed to connect to Redis at %s: %v", addr, pingErr)

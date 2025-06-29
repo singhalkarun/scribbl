@@ -9,12 +9,25 @@ import (
 	"syscall"
 	"time"
 
+	"auth/internal/config"
 	"auth/internal/handlers"
 	"auth/internal/middleware"
 	"auth/internal/storage"
 
 	"github.com/joho/godotenv"
 )
+
+// methodHandler wraps a handler to only accept specific HTTP methods
+func methodHandler(method string, handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != method {
+			w.Header().Set("Allow", method)
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		handler(w, r)
+	}
+}
 
 func main() {
 	// Load environment variables
@@ -25,6 +38,9 @@ func main() {
 	// Initialize Redis connection
 	storage.InitRedis()
 
+	// Initialize PostgreSQL connection
+	storage.InitPostgres()
+
 	// Validate required environment variables (using same names as scribbl_backend)
 	requiredEnvVars := []string{"SECRET_KEY_BASE", "TWO_FACTOR_API_KEY", "OTP_TEMPLATE_NAME"}
 	for _, envVar := range requiredEnvVars {
@@ -33,17 +49,21 @@ func main() {
 		}
 	}
 
-	// Get port from environment or default to 8080
+	// Get port from environment or use default
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = config.DefaultPort
 	}
 
 	// Setup HTTP routes
 	mux := http.NewServeMux()
 	mux.Handle("/auth/request-otp", middleware.CorsMiddleware(middleware.RateLimitMiddleware(http.HandlerFunc(handlers.RequestOTPHandler))))
 	mux.Handle("/auth/verify-otp", middleware.CorsMiddleware(http.HandlerFunc(handlers.VerifyOTPHandler)))
-	
+
+	// Protected user endpoints
+	mux.Handle("/auth/user", middleware.CorsMiddleware(middleware.AuthMiddleware(methodHandler("GET", handlers.GetUserHandler))))
+	mux.Handle("/auth/user/update", middleware.CorsMiddleware(middleware.AuthMiddleware(methodHandler("PUT", handlers.UpdateUserHandler))))
+
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
