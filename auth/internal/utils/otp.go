@@ -33,7 +33,7 @@ var SendOTPWith2Factor = func(phone, otp string) error {
 	if phone == "+19999999999" {
 		return nil
 	}
-	
+
 	apiKey := os.Getenv("TWO_FACTOR_API_KEY")
 	templateName := os.Getenv("OTP_TEMPLATE_NAME")
 	if apiKey == "" || templateName == "" {
@@ -41,13 +41,13 @@ var SendOTPWith2Factor = func(phone, otp string) error {
 		log.Printf("OTP send failed for phone %s: %v", phone, err)
 		return err
 	}
-	
+
 	// Remove + prefix if present for API call (matching Elixir implementation)
 	phoneForAPI := strings.TrimPrefix(phone, "+")
-	
+
 	// Use custom OTP endpoint with template name from env
 	url := fmt.Sprintf("https://2factor.in/API/V1/%s/SMS/%s/%s/%s", apiKey, phoneForAPI, otp, templateName)
-	
+
 	// Make GET request (matching Elixir implementation)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -55,19 +55,19 @@ var SendOTPWith2Factor = func(phone, otp string) error {
 		return err
 	}
 	defer resp.Body.Close()
-	
+
 	var result sendOTPResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		log.Printf("OTP send failed for phone %s: JSON decode error: %v", phone, err)
 		return err
 	}
-	
+
 	if resp.StatusCode != 200 || result.Status != "Success" {
 		err := fmt.Errorf("2factor send failed: %s", result.Message)
-		log.Printf("OTP send failed for phone %s: 2Factor API error - Status Code: %d, Status: %s, Message: %s, Details: %s", 
+		log.Printf("OTP send failed for phone %s: 2Factor API error - Status Code: %d, Status: %s, Message: %s, Details: %s",
 			phone, resp.StatusCode, result.Status, result.Message, result.Details)
 		return err
 	}
-	
+
 	return nil
 }

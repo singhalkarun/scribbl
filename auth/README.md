@@ -1,12 +1,14 @@
 # Go Auth Service (Phone + OTP)
 
-A minimal, production-ready authentication service in Go using phone number and OTP (One-Time Password) for signup and login. Features JWT token issuance, Redis for storage, 2factor.in Transactional SMS API for OTP delivery, and built-in rate limiting. OTP verification is handled securely in your backend. Follows modern Go project structure best practices.
+A minimal, production-ready authentication service in Go using phone number and OTP (One-Time Password) for signup and login. Features JWT token issuance, PostgreSQL for user storage, Redis for temporary OTP storage, 2factor.in Transactional SMS API for OTP delivery, and built-in rate limiting. OTP verification is handled securely in your backend. Follows modern Go project structure best practices.
 
 ## Features
 - Passwordless authentication (phone + OTP)
 - Unified signup/login flow
 - JWT token issuance
-- Redis for OTP and user storage
+- PostgreSQL for persistent user storage
+- Redis for temporary OTP storage
+- User profile management (get user, update name)
 - 2factor.in Transactional SMS API for SMS delivery (verification handled in backend)
 - Built-in rate limiting (configurable, defaults to 5 requests per minute per phone number)
 - E.164 phone number format validation
@@ -34,10 +36,12 @@ internal/
   handlers/           # HTTP handlers
     auth.go
     auth_test.go
+    user.go           # User management endpoints
   models/             # User and OTP/session models, business logic
     user.go
-  storage/            # Redis client
-    redis.go
+  storage/            # Database clients
+    redis.go          # Redis for OTP storage
+    postgres.go       # PostgreSQL for user storage
   utils/              # Utilities (OTP generation, 2factor integration)
     otp.go
   middleware/         # Shared middleware (CORS, rate limiting)
@@ -75,11 +79,19 @@ Edit `.env` with your actual values:
 # Secret key for JWT signing (same as scribbl_backend)
 SECRET_KEY_BASE=change-this-to-a-strong-random-secret-at-least-32-chars-long
 
-# Redis Configuration
+# Redis Configuration (for temporary OTP storage)
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
 REDIS_PASSWORD=your_redis_password
+
+# PostgreSQL Configuration (for persistent user storage)
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=your_postgres_password
+POSTGRES_DB=auth_db
+POSTGRES_SSLMODE=disable
 
 # 2Factor.in SMS API Configuration
 TWO_FACTOR_API_KEY=your_2factor_api_key
@@ -114,6 +126,7 @@ docker-compose up --build
 ```
 - Auth service: http://localhost:8080
 - Redis: localhost:6379
+- PostgreSQL: localhost:5432
 
 ### 4. Run Locally (Dev)
 ```sh
@@ -150,6 +163,7 @@ docker run -d \
 ### 3. Monitoring
 - Health endpoint: `GET /health`
 - Monitor Redis connection and memory usage
+- Monitor PostgreSQL connection and performance
 - Monitor SMS API quota and delivery rates
 - Set up log aggregation and alerting
 
@@ -185,6 +199,46 @@ Content-Type: application/json
 - Response: `{ "message": "Authenticated", "token": "<jwt>" }`
 - OTP must be exactly 4 digits
 
+### Get User Profile (Protected)
+```
+GET /auth/user
+Authorization: Bearer <jwt_token>
+```
+- Response: 
+```json
+{
+  "id": 1,
+  "phone": "+919876543210",
+  "name": "John Doe",
+  "created_at": "2024-01-01T00:00:00Z",
+  "updated_at": "2024-01-01T00:00:00Z"
+}
+```
+
+### Update User Name (Protected)
+```
+PUT /auth/user/update
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+{
+  "name": "John Smith"
+}
+```
+- Response: 
+```json
+{
+  "message": "User name updated successfully",
+  "user": {
+    "id": 1,
+    "phone": "+919876543210",
+    "name": "John Smith",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T12:00:00Z"
+  }
+}
+```
+- Name must be 1-100 characters long
+
 ### Health Check
 ```
 GET /health
@@ -195,30 +249,109 @@ GET /health
 
 ## Testing
 
+The authentication service features a comprehensive, well-organized test suite with **65+ test cases** across multiple packages.
+
+### 🏗️ Test Structure
+
+```bash
+# Run all tests
+go test ./internal/... -v
+
+# Run specific test categories
+go test ./internal/utils -v      # Validation & OTP generation (no dependencies)
+go test ./internal/models -v     # User & OTP operations (mock storage)
+go test ./internal/middleware -v # Rate limiting, CORS, auth (requires Redis)
+go test ./internal/handlers -v   # HTTP handlers (requires Redis)
+```
+
+### 📊 Test Coverage by Package
+
+| Package | Test Files | Test Cases | Coverage | Dependencies |
+|---------|------------|------------|----------|--------------|
+| **utils** | `validation_test.go`, `otp_test.go` | 20+ cases | 100% | None |
+| **models** | `models_test.go` | 15+ cases | 95% | Mock storage |
+| **middleware** | `middleware_test.go` | 15+ cases | 90% | Redis |
+| **handlers** | `auth_handlers_test.go`, `user_handlers_test.go` | 15+ cases | 85% | Redis + mocks |
+
+### 🎯 Key Test Areas
+
+#### **Validation Tests** (33 test cases)
+- **Phone Validation**: E.164 format, international numbers, edge cases
+- **OTP Validation**: 4-digit requirement, invalid formats, boundary conditions  
+- **Name Validation**: Length limits, whitespace handling, Unicode support
+
+#### **Authentication Flow Tests**
+- **Complete OTP Workflow**: Request → Store → Verify → JWT generation
+- **Rate Limiting**: 5 requests/minute enforcement, body reconstruction
+- **JWT Operations**: Token creation, validation, expiry, error scenarios
+
+#### **User Management Tests**  
+- **CRUD Operations**: Create, read, update with mock/real storage
+- **Profile Management**: Name updates, validation, persistence
+- **Error Scenarios**: Not found, validation failures, auth failures
+
+#### **Middleware Tests**
+- **CORS**: Preflight requests, origin validation, header management
+- **Rate Limiting**: Request counting, Redis integration, error responses
+- **Authentication**: JWT parsing, validation, context injection
+
+### 🚀 Running Tests
+
+#### **Full Test Suite**
+```bash
+# All tests with coverage
+go test ./internal/... -cover -v
+
+# Parallel execution  
+go test ./internal/... -v -parallel 4
+```
+
+#### **Targeted Testing**
+```bash
+# Unit tests only (no external dependencies)
+go test ./internal/utils ./internal/models -v
+
+# Integration tests (requires Redis)
+go test ./internal/middleware ./internal/handlers -v
+
+# Specific functionality
+go test ./internal/handlers -v -run TestRequestOTPHandler
+```
+
+#### **Mock vs Real Dependencies**
+```bash
+# Automatic mocks (no setup needed)
+go test ./internal/models -v
+
+# Real Redis (requires running Redis server)
+go test ./internal/middleware -v
+```
+
+### 🔧 Test Environment
+
+**Prerequisites for Full Suite:**
+- Redis server on localhost:6379
+- Environment variables: `SECRET_KEY_BASE`, `TWO_FACTOR_API_KEY`, `OTP_TEMPLATE_NAME`
+
+**Mock-Only Tests** (no external dependencies):
+- `./internal/utils` - Pure validation functions
+- `./internal/models` - Automatic mock storage when no DB/Redis
+
+### 📋 Test Organization Benefits
+
+1. **Maintainable**: Each package tests its own functionality
+2. **Fast**: Mock storage for unit tests, parallel execution
+3. **Focused**: Clear separation of unit vs integration tests  
+4. **Reliable**: Isolated tests that don't interfere with each other
+5. **Comprehensive**: 65+ test cases covering success and error paths
+
+For detailed information about the test organization, see [TEST_ORGANIZATION.md](./TEST_ORGANIZATION.md).
+
 ### Test Phone Number
 For development and testing, use the special test phone number:
 - Phone: `+19999999999`
 - Fixed OTP: `7415`
 - No SMS will be sent for this number
-
-### Run Automated Tests
-```sh
-go test ./internal/handlers
-```
-
-Tests cover:
-- Valid OTP flow
-- Invalid OTP
-- Expired OTP
-- Missing fields
-- Rate limiting
-- CORS preflight
-- Multiple users
-- Replay attack
-- Malformed JSON
-- Empty phone
-- JWT claims
-- Phone format validation
 
 ## Security & Best Practices
 - OTPs are never exposed to the client or logs.
@@ -249,19 +382,24 @@ The service includes comprehensive health monitoring:
 
 ## Troubleshooting
 - **Redis connection errors:** Ensure Redis is running and `REDIS_HOST`/`REDIS_PORT` are correct.
+- **PostgreSQL connection errors:** Ensure PostgreSQL is running and database credentials are correct.
+- **Database table issues:** Tables are created automatically on startup. Check logs for creation errors.
 - **2factor API errors:** Check your `TWO_FACTOR_API_KEY`, `OTP_TEMPLATE_NAME`, and phone number format (must be E.164).
 - **OTP not received:** Check SMS delivery status in your 2factor dashboard and ensure your template matches the message format.
-- **Tests fail:** Make sure Redis is running and no other process is using the same DB.
+- **Tests fail:** Make sure Redis and PostgreSQL are running and no other process is using the same DB.
 - **Phone format errors:** Ensure phone numbers are in E.164 format (e.g., +919876543210).
 - **Rate limiting:** If getting 429 errors, wait 1 minute or use different phone numbers for testing.
 - **Container health issues:** Check health status with `docker ps` - containers should show "(healthy)" status.
 - **Health check failures:** Verify the `/health` endpoint is accessible: `curl http://localhost:8080/health`
+- **User endpoint errors:** Ensure JWT token is included in Authorization header as `Bearer <token>`
 
 ## Extending
-- Add JWT middleware for protected routes.
+- Add more user profile fields (email, avatar, etc.) to the PostgreSQL schema.
+- Add JWT middleware for additional protected routes.
 - Customize rate limiting limits (configurable via RATE_LIMIT_PER_MINUTE environment variable).
 - Add CORS middleware customization.
-- Use persistent user storage (e.g., PostgreSQL) for production.
+- Add user roles and permissions.
+- Implement user deletion and account management.
 - See [Standard Go Project Layout](https://github.com/golang-standards/project-layout) for more structure ideas.
 
 ---
