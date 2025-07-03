@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Push Backend
 
 on:
   push:
@@ -7,22 +7,20 @@ on:
       - dev
     paths:
       - 'scribbl_backend/**'
-      - '.github/workflows/build-and-push.yaml'
+      - '.github/workflows/build-backend.yaml'
   release:
     types: [published]
+
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-backend
 
 jobs:
-  build-and-push:
+  build-backend:
     runs-on: ubuntu-latest
-    # Sets the permissions granted to the `GITHUB_TOKEN` for the actions in this job.
     permissions:
       contents: read
       packages: write
     steps:
-
       - name: Checkout code
         uses: actions/checkout@v2
 
@@ -40,22 +38,19 @@ jobs:
         id: meta
         uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}-backend
           tags: |
-            # minimal
             type=pep440,pattern={{version}},value=${{ github.ref_name }},enable=${{ github.event_name == 'release' }}
-            # branch event
             type=ref,event=branch
             type=raw,value=latest,enable=${{ github.event_name == 'release' }}
 
       - name: Build and Push Docker image
         uses: docker/build-push-action@v4
         with:
-          # build-args: 
           context: ./scribbl_backend
           dockerfile: Dockerfile
           push: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: ${{ steps.meta.outputs.labels }} 
