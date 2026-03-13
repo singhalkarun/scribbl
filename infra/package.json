@@ -1,0 +1,12 @@
+{
+  "name": "scribbl-infra",
+  "main": "index.ts",
+  "devDependencies": {
+    "@types/node": "^20",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@pulumi/azure-native": "^2",
+    "@pulumi/pulumi": "^3"
+  }
+}

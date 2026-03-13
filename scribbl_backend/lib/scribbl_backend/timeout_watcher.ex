@@ -32,6 +32,7 @@ defmodule ScribblBackend.TimeoutWatcher do
     opts = [
       host: host,
       port: String.to_integer(port),
+      password: System.get_env("REDIS_PASSWORD"),
       name: :redix_pubsub
     ]
 
