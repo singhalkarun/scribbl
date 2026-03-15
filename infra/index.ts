@@ -33,6 +33,14 @@ const registry = new containerregistry.Registry("acr", {
     registryName: `scribbl${stack}acr`.replace(/-/g, ""),
     sku: { name: containerregistry.SkuName.Basic },
     adminUserEnabled: true,
+    dataEndpointEnabled: false,
+    encryption: { status: containerregistry.EncryptionStatus.Disabled },
+    policies: {
+        exportPolicy: { status: containerregistry.ExportPolicyStatus.Enabled },
+        quarantinePolicy: { status: containerregistry.PolicyStatus.Disabled },
+        retentionPolicy: { days: 7, status: containerregistry.PolicyStatus.Disabled },
+        trustPolicy: { status: containerregistry.PolicyStatus.Disabled, type: containerregistry.TrustPolicyType.Notary },
+    },
 });
 
 const registryCredentials = pulumi
@@ -52,6 +60,10 @@ const logAnalytics = new operationalinsights.Workspace("logs", {
     workspaceName: `scribbl-${stack}-logs`,
     sku: { name: operationalinsights.WorkspaceSkuNameEnum.PerGB2018 },
     retentionInDays: 30,
+    features: { enableLogAccessUsingOnlyResourcePermissions: true },
+    publicNetworkAccessForIngestion: operationalinsights.PublicNetworkAccessType.Enabled,
+    publicNetworkAccessForQuery: operationalinsights.PublicNetworkAccessType.Enabled,
+    workspaceCapping: { dailyQuotaGb: -1 },
 });
 
 const logAnalyticsSharedKey = pulumi
@@ -78,8 +90,12 @@ const redis = new cache.Redis("redis", {
     },
     enableNonSslPort: true,
     minimumTlsVersion: "1.2",
+    redisVersion: "6.0",
     redisConfiguration: {
         maxmemoryPolicy: "noeviction",
+        maxfragmentationmemoryReserved: "30",
+        maxmemoryDelta: "30",
+        maxmemoryReserved: "30",
     },
 });
 
@@ -94,6 +110,7 @@ const containerAppEnv = new app.ManagedEnvironment("env", {
     resourceGroupName: resourceGroup.name,
     location: resourceGroup.location,
     environmentName: `scribbl-${stack}-env`,
+    zoneRedundant: false,
     appLogsConfiguration: {
         destination: "log-analytics",
         logAnalyticsConfiguration: {
@@ -101,6 +118,10 @@ const containerAppEnv = new app.ManagedEnvironment("env", {
             sharedKey: logAnalyticsSharedKey,
         },
     },
+}, {
+    // sharedKey is write-only (never returned by Azure API), so imported state
+    // never has it. ignoreChanges prevents a spurious replace on imported stacks.
+    ignoreChanges: ["appLogsConfiguration"],
 });
 
 // ── Custom Domain Certificates ─────────────────────────────────────────────────
@@ -116,22 +137,22 @@ if (enableCustomDomain) {
     const backendCert = new app.ManagedCertificate("backend-cert", {
         resourceGroupName: resourceGroup.name,
         environmentName: containerAppEnv.name,
-        managedCertificateName: "backend-cert",
+        managedCertificateName: "mc-scribbl-prod-e-api-scribbl-sing-5513",
         location: resourceGroup.location,
         properties: {
             subjectName: apiDomain,
-            domainControlValidation: "HTTP",
+            domainControlValidation: app.ManagedCertificateDomainControlValidation.HTTP,
         },
     });
 
     const frontendCert = new app.ManagedCertificate("frontend-cert", {
         resourceGroupName: resourceGroup.name,
         environmentName: containerAppEnv.name,
-        managedCertificateName: "frontend-cert",
+        managedCertificateName: "mc-scribbl-prod-e-scribbl-singhalk-8752",
         location: resourceGroup.location,
         properties: {
             subjectName: domain,
-            domainControlValidation: "HTTP",
+            domainControlValidation: app.ManagedCertificateDomainControlValidation.HTTP,
         },
     });
 
@@ -159,11 +180,17 @@ const backendApp = new app.ContainerApp("backend", {
     location: resourceGroup.location,
     containerAppName: `scribbl-${stack}-backend`,
     managedEnvironmentId: containerAppEnv.id,
+    identity: { type: app.ManagedServiceIdentityType.None },
     configuration: {
+        activeRevisionsMode: app.ActiveRevisionsMode.Single,
+        maxInactiveRevisions: 100,
         ingress: {
             external: true,
             targetPort: 4000,
-            transport: app.IngressTransportMethod.Auto,
+            exposedPort: 0,
+            transport: "Auto" as any,
+            allowInsecure: false,
+            traffic: [{ latestRevision: true, weight: 100 }],
             customDomains: backendCustomDomains,
         },
         registries: [
@@ -171,6 +198,7 @@ const backendApp = new app.ContainerApp("backend", {
                 server: registry.loginServer,
                 username: acrUsername,
                 passwordSecretRef: "acr-password",
+                identity: "",
             },
         ],
         secrets: [
@@ -180,6 +208,7 @@ const backendApp = new app.ContainerApp("backend", {
         ],
     },
     template: {
+        revisionSuffix: "",
         containers: [
             {
                 name: "backend",
@@ -209,6 +238,8 @@ const backendApp = new app.ContainerApp("backend", {
             ],
         },
     },
+}, {
+    ignoreChanges: ["environmentId", "configuration.secrets"],
 });
 
 // ── Frontend Container App ─────────────────────────────────────────────────────
@@ -221,11 +252,16 @@ const frontendApp = new app.ContainerApp("frontend", {
     location: resourceGroup.location,
     containerAppName: `scribbl-${stack}-frontend`,
     managedEnvironmentId: containerAppEnv.id,
+    identity: { type: app.ManagedServiceIdentityType.None },
     configuration: {
+        activeRevisionsMode: app.ActiveRevisionsMode.Single,
         ingress: {
             external: true,
             targetPort: 3000,
-            transport: app.IngressTransportMethod.Auto,
+            exposedPort: 0,
+            transport: "Auto" as any,
+            allowInsecure: false,
+            traffic: [{ latestRevision: true, weight: 100 }],
             customDomains: frontendCustomDomains,
         },
         registries: [
@@ -233,11 +269,13 @@ const frontendApp = new app.ContainerApp("frontend", {
                 server: registry.loginServer,
                 username: acrUsername,
                 passwordSecretRef: "acr-password",
+                identity: "",
             },
         ],
         secrets: [{ name: "acr-password", value: acrPassword }],
     },
     template: {
+        revisionSuffix: "",
         containers: [
             {
                 name: "frontend",
@@ -254,6 +292,8 @@ const frontendApp = new app.ContainerApp("frontend", {
             maxReplicas: 2,
         },
     },
+}, {
+    ignoreChanges: ["environmentId", "configuration.secrets"],
 });
 
 // ── Outputs ────────────────────────────────────────────────────────────────────
