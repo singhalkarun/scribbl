@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import BackgroundMusic from "@/components/BackgroundMusic";
 import { LandingPage } from "@/components/LandingPage";
 import { JoinCard } from "@/components/JoinCard";
 
@@ -178,9 +177,6 @@ function JoinPageContent() {
         cursor: "url('/cursor.png') 0 0, auto",
       }}
     >
-      {/* Background Music */}
-      <BackgroundMusic src="/sounds/game-music-loop.mp3" volume={0.2} />
-
       {view === "landing" ? (
         <LandingPage
           onPlayNow={() => setView("play")}
