@@ -1,5 +1,6 @@
 import React, { useEffect } from "react";
 import { usePlayerStore, KickVoteInfo } from "@/store/usePlayerStore";
+import { DoodleAvatar } from "@/components/DoodleAvatar";
 
 interface KickPlayerModalProps {
   isOpen: boolean;
@@ -16,96 +17,92 @@ export default function KickPlayerModal({
   const userId = usePlayerStore((state) => state.userId);
   const adminId = usePlayerStore((state) => state.adminId);
   const kickVoteInfoMap = usePlayerStore((state) => state.kickVoteInfoMap);
-  
+  const playerAvatars = usePlayerStore((state) => state.playerAvatars);
+
   // Check if any player has been kicked, and close modal if so
   useEffect(() => {
     // Look for any kicked players in the vote info map
     if (kickVoteInfoMap) {
-      const kickedPlayer = Object.values(kickVoteInfoMap).find(info => info.kicked);
+      const kickedPlayer = Object.values(kickVoteInfoMap).find(
+        (info) => info.kicked
+      );
       if (kickedPlayer) {
-        console.log("[KickPlayerModal] Player was kicked, closing modal:", kickedPlayer.target_player_id);
+        console.log(
+          "[KickPlayerModal] Player was kicked, closing modal:",
+          kickedPlayer.target_player_id
+        );
         onClose();
       }
     }
   }, [kickVoteInfoMap, onClose]);
-  
+
   // Filter out current user from the list of players
   const otherPlayers = Object.entries(players).filter(
     ([playerId]) => playerId !== userId
   );
-  
-  // No need to update target player name anymore since we get it from local state
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      ></div>
+      <div className="fixed inset-0" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative bg-gradient-to-br from-indigo-900/90 to-purple-900/90 backdrop-blur-xl p-6 rounded-xl border border-indigo-500/30 shadow-2xl max-w-md w-full mx-4 z-10">
-        <h2 className="text-2xl font-bold text-white mb-4 text-center">
-          Vote to Kick Player
+      <div className="bg-white border-[3px] border-ink rounded-scribbl-lg shadow-scribbl-lg p-8 max-w-[400px] w-full animate-fadeIn relative">
+        <h2
+          className="font-display text-2xl text-coral text-center mb-5"
+          style={{ textShadow: "2px 2px 0 #FFB8B8" }}
+        >
+          Vote to Kick
         </h2>
 
-        <div className="space-y-2 max-h-60 overflow-y-auto pr-2 mb-4">
+        <div className="space-y-2 max-h-60 overflow-y-auto pr-1 mb-5">
           {otherPlayers.length > 0 ? (
             otherPlayers.map(([playerId, playerName]) => {
-              // Get vote info for this player if it exists
               const voteInfo = kickVoteInfoMap?.[playerId];
               const isVoteActive = !!voteInfo;
-              
-              // Check if the current user has already voted for this player
-              const hasVoted = isVoteActive && voteInfo?.voters?.includes(userId);
-              
+              const hasVoted =
+                isVoteActive && voteInfo?.voters?.includes(userId);
+
               return (
                 <div
                   key={playerId}
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-3 flex items-center justify-between"
+                  className="bg-cream border-[2.5px] border-ink rounded-scribbl-md px-3 py-2 flex items-center gap-3 shadow-scribbl-xs"
                 >
-                  <div className="flex items-center space-x-2">
-                    <span className="text-white font-medium">{playerName}</span>
+                  <DoodleAvatar
+                    name={playerName}
+                    seed={playerAvatars[playerId] ?? 0}
+                    size={36}
+                  />
+
+                  <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                    <span className="text-ink font-medium text-sm truncate">
+                      {playerName}
+                    </span>
                     {playerId === adminId && (
-                      <span className="bg-yellow-500/20 text-yellow-300 text-xs px-2 py-0.5 rounded-full">
+                      <span className="bg-[var(--color-yellow)] border-[1.5px] border-ink rounded-[6px] px-1.5 text-[9px] font-extrabold uppercase shrink-0">
                         Admin
                       </span>
                     )}
                   </div>
-                  
-                  <div className="flex items-center">
+
+                  <div className="flex items-center gap-2 shrink-0">
                     {isVoteActive && (
-                      <div className="mr-3 text-sm text-white/80">
-                        <span className="font-semibold text-indigo-300">
-                          {voteInfo.votes_count}/{voteInfo.required_votes}
-                        </span> votes
-                      </div>
+                      <span className="text-xs text-ink/70 font-semibold">
+                        {voteInfo.votes_count}/{voteInfo.required_votes}
+                      </span>
                     )}
-                    
+
                     <button
                       onClick={() => onVote(playerId)}
-                      className={`${
-                        hasVoted 
-                          ? "bg-gray-500/80 cursor-not-allowed" 
-                          : "bg-red-500/80 hover:bg-red-600/80"
-                      } text-white px-3 py-1 rounded-lg text-sm transition-colors duration-200 flex items-center`}
+                      className={`bg-coral text-[var(--text-primary)] border-[2px] border-ink rounded-scribbl-xs px-3 py-1 text-xs font-bold shadow-scribbl-xs transition-opacity duration-150 ${
+                        hasVoted
+                          ? "opacity-50 cursor-not-allowed"
+                          : "cursor-pointer hover:opacity-90"
+                      }`}
                       disabled={hasVoted}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="h-4 w-4 mr-1"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
                       {hasVoted ? "Voted" : "Kick"}
                     </button>
                   </div>
@@ -113,7 +110,7 @@ export default function KickPlayerModal({
               );
             })
           ) : (
-            <p className="text-white/70 text-center py-4">
+            <p className="text-ink/60 text-center py-4 text-sm">
               No other players to kick
             </p>
           )}
@@ -122,7 +119,7 @@ export default function KickPlayerModal({
         <div className="flex justify-center">
           <button
             onClick={onClose}
-            className="bg-white/10 hover:bg-white/20 text-white px-5 py-2 rounded-lg transition-colors duration-200"
+            className="bg-cream border-[2px] border-ink rounded-scribbl-md px-5 py-2 text-ink font-bold text-sm shadow-scribbl-xs hover:translate-y-[-1px] hover:shadow-scribbl-sm transition-all duration-150 cursor-pointer"
           >
             Close
           </button>
@@ -130,4 +127,4 @@ export default function KickPlayerModal({
       </div>
     </div>
   );
-} 
+}

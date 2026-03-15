@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { shareGameOverResults } from "@/utils/imageShare";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import { DoodleAvatar } from "@/components/DoodleAvatar";
 
 interface GameOverModalProps {
   isOpen: boolean;
@@ -34,7 +35,7 @@ export default function GameOverModal({
         scores: filteredScores,
         players,
         currentUserId,
-        playerAvatars
+        playerAvatars: playerAvatars as unknown as { [key: string]: string },
       });
     } catch (error) {
       console.error("Error sharing:", error);
@@ -43,137 +44,108 @@ export default function GameOverModal({
     }
   };
 
+  const entryBg = (index: number) => {
+    if (index === 0) return "bg-[#FFEAA7]";
+    if (index === 1) return "bg-[#DFE6E9]";
+    if (index === 2) return "bg-[#FFDAB9]";
+    return "bg-cream";
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-[1000]">
-      {/* Main glass container */}
-      <div className="relative w-full max-w-md mx-4">
-        {/* Glass backdrop with enhanced effects */}
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-white/10 to-transparent backdrop-blur-2xl rounded-3xl border border-white/30 shadow-2xl"></div>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white border-[3px] border-ink rounded-scribbl-lg shadow-scribbl-lg p-8 max-w-md w-full animate-fadeIn relative overflow-hidden">
+        {/* Rainbow confetti strip at top */}
+        <div
+          className="absolute top-0 left-0 right-0 h-1.5"
+          style={{
+            background:
+              "repeating-linear-gradient(90deg, #FF6B6B 0px 20px, #FFEAA7 20px 40px, #55EFC4 40px 60px, #74B9FF 60px 80px, #A29BFE 80px 100px, #FD79A8 100px 120px)",
+          }}
+        />
 
-        {/* Inner highlight border */}
-        <div className="absolute inset-[1px] bg-gradient-to-br from-white/30 via-transparent to-transparent rounded-3xl"></div>
+        {/* Bouncing trophy */}
+        <div className="text-[56px] animate-bounce text-center mb-2">🏆</div>
 
-        {/* Content container */}
-        <div className="relative p-6 rounded-3xl text-center animate-fadeIn">
-          {/* Trophy icon */}
-          <div className="absolute -top-6 left-0 right-0 flex justify-center">
-            <div className="animate-bounce">
-              <span className="text-5xl">🏆</span>
-            </div>
+        <h2
+          className="font-display text-[32px] text-coral text-center"
+          style={{ textShadow: "2px 2px 0 #FFB8B8" }}
+        >
+          Game Over!
+        </h2>
+
+        <p className="text-center text-ink/60 text-sm mb-6 mt-1">
+          Final Results
+        </p>
+
+        <div className="mb-6">
+          <div className="space-y-2 max-h-60 overflow-y-auto">
+            {Object.entries(filteredScores).length > 0 ? (
+              Object.entries(filteredScores)
+                .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+                .map(([playerId, score], index) => {
+                  let medal = "";
+                  if (index === 0) medal = "🥇";
+                  else if (index === 1) medal = "🥈";
+                  else if (index === 2) medal = "🥉";
+
+                  const name = players[playerId] || "Unknown";
+
+                  return (
+                    <div
+                      key={playerId}
+                      className={`${entryBg(index)} border-[2.5px] border-ink rounded-scribbl-md px-3.5 py-2.5 flex items-center gap-3 shadow-scribbl-sm`}
+                    >
+                      <span className="font-bold text-ink w-6 text-sm shrink-0">
+                        {medal || `${index + 1}.`}
+                      </span>
+                      <DoodleAvatar
+                        name={name}
+                        seed={playerAvatars[playerId] ?? 0}
+                        size={40}
+                      />
+                      <span
+                        className={`font-medium flex-1 truncate text-sm ${
+                          playerId === currentUserId
+                            ? "text-coral font-bold"
+                            : "text-ink"
+                        }`}
+                      >
+                        {name}
+                        {playerId === currentUserId ? " (You)" : ""}
+                      </span>
+                      <span className="text-coral font-extrabold text-sm shrink-0">
+                        {score} pts
+                      </span>
+                    </div>
+                  );
+                })
+            ) : (
+              <div className="bg-cream border-[2px] border-ink rounded-scribbl-md text-center py-4">
+                <p className="text-ink/70 text-sm">No scores to display</p>
+                <p className="text-xs text-ink/50 mt-1">
+                  All players may have left the game
+                </p>
+              </div>
+            )}
           </div>
+        </div>
 
-          <h2 className="text-3xl font-bold text-white mt-4 mb-2 drop-shadow-lg">
-            Game Over!
-          </h2>
-          <p className="text-white/80 mb-6 drop-shadow-md">Final Results</p>
+        {/* Action buttons */}
+        <div className="space-y-3">
+          <button
+            className="w-full bg-[var(--color-blue)] text-[var(--text-primary)] border-[2.5px] border-ink rounded-scribbl-md py-3 px-4 font-bold shadow-scribbl-sm hover:translate-y-[-2px] hover:shadow-scribbl-md transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            onClick={handleShare}
+            disabled={isSharing}
+          >
+            {isSharing ? "Generating Image..." : "📸 Share"}
+          </button>
 
-          <div className="mb-6">
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {Object.entries(filteredScores).length > 0 ? (
-                Object.entries(filteredScores)
-                  .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-                  .map(([playerId, score], index) => {
-                    // Determine medal emoji
-                    let medal = "";
-                    if (index === 0) medal = "🥇";
-                    else if (index === 1) medal = "🥈";
-                    else if (index === 2) medal = "🥉";
-                    
-                    // Get player avatar
-                    const avatar = playerAvatars[playerId] || "👤";
-
-                    return (
-                      <div key={playerId} className="relative transition-all">
-                        {/* Score item glass backdrop */}
-                        <div
-                          className={`absolute inset-0 backdrop-blur-md border rounded-lg transition-all duration-300 ${
-                            index === 0
-                              ? "bg-yellow-500/30 border-yellow-400/50"
-                              : index === 1
-                              ? "bg-gray-400/30 border-gray-300/50"
-                              : index === 2
-                              ? "bg-amber-500/30 border-amber-400/50"
-                              : "bg-white/10 border-white/20"
-                          } ${index < 3 ? "animate-pulse-slow" : ""}`}
-                        ></div>
-
-                        {/* Score item content */}
-                        <div className="relative flex items-center justify-between p-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white/90 w-8 drop-shadow-md">
-                              {medal || `${index + 1}.`}
-                            </span>
-                            <span className="text-lg mr-1">{avatar}</span>
-                            <span
-                              className={`font-medium drop-shadow-md ${
-                                playerId === currentUserId
-                                  ? "text-cyan-300 font-bold"
-                                  : "text-white/90"
-                              }`}
-                            >
-                              {players[playerId] || "Unknown"}
-                              {playerId === currentUserId ? " (You)" : ""}
-                            </span>
-                          </div>
-                          <span className="font-bold text-cyan-300 drop-shadow-md">
-                            {score} pts
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })
-              ) : (
-                <div className="relative text-center py-4">
-                  <div className="absolute inset-0 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg"></div>
-                  <div className="relative">
-                    <p className="text-white/70 drop-shadow-md">
-                      No scores to display
-                    </p>
-                    <p className="text-sm text-white/60 drop-shadow-md">
-                      All players may have left the game
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="absolute -left-8 -top-2 text-3xl animate-spin-slow">
-              🎨
-            </div>
-            <div className="absolute -right-8 -top-2 text-3xl animate-spin-slow">
-              ✏️
-            </div>
-
-            {/* Action buttons */}
-            <div className="space-y-3">
-              {/* Share Results button */}
-              <button
-                className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:cursor-pointer"
-                onClick={handleShare}
-                disabled={isSharing}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-green-500/80 to-emerald-500/80 backdrop-blur-xl border border-green-400/50 rounded-xl group-hover:from-green-400/90 group-hover:to-emerald-400/90 transition-all duration-300"></div>
-                <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
-                <div className="relative py-3 px-4 text-white font-semibold drop-shadow-lg">
-                  {isSharing ? "Generating Image..." : "📱 Share Results"}
-                </div>
-              </button>
-
-              {/* Play Again button with glass effect */}
-              <button
-                className="relative w-full group overflow-hidden rounded-xl transition-all duration-300 hover:cursor-pointer"
-                onClick={onClose}
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/80 to-purple-500/80 backdrop-blur-xl border border-indigo-400/50 rounded-xl group-hover:from-indigo-400/90 group-hover:to-purple-400/90 transition-all duration-300"></div>
-                <div className="absolute inset-[1px] bg-gradient-to-r from-white/20 to-transparent rounded-xl"></div>
-                <div className="relative py-3 px-4 text-white font-semibold drop-shadow-lg">
-                  Play Again
-                </div>
-              </button>
-            </div>
-          </div>
+          <button
+            className="w-full bg-[var(--color-green)] text-[var(--text-primary)] border-[2.5px] border-ink rounded-scribbl-md py-3 px-4 font-bold shadow-scribbl-sm hover:translate-y-[-2px] hover:shadow-scribbl-md transition-all duration-150 cursor-pointer"
+            onClick={onClose}
+          >
+            Play Again 🎮
+          </button>
         </div>
       </div>
     </div>
