@@ -1104,7 +1104,7 @@ export default function GamePage() {
       </div>
 
       {/* Zone 2: Players Bar */}
-      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 flex-shrink-0 py-0.5">
+      <div className="flex gap-2 overflow-x-auto flex-shrink-0 scrollbar-hide py-0.5">
         {Object.entries(players).map(([uid, name]) => (
           <PlayerBadge
             key={uid}
