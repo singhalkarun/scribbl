@@ -63,6 +63,7 @@ export default function GamePage() {
   const [suggestedWords, setSuggestedWords] = useState<string[]>([]);
   const [wordSelectionCountdown, setWordSelectionCountdown] = useState(10);
   const [hasSkippedWords, setHasSkippedWords] = useState(false);
+  const [isChoosingWord, setIsChoosingWord] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [revealedLetters, setRevealedLetters] = useState<string[]>([]);
   const [specialChars, setSpecialChars] = useState<
@@ -284,6 +285,9 @@ export default function GamePage() {
           // Reset hasSkippedWords when a new drawer is assigned
           setHasSkippedWords(false);
 
+          // Show "choosing a word" indicator to non-drawers
+          setIsChoosingWord(true);
+
           // Always hide game over modal when a new drawer is assigned (new game/turn started)
           console.log("[GamePage] Hiding GameOverModal - new drawer assigned");
           setShowGameOverModal(false);
@@ -385,6 +389,7 @@ export default function GamePage() {
         // Listen for turn_started event
         const turnStartedRef = channel.on("turn_started", (payload) => {
           console.log("[GamePage] Received turn_started:", payload);
+          setIsChoosingWord(false);
 
           // Set the word length for displaying blanks
           const wordLengthValue =
@@ -500,6 +505,7 @@ export default function GamePage() {
 
           // Clear guessedPlayers on turn over
           setGuessedPlayers(new Set());
+          setIsChoosingWord(false);
 
           // Show turn over modal to everyone when turn ends
           if (payload.word) {
@@ -562,6 +568,7 @@ export default function GamePage() {
 
           // Show game over modal
           setShowGameOverModal(true);
+          setIsChoosingWord(false);
 
           // Reset the game state to show the Start Game button again
           setRoomStatus("waiting");
@@ -1118,7 +1125,7 @@ export default function GamePage() {
       </div>
 
       {/* Zone 3: Canvas */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 relative">
         <Canvas
           ref={canvasRef}
           isDrawer={isCurrentUserDrawing}
@@ -1133,6 +1140,15 @@ export default function GamePage() {
           currentRound={gameInfo.currentRound}
           roomStatus={roomStatus}
         />
+        {isChoosingWord && !isCurrentUserDrawing && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80 z-10 rounded-scribbl-sm">
+            <div className="border-[2.5px] border-ink rounded-scribbl-sm bg-white px-6 py-4 shadow-scribbl-sm text-center">
+              <p className="text-lg font-bold text-ink">
+                {players[gameInfo.currentDrawer] || "Someone"} is choosing a word...
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Zone 4: Toolbar (drawer only) + Chat */}
