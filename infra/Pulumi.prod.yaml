@@ -1,5 +1,6 @@
+encryptionsalt: v1:rpZfht2YlAA=:v1:DqiFBqmog8dDdbVr:wnkddyCNciDkKoKBQxR/5Z5BGW5rPA==
 config:
+  scribbl:secretKeyBase:
+    secure: v1:iCYdVb/aVczoje45:HuhVyAVZ3JPFcuexo6zuJvTnQY1x4fNQX/09tQIgr+mSOoJkYPk2BrJEsYmeS5o3CFhjOnJ10Tz4rXgb5/y2n4j7vgXlIqM5rVjLZgwZheY/mc8MPQLF+1KUf1abQV+V9RxPlc/s4/o=
   azure-native:location: centralindia
   scribbl:enableCustomDomain: "false"
-  scribbl:secretKeyBase:
-    secure: AAABAHDbr/6AHxfuBMcz3uHuRLf65b01d4GXdg5qgZHXGLZet2KXgP1t7fWy7eN2ZeV3hVW7vBxCmiqdqTvpwOSCBgoBi9byuRkaBLnF0D6qJdW2vSrZIcY/Qucj9b+FSB5YGbLR8ymlxfDJGOmApGkgsojdePyA
