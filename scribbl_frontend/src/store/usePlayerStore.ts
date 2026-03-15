@@ -19,6 +19,7 @@ interface PresenceState {
 
 // Shared Message interface (uses userId now)
 export interface Message {
+  id?: string; // Unique message ID for stable React keys (auto-generated if not provided)
   userId: string; // Changed from sender
   text: string;
   system?: boolean;
@@ -63,6 +64,7 @@ interface PlayerStore {
   }) => void; // Action for diffs
   addMessage: (message: Message) => void; // Signature uses updated Message type
   updateScore: (userId: string, score: number) => void; // Add score update function
+  batchUpdateScores: (scoreMap: { [userId: string]: number }) => void; // Batch score updates
   setKickVoteInfo: (info: KickVoteInfo | null) => void; // Set kick vote info
   removeKickVoteInfo: (playerId: string) => void; // Remove kick vote info for a player
   clearAllKickVoteInfo: () => void; // Clear all kick vote info
@@ -268,16 +270,13 @@ export const usePlayerStore = create<PlayerStore>()(
             ? "System"
             : state.players[message.userId] || message.userId || "Unknown";
 
-          // Add the senderName to the message object
+          // Add the senderName and stable id to the message object
           const messageWithSender: Message = {
             ...message,
+            id: message.id || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
             senderName: senderName,
           };
 
-          console.log(
-            `[Store] Adding message with senderName '${senderName}':`,
-            messageWithSender
-          );
           return { messages: [...state.messages, messageWithSender] };
         }),
       updateScore: (userId, score) =>
@@ -285,6 +284,10 @@ export const usePlayerStore = create<PlayerStore>()(
           const newScores = { ...state.scores, [userId]: score };
           return { scores: newScores };
         }),
+      batchUpdateScores: (scoreMap) =>
+        set((state) => ({
+          scores: { ...state.scores, ...scoreMap },
+        })),
       clearPlayerInfo: () => {
         console.log("[Store] Clearing player info to prevent auto-rejoin");
 

@@ -67,70 +67,80 @@ defmodule ScribblBackend.PlayerManager do
   """
   def remove_player(room_id, player_id) do
     # Check if the removed player was the admin BEFORE removing them
-    {:ok, room_info} = GameState.get_room(room_id)
-    was_admin = player_id == room_info.admin_id
+    case GameState.get_room(room_id) do
+      {:ok, room_info} ->
+        was_admin = player_id == room_info.admin_id
 
-    room_key = KeyManager.room_players(room_id)
-    RedisHelper.srem(room_key, player_id)
+        room_key = KeyManager.room_players(room_id)
+        RedisHelper.srem(room_key, player_id)
 
-    # Remove from voice room if they were in it
-    ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, player_id)
+        # Remove from voice room if they were in it
+        ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, player_id)
 
-    # Remove player from non_eligible_guessers if game is active
-    if room_info.status == "active" do
-      remove_from_non_eligible_guessers(room_id, player_id, room_info.current_round)
+        # Delete the player's score key to prevent orphaned keys
+        RedisHelper.del(KeyManager.player_score(room_id, player_id))
+
+        # Remove player from non_eligible_guessers if game is active
+        if room_info.status == "active" do
+          remove_from_non_eligible_guessers(room_id, player_id, room_info.current_round)
+        end
+
+        # Check if the removed player was the drawer
+        {:ok, current_drawer} = GameState.get_current_drawer(room_id)
+        if player_id == current_drawer do
+          handle_drawer_removal(room_id)
+        else
+          # If the removed player was not the drawer and game is active,
+          # check if all remaining eligible players have guessed
+          if room_info.status == "active" && current_drawer != "" do
+            # Use GameFlow's check function to see if everyone has guessed
+            GameFlow.check_if_all_guessed_after_player_left(room_id, current_drawer, room_info.current_round)
+          end
+        end
+
+        # Handle admin reassignment if the admin left (regardless of game status)
+        if was_admin do
+          handle_admin_removal(room_id)
+        end
+
+        # Check if only one player remains in an active game
+        {:ok, remaining_players} = get_players(room_id)
+        if length(remaining_players) == 1 && room_info.status == "active" do
+          # End the game since only one player remains
+          GameState.set_room_status(room_id, "finished")
+          GameState.set_current_drawer(room_id, "")
+
+          # Clear all player scores before ending the game
+          clear_all_player_scores(room_id)
+
+          # Clean up all game-related timers before game over
+          GameFlow.cleanup_game_timers(room_id)
+
+          # send the game over event to all players
+          Phoenix.PubSub.broadcast(
+            ScribblBackend.PubSub,
+            KeyManager.room_topic(room_id),
+            %{
+              event: "game_over",
+              payload: %{}
+            }
+          )
+
+          # Clean up the room state
+          GameState.reset_game_state(room_id)
+        end
+
+        # Check if room now has available slots and add back to public rooms if needed
+        check_and_update_public_room_availability(room_id)
+
+        # Check if room is empty and clean up if needed
+        GameState.check_and_cleanup_empty_room(room_id)
+
+      {:error, _reason} ->
+        # Room no longer exists in Redis — just clean up what we can
+        ScribblBackend.VoiceRoomManager.leave_voice_room(room_id, player_id)
+        :ok
     end
-
-    # Check if the removed player was the drawer
-    {:ok, current_drawer} = GameState.get_current_drawer(room_id)
-    if player_id == current_drawer do
-      handle_drawer_removal(room_id)
-    else
-      # If the removed player was not the drawer and game is active,
-      # check if all remaining eligible players have guessed
-      if room_info.status == "active" && current_drawer != "" do
-        # Use GameFlow's check function to see if everyone has guessed
-        GameFlow.check_if_all_guessed_after_player_left(room_id, current_drawer, room_info.current_round)
-      end
-    end
-
-    # Handle admin reassignment if the admin left (regardless of game status)
-    if was_admin do
-      handle_admin_removal(room_id)
-    end
-
-    # Check if only one player remains in an active game
-    {:ok, remaining_players} = get_players(room_id)
-    if length(remaining_players) == 1 && room_info.status == "active" do
-      # End the game since only one player remains
-      GameState.set_room_status(room_id, "finished")
-      GameState.set_current_drawer(room_id, "")
-
-      # Clear all player scores before ending the game
-      clear_all_player_scores(room_id)
-
-      # Clean up all game-related timers before game over
-      GameFlow.cleanup_game_timers(room_id)
-
-      # send the game over event to all players
-      Phoenix.PubSub.broadcast(
-        ScribblBackend.PubSub,
-        KeyManager.room_topic(room_id),
-        %{
-          event: "game_over",
-          payload: %{}
-        }
-      )
-
-      # Clean up the room state
-      GameState.reset_game_state(room_id)
-    end
-
-    # Check if room now has available slots and add back to public rooms if needed
-    check_and_update_public_room_availability(room_id)
-
-    # Check if room is empty and clean up if needed
-    GameState.check_and_cleanup_empty_room(room_id)
   end
 
   # Add kick player functionality
@@ -267,10 +277,13 @@ defmodule ScribblBackend.PlayerManager do
     # Get all players in the room
     {:ok, players} = get_players(room_id)
 
-    # Clear kick votes for each player
-    Enum.each(players, fn player_id ->
-      clear_kick_votes(room_id, player_id)
-    end)
+    # Clear kick votes for all players in a single pipeline
+    if players != [] do
+      commands = Enum.map(players, fn player_id ->
+        ["DEL", kick_votes_key(room_id, player_id)]
+      end)
+      RedisHelper.pipeline(commands)
+    end
 
     # No need to broadcast kick_votes_reset - handled in player_kicked event
     :ok
@@ -301,8 +314,8 @@ defmodule ScribblBackend.PlayerManager do
             {:ok, nil}
 
           available_players ->
-            # Choose a random player as the new admin
-            new_admin = Enum.random(available_players)
+            # Choose deterministically (sorted order) so all nodes pick the same admin
+            new_admin = available_players |> Enum.sort() |> List.first()
 
             # Set the new admin
             GameState.set_room_admin(room_id, new_admin)
@@ -358,6 +371,12 @@ defmodule ScribblBackend.PlayerManager do
         RedisHelper.del(KeyManager.current_word(room_id))
         RedisHelper.del(KeyManager.revealed_indices(room_id))
 
+        # Clear non_eligible_guessers for the current round to prevent stale data
+        case GameState.get_room(room_id) do
+          {:ok, info} -> RedisHelper.del(KeyManager.non_eligible_guessers(room_id, info.current_round))
+          _ -> :ok
+        end
+
         # Start the next turn after 3 seconds to allow turn over modal to finish
         GameFlow.start_delayed(room_id)
       _ ->
@@ -377,16 +396,25 @@ defmodule ScribblBackend.PlayerManager do
   """
   def get_all_player_scores(room_id) do
     case get_players(room_id) do
+      {:ok, []} ->
+        {:ok, %{}}
       {:ok, players} ->
-        scores = Enum.map(players, fn player_id ->
-          player_score_key = KeyManager.player_score(room_id, player_id)
-          case RedisHelper.get(player_score_key) do
-            {:ok, score} when is_binary(score) -> {player_id, String.to_integer(score)}
-            {:ok, nil} -> {player_id, 0}
-            _ -> {player_id, 0}
-          end
-        end)
-        {:ok, Map.new(scores)}
+        # Single MGET instead of N separate GET calls
+        keys = Enum.map(players, &KeyManager.player_score(room_id, &1))
+        case RedisHelper.mget(keys) do
+          {:ok, values} ->
+            scores = Enum.zip(players, values)
+            |> Enum.map(fn {player_id, score} ->
+              parsed = case score do
+                nil -> 0
+                s when is_binary(s) -> String.to_integer(s)
+                _ -> 0
+              end
+              {player_id, parsed}
+            end)
+            {:ok, Map.new(scores)}
+          error -> error
+        end
       error -> error
     end
   end
@@ -402,16 +430,10 @@ defmodule ScribblBackend.PlayerManager do
   def update_player_score(room_id, player_id, score) do
     player_score_key = KeyManager.player_score(room_id, player_id)
 
-    case RedisHelper.get(player_score_key) do
-      {:ok, current_score} when is_binary(current_score) ->
-        new_score = String.to_integer(current_score) + score
-        RedisHelper.set(player_score_key, new_score)
-        {:ok, new_score}
-
-      _error ->
-        # If there's no current score, just set it to the provided score
-        RedisHelper.set(player_score_key, score)
-        {:ok, score}
+    # Use atomic INCRBY to prevent lost updates from concurrent guesses
+    case RedisHelper.incr(player_score_key, score) do
+      {:ok, new_score} -> {:ok, new_score}
+      error -> error
     end
   end
 
@@ -481,17 +503,17 @@ defmodule ScribblBackend.PlayerManager do
       :ok
   """
   def clear_all_player_scores(room_id) do
-    # Get all keys matching the player score pattern for this room
-    player_score_pattern = "#{KeyManager.player_score(room_id, "*")}"
-    case RedisHelper.keys(player_score_pattern) do
-      {:ok, keys} when is_list(keys) and length(keys) > 0 ->
-        # Delete each score key
-        Enum.each(keys, fn key ->
-          RedisHelper.del(key)
+    # Iterate known players instead of using KEYS (which is O(N) across ALL Redis keys)
+    case get_players(room_id) do
+      {:ok, []} ->
+        :ok
+      {:ok, players} ->
+        commands = Enum.map(players, fn player_id ->
+          ["DEL", KeyManager.player_score(room_id, player_id)]
         end)
+        RedisHelper.pipeline(commands)
         :ok
       _ ->
-        # No keys found or error
         :ok
     end
   end
@@ -619,14 +641,10 @@ defmodule ScribblBackend.PlayerManager do
   """
   def increment_player_streak(player_id) do
     streak_key = "player:#{player_id}:streak"
-    case RedisHelper.get(streak_key) do
-      {:ok, streak} when is_binary(streak) ->
-        new_streak = String.to_integer(streak) + 1
-        RedisHelper.set(streak_key, new_streak)
-        {:ok, new_streak}
-      _ ->
-        RedisHelper.set(streak_key, 1)
-        {:ok, 1}
+    # Use atomic INCRBY (initializes to 0 if key doesn't exist, then increments)
+    case RedisHelper.incr(streak_key, 1) do
+      {:ok, new_streak} -> {:ok, new_streak}
+      error -> error
     end
   end
 
@@ -644,10 +662,13 @@ defmodule ScribblBackend.PlayerManager do
   """
   def clear_all_player_streaks(room_id) do
     case get_players(room_id) do
+      {:ok, []} ->
+        :ok
       {:ok, players} ->
-        Enum.each(players, fn player_id ->
-          reset_player_streak(player_id)
+        commands = Enum.map(players, fn player_id ->
+          ["SET", "player:#{player_id}:streak", "0"]
         end)
+        RedisHelper.pipeline(commands)
         :ok
       _ ->
         :ok

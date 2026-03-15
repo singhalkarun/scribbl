@@ -18,19 +18,18 @@ import { useRoomChannel } from "@/hooks/useRoomChannel";
 import { useSoundEffects } from "@/utils/useSoundEffects";
 
 export default function GamePage() {
-  const {
-    playerName,
-    roomId,
-    players,
-    userId,
-    adminId,
-    setAdminId,
-    _hasHydrated,
-    scores,
-    updateScore,
-    playerAvatars,
-    messages,
-  } = usePlayerStore();
+  // Individual selectors prevent full re-render on every store change
+  const playerName = usePlayerStore((s) => s.playerName);
+  const roomId = usePlayerStore((s) => s.roomId);
+  const players = usePlayerStore((s) => s.players);
+  const userId = usePlayerStore((s) => s.userId);
+  const adminId = usePlayerStore((s) => s.adminId);
+  const setAdminId = usePlayerStore((s) => s.setAdminId);
+  const _hasHydrated = usePlayerStore((s) => s._hasHydrated);
+  const scores = usePlayerStore((s) => s.scores);
+  const updateScore = usePlayerStore((s) => s.updateScore);
+  const playerAvatars = usePlayerStore((s) => s.playerAvatars);
+  const messages = usePlayerStore((s) => s.messages);
 
   const { connectionState, sendMessage, voteToKick } = useRoomChannel();
   // Use a very low volume (0.1 = 10%) for sound effects
@@ -703,14 +702,11 @@ export default function GamePage() {
     if (channel) {
       setSettingsUpdateStatus("updating");
 
-      console.log(
-        "[GamePage] Sending update_room_settings event",
-        updatedSettings
-      );
-      const payload: any = {
-        max_players: updatedSettings.maxPlayers,
-        max_rounds: updatedSettings.maxRounds,
-        turn_time: updatedSettings.turnTime,
+      // Send integers for numeric fields (backend validates as numbers)
+      const payload: Record<string, unknown> = {
+        max_players: parseInt(updatedSettings.maxPlayers) || 8,
+        max_rounds: parseInt(updatedSettings.maxRounds) || 3,
+        turn_time: parseInt(updatedSettings.turnTime) || 60,
         hints_allowed: updatedSettings.hintsAllowed,
         difficulty: updatedSettings.difficulty,
       };
@@ -906,6 +902,7 @@ export default function GamePage() {
           roomSettings={roomSettings}
           isAdmin={isCurrentUserAdmin}
           onStartGame={handleStartGame}
+          onUpdateSettings={handleUpdateRoomSettings}
         />
       </main>
     );

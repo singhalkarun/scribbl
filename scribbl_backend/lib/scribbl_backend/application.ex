@@ -18,8 +18,9 @@ defmodule ScribblBackend.Application do
        password: System.get_env("REDIS_PASSWORD"),
        database: (System.get_env("REDIS_DB") || "0") |> String.to_integer(),
        node_name: System.get_env("NODE_NAME") || "default_node"},
-      {Redix,
-       name: :redix,
+      # Redis connection pool
+      {ScribblBackend.RedisPool,
+       pool_size: String.to_integer(System.get_env("REDIS_POOL_SIZE") || "5"),
        host: System.get_env("REDIS_HOST") || "localhost",
        port: (System.get_env("REDIS_PORT") || "6379") |> String.to_integer(),
        password: System.get_env("REDIS_PASSWORD"),

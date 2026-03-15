@@ -63,19 +63,15 @@ export default function Chat({
         </h2>
 
         <div className="flex-1 overflow-y-auto pr-1 space-y-2 flex flex-col">
-          {messages.map((msg, i) => {
+          {messages.map((msg) => {
             const isCurrentUser = msg.userId === currentUserId;
             const senderName =
               msg.senderName || players[msg.userId] || msg.userId || "Unknown";
             const isSystemMessage = msg.system;
 
-            console.log(
-              `[Chat] Rendering msg ${i}: Text="${msg.text}", msg.userId=${msg.userId}, currentUserId=${currentUserId}, isCurrentUser=${isCurrentUser}`
-            );
-
             return (
               <div
-                key={i}
+                key={msg.id}
                 className={`max-w-[80%] relative ${
                   isCurrentUser
                     ? "self-end"

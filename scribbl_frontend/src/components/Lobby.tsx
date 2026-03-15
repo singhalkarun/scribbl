@@ -1,6 +1,13 @@
 import React from "react";
 import { PlayerCard } from "@/components/PlayerCard";
 
+const DIFFICULTIES = ["easy", "medium", "hard"] as const;
+const DIFFICULTY_LABELS: Record<string, string> = {
+  easy: "Easy",
+  medium: "Medium",
+  hard: "Hard",
+};
+
 interface LobbyProps {
   roomId: string;
   players: { [userId: string]: string };
@@ -13,9 +20,19 @@ interface LobbyProps {
     turnTime: string;
     maxPlayers: string;
     difficulty: string;
+    hintsAllowed: string;
+    roomType: string;
   };
   isAdmin: boolean;
   onStartGame: () => void;
+  onUpdateSettings?: (settings: {
+    maxPlayers: string;
+    maxRounds: string;
+    turnTime: string;
+    hintsAllowed: string;
+    difficulty: string;
+    roomType: string;
+  }) => void;
 }
 
 export function Lobby({
@@ -28,6 +45,7 @@ export function Lobby({
   roomSettings,
   isAdmin,
   onStartGame,
+  onUpdateSettings,
 }: LobbyProps) {
   const playerEntries = Object.entries(players);
   const emptySlots = Math.max(0, maxPlayers - playerEntries.length);
@@ -44,6 +62,16 @@ export function Lobby({
       navigator.clipboard.writeText(url);
     }
   };
+
+  const updateSetting = (key: string, value: string) => {
+    if (onUpdateSettings) {
+      onUpdateSettings({ ...roomSettings, [key]: value });
+    }
+  };
+
+  const currentDifficultyIdx = DIFFICULTIES.indexOf(
+    roomSettings.difficulty as (typeof DIFFICULTIES)[number]
+  );
 
   return (
     <div className="flex-1 flex items-center justify-center p-6">
@@ -78,22 +106,129 @@ export function Lobby({
           </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap mb-6">
-          {[
-            { icon: "🔄", label: "Rounds", value: roomSettings.maxRounds },
-            { icon: "⏱️", label: "Time", value: `${roomSettings.turnTime}s` },
-            { icon: "👥", label: "Max", value: roomSettings.maxPlayers },
-            { icon: "📊", label: "Difficulty", value: roomSettings.difficulty },
-          ].map((s) => (
-            <div
-              key={s.label}
-              className="bg-white border-2 border-ink rounded-scribbl-sm px-3 py-1 text-xs font-bold shadow-scribbl-xs flex items-center gap-1"
-            >
-              <span className="text-sm">{s.icon}</span>
-              {s.label}: <span className="text-coral">{s.value}</span>
+        {isAdmin && onUpdateSettings ? (
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-3 text-[var(--text-disabled)] text-xs font-bold">
+              <div className="flex-1 h-0.5 bg-[#eee] rounded" />
+              ROOM SETTINGS
+              <div className="flex-1 h-0.5 bg-[#eee] rounded" />
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                {
+                  label: "Rounds",
+                  icon: "🔄",
+                  value: parseInt(roomSettings.maxRounds) || 3,
+                  min: 1,
+                  max: 10,
+                  step: 1,
+                  display: roomSettings.maxRounds,
+                  key: "maxRounds",
+                },
+                {
+                  label: "Draw Time",
+                  icon: "⏱️",
+                  value: parseInt(roomSettings.turnTime) || 60,
+                  min: 30,
+                  max: 240,
+                  step: 5,
+                  display: `${roomSettings.turnTime}s`,
+                  key: "turnTime",
+                },
+                {
+                  label: "Max Players",
+                  icon: "👥",
+                  value: parseInt(roomSettings.maxPlayers) || 8,
+                  min: Math.max(2, playerEntries.length),
+                  max: 20,
+                  step: 1,
+                  display: roomSettings.maxPlayers,
+                  key: "maxPlayers",
+                },
+              ].map((s) => (
+                <div key={s.label} className="bg-cream border-2 border-ink rounded-scribbl-sm p-2.5 shadow-scribbl-xs">
+                  <div className="text-[11px] font-extrabold text-[var(--text-muted)] uppercase mb-1.5 flex items-center gap-1">
+                    <span className="text-sm">{s.icon}</span> {s.label}
+                  </div>
+                  <div className="flex items-center gap-2 justify-center">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.max(s.min, s.value - s.step);
+                        updateSetting(s.key, String(newVal));
+                      }}
+                      disabled={s.value <= s.min}
+                      className="w-7 h-7 rounded-scribbl-xs border-2 border-ink bg-white text-base font-extrabold flex items-center justify-center shadow-scribbl-xs hover:bg-[#f0f0f0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      −
+                    </button>
+                    <span className="text-lg font-extrabold min-w-[30px] text-center">{s.display}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = Math.min(s.max, s.value + s.step);
+                        updateSetting(s.key, String(newVal));
+                      }}
+                      disabled={s.value >= s.max}
+                      className="w-7 h-7 rounded-scribbl-xs border-2 border-ink bg-white text-base font-extrabold flex items-center justify-center shadow-scribbl-xs hover:bg-[#f0f0f0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {/* Difficulty - cycles through options */}
+              <div className="bg-cream border-2 border-ink rounded-scribbl-sm p-2.5 shadow-scribbl-xs">
+                <div className="text-[11px] font-extrabold text-[var(--text-muted)] uppercase mb-1.5 flex items-center gap-1">
+                  <span className="text-sm">📊</span> Difficulty
+                </div>
+                <div className="flex items-center gap-2 justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = currentDifficultyIdx <= 0 ? DIFFICULTIES.length - 1 : currentDifficultyIdx - 1;
+                      updateSetting("difficulty", DIFFICULTIES[idx]);
+                    }}
+                    className="w-7 h-7 rounded-scribbl-xs border-2 border-ink bg-white text-base font-extrabold flex items-center justify-center shadow-scribbl-xs hover:bg-[#f0f0f0] transition-colors"
+                  >
+                    −
+                  </button>
+                  <span className="text-lg font-extrabold min-w-[55px] text-center capitalize">
+                    {DIFFICULTY_LABELS[roomSettings.difficulty] || roomSettings.difficulty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const idx = currentDifficultyIdx >= DIFFICULTIES.length - 1 ? 0 : currentDifficultyIdx + 1;
+                      updateSetting("difficulty", DIFFICULTIES[idx]);
+                    }}
+                    className="w-7 h-7 rounded-scribbl-xs border-2 border-ink bg-white text-base font-extrabold flex items-center justify-center shadow-scribbl-xs hover:bg-[#f0f0f0] transition-colors"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-2 flex-wrap mb-6">
+            {[
+              { icon: "🔄", label: "Rounds", value: roomSettings.maxRounds },
+              { icon: "⏱️", label: "Time", value: `${roomSettings.turnTime}s` },
+              { icon: "👥", label: "Max", value: roomSettings.maxPlayers },
+              { icon: "📊", label: "Difficulty", value: DIFFICULTY_LABELS[roomSettings.difficulty] || roomSettings.difficulty },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="bg-white border-2 border-ink rounded-scribbl-sm px-3 py-1 text-xs font-bold shadow-scribbl-xs flex items-center gap-1"
+              >
+                <span className="text-sm">{s.icon}</span>
+                {s.label}: <span className="text-coral">{s.value}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">

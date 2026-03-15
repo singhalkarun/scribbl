@@ -100,26 +100,18 @@ export function useRoomChannel() {
       }),
       newChannel.on(
         "new_message",
-        (payload: { 
-          user_id: string; 
-          message?: string; 
+        (payload: {
+          user_id: string;
+          message?: string;
           message_type?: string;
           voter_id?: string;
           target_id?: string;
           votes_count?: number;
           required_votes?: number;
-          system?: boolean 
+          system?: boolean
         }) => {
-          console.log(
-            "[useRoomChannel] Received new_message payload:",
-            payload
-          );
           // Ensure userId is present in the payload
           if (!payload.user_id) {
-            console.error(
-              "[useRoomChannel] Received new_message without userId:",
-              payload
-            );
             return; // Don't add messages without a user ID
           }
           
@@ -139,25 +131,18 @@ export function useRoomChannel() {
             system: payload.system,
           };
           
-          console.log(
-            "[useRoomChannel] Calling addMessage with:",
-            messageToAdd
-          );
           addMessage(messageToAdd);
         }
       ),
       newChannel.on("scores", (payload) => {
-        console.log("[useRoomChannel] Received scores:", payload);
-
         // The payload should contain a scores object: { scores: { userId1: score1, userId2: score2, ... } }
         if (payload && payload.scores) {
-          // Update each player's score in the store
+          // Batch update all scores in a single store update (1 re-render instead of N)
+          const scoreMap: { [userId: string]: number } = {};
           Object.entries(payload.scores).forEach(([userId, score]) => {
-            console.log(
-              `[useRoomChannel] Updating score for ${userId}: ${score}`
-            );
-            updateScore(userId, score as number);
+            scoreMap[userId] = score as number;
           });
+          usePlayerStore.getState().batchUpdateScores(scoreMap);
         }
       }),
       // Add kick vote handlers

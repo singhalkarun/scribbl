@@ -7,6 +7,7 @@ defmodule ScribblBackend.GameState do
   alias ScribblBackend.RedisHelper
   alias ScribblBackend.KeyManager
   alias ScribblBackend.PlayerManager
+  alias ScribblBackend.GameFlow
 
   @doc """
   Get a game room if it exists.
@@ -183,39 +184,29 @@ defmodule ScribblBackend.GameState do
     # Default values
     max_rounds = Keyword.get(opts, :max_rounds, 3)
 
-    # Preserve admin_id if it exists
-    admin_id = case get_room_admin(room_id) do
-      {:ok, id} when id != nil and id != "" -> id
-      _ -> ""
-    end
-
-    # Preserve other settings if they exist
-    {:ok, max_players} = RedisHelper.hget(KeyManager.room_info(room_id), "max_players") |> case do
-      {:ok, value} when value != nil and value != "" -> {:ok, value}
-      _ -> {:ok, "8"}
-    end
-
-    {:ok, turn_time} = RedisHelper.hget(KeyManager.room_info(room_id), "turn_time") |> case do
-      {:ok, value} when value != nil and value != "" -> {:ok, value}
-      _ -> {:ok, "60"}
-    end
-
-    {:ok, hints_allowed} = RedisHelper.hget(KeyManager.room_info(room_id), "hints_allowed") |> case do
-      {:ok, value} when value != nil and value != "" -> {:ok, value}
-      _ -> {:ok, "true"}
-    end
-
-    {:ok, difficulty} = RedisHelper.hget(KeyManager.room_info(room_id), "difficulty") |> case do
-      {:ok, value} when value != nil and value != "" -> {:ok, value}
-      _ -> {:ok, "medium"}
-    end
-
-    {:ok, room_type} = RedisHelper.hget(KeyManager.room_info(room_id), "room_type") |> case do
-      {:ok, value} when value != nil and value != "" -> {:ok, value}
-      _ -> {:ok, "public"}
-    end
-
     room_key = KeyManager.room_info(room_id)
+
+    # Single HGETALL to preserve existing settings instead of 6 separate HGETs
+    existing = case RedisHelper.hgetall(room_key) do
+      {:ok, fields} when is_list(fields) and fields != [] ->
+        Enum.chunk_every(fields, 2)
+        |> Enum.map(fn [k, v] -> {k, v} end)
+        |> Enum.into(%{})
+      _ ->
+        %{}
+    end
+
+    admin_id = case Map.get(existing, "admin_id") do
+      nil -> ""
+      "" -> ""
+      id -> id
+    end
+
+    max_players = Map.get(existing, "max_players") |> non_empty_or("8")
+    turn_time = Map.get(existing, "turn_time") |> non_empty_or("60")
+    hints_allowed = Map.get(existing, "hints_allowed") |> non_empty_or("true")
+    difficulty = Map.get(existing, "difficulty") |> non_empty_or("medium")
+    room_type = Map.get(existing, "room_type") |> non_empty_or("public")
 
     # Create room with preserved values
     {:ok, _} = RedisHelper.hmset(
@@ -330,8 +321,23 @@ defmodule ScribblBackend.GameState do
     - `room_id`: The ID of the room to clean up.
   """
   def cleanup_room(room_id) do
-    # Clear all player scores first
+    # Get room info before cleanup to determine max rounds for per-round key cleanup
+    max_rounds = case get_room(room_id) do
+      {:ok, info} ->
+        case Integer.parse(info.max_rounds) do
+          {n, _} -> n
+          :error -> 10
+        end
+      _ -> 10
+    end
+
+    # Clean up all game-related timers
+    GameFlow.cleanup_game_timers(room_id)
+
+    # Clear all player scores, streaks, and kick votes
     PlayerManager.clear_all_player_scores(room_id)
+    PlayerManager.clear_all_player_streaks(room_id)
+    PlayerManager.reset_all_kick_votes(room_id)
 
     # Clear voice room members
     ScribblBackend.VoiceRoomManager.clear_voice_room(room_id)
@@ -339,9 +345,24 @@ defmodule ScribblBackend.GameState do
     # Remove from public rooms set
     remove_from_public_rooms(room_id)
 
-    # Delete the room info key
-    room_info_key = KeyManager.room_info(room_id)
-    RedisHelper.del(room_info_key)
+    # Batch all DEL commands into a single pipeline
+    per_round_deletes = Enum.flat_map(0..max_rounds, fn round ->
+      [
+        ["DEL", KeyManager.eligible_drawers(room_id, round)],
+        ["DEL", KeyManager.non_eligible_guessers(room_id, round)]
+      ]
+    end)
+
+    game_state_deletes = [
+      ["DEL", KeyManager.current_word(room_id)],
+      ["DEL", KeyManager.revealed_indices(room_id)],
+      ["DEL", KeyManager.canvas_data(room_id)],
+      ["DEL", KeyManager.word_selection_words(room_id)],
+      ["DEL", KeyManager.room_players(room_id)],
+      ["DEL", KeyManager.room_info(room_id)]
+    ]
+
+    RedisHelper.pipeline(per_round_deletes ++ game_state_deletes)
   end
 
   @doc """
@@ -511,5 +532,8 @@ defmodule ScribblBackend.GameState do
     end
   end
 
-
+  # Returns the value if non-nil and non-empty, otherwise the default
+  defp non_empty_or(nil, default), do: default
+  defp non_empty_or("", default), do: default
+  defp non_empty_or(value, _default), do: value
 end

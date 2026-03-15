@@ -516,9 +516,10 @@ defmodule ScribblBackendWeb.RoomChannel do
     {:ok, current_drawer} = GameState.get_current_drawer(room_id)
 
     if socket.assigns.user_id == current_drawer do
-      # Clear the word selection timer since drawer has chosen manually
+      # Clear the word selection timer and stored words since drawer has chosen manually
       word_selection_timer_key = ScribblBackend.KeyManager.word_selection_timer(room_id)
       ScribblBackend.RedisHelper.del(word_selection_timer_key)
+      ScribblBackend.RedisHelper.del(ScribblBackend.KeyManager.word_selection_words(room_id))
 
       # Start the turn with the selected word
       {:ok, turn_info} = WordManager.start_turn(room_id, word)

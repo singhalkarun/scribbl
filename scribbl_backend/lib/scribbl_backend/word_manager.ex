@@ -157,31 +157,32 @@ defmodule ScribblBackend.WordManager do
   ## Returns
     A list of 3 random words.
   """
-  def generate_words(room_id \\ nil) do
-    # If no room_id is provided, default to medium difficulty
-    words = if is_nil(room_id) do
-      @medium_words
-    else
-      # Get room settings to determine difficulty
-      {:ok, room_info} = GameState.get_room(room_id)
-
-      # Get difficulty level from room settings (default "medium" if not set)
-      difficulty = case room_info do
-        %{difficulty: difficulty} when difficulty in ["easy", "medium", "hard"] ->
-          difficulty
-        _ ->
-          "medium"
-      end
-
-      # Select word list based on difficulty
-      case difficulty do
-        "easy" -> @easy_words
-        "hard" -> @hard_words
-        _ -> @medium_words
-      end
+  def generate_words(room_id \\ nil, room_info \\ nil) do
+    # If room_info is provided, use it directly to avoid re-fetching
+    words = cond do
+      not is_nil(room_info) ->
+        words_for_difficulty(room_info)
+      is_nil(room_id) ->
+        @medium_words
+      true ->
+        {:ok, info} = GameState.get_room(room_id)
+        words_for_difficulty(info)
     end
 
     Enum.take_random(words, 3)
+  end
+
+  defp words_for_difficulty(room_info) do
+    difficulty = case room_info do
+      %{difficulty: d} when d in ["easy", "medium", "hard"] -> d
+      _ -> "medium"
+    end
+
+    case difficulty do
+      "easy" -> @easy_words
+      "hard" -> @hard_words
+      _ -> @medium_words
+    end
   end
 
   @doc """
@@ -194,14 +195,16 @@ defmodule ScribblBackend.WordManager do
   ## Returns
     Information about the started turn.
   """
-  def start_turn(room_id, word) do
+  def start_turn(room_id, word, room_info \\ nil)
+  def start_turn(room_id, word, nil) do
+    {:ok, info} = GameState.get_room(room_id)
+    start_turn(room_id, word, info)
+  end
+  def start_turn(room_id, word, room_info) do
     room_word_key = KeyManager.current_word(room_id)
     room_timer_key = KeyManager.turn_timer(room_id)
     room_canvas_key = KeyManager.canvas_data(room_id)
     room_reveal_timer_key = KeyManager.reveal_timer(room_id)
-
-    # Get room settings
-    {:ok, room_info} = GameState.get_room(room_id)
 
     # Parse turn time from room settings (default 60 seconds if not set)
     turn_time = case room_info.turn_time do

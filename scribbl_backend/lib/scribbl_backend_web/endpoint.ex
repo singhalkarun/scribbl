@@ -17,7 +17,7 @@ defmodule ScribblBackendWeb.Endpoint do
 
   socket "/socket", ScribblBackendWeb.UserSocket,
   # skip origin verification for now
-    websocket: [check_origin: false, timeout: 180_000],
+    websocket: [check_origin: false, timeout: 60_000, compress: true],
     pubsub_server: ScribblBackend.PubSub
 
 
@@ -32,7 +32,7 @@ defmodule ScribblBackendWeb.Endpoint do
   plug Plug.Static,
     at: "/",
     from: :scribbl_backend,
-    gzip: false,
+    gzip: true,
     only: ScribblBackendWeb.static_paths()
 
   # Code reloading can be explicitly enabled under the

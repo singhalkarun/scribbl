@@ -7,8 +7,13 @@ defmodule ScribblBackend.CanvasManager do
   alias ScribblBackend.RedisHelper
   alias ScribblBackend.KeyManager
 
+  # Max canvas entries per turn to prevent unbounded growth
+  @max_canvas_entries 500
+
   @doc """
   Save canvas data for a room.
+  Uses Redis LIST (RPUSH + LTRIM) instead of GET+decode+append+encode+SET
+  to avoid O(n) JSON re-encode per stroke update (~20/sec during drawing).
 
   ## Parameters
     - `room_id`: The ID of the room
@@ -21,28 +26,13 @@ defmodule ScribblBackend.CanvasManager do
     "paths" => _paths
   } = canvas_data) do
     room_canvas_key = KeyManager.canvas_data(room_id)
+    encoded = Jason.encode!(canvas_data)
 
-    # Get existing canvas data
-    case RedisHelper.get(room_canvas_key) do
-      {:ok, nil} ->
-        # If no existing data, save the new data as is
-        RedisHelper.set(room_canvas_key, Jason.encode!(%{
-          "canvas" => [canvas_data],
-          "lastUpdate" => System.system_time(:millisecond)
-        }))
-
-      {:ok, existing_data} ->
-        # If there's existing data, append the new increment
-        existing = Jason.decode!(existing_data)
-        updated_canvas = existing["canvas"] ++ [canvas_data]
-
-        RedisHelper.set(room_canvas_key, Jason.encode!(%{
-          "canvas" => updated_canvas,
-          "lastUpdate" => System.system_time(:millisecond)
-        }))
-
-      error -> error
-    end
+    # RPUSH the single stroke + LTRIM to cap in one pipeline
+    RedisHelper.pipeline([
+      ["RPUSH", room_canvas_key, encoded],
+      ["LTRIM", room_canvas_key, "-#{@max_canvas_entries}", "-1"]
+    ])
   end
 
   @doc """
@@ -56,13 +46,11 @@ defmodule ScribblBackend.CanvasManager do
   """
   def get_canvas(room_id) do
     room_canvas_key = KeyManager.canvas_data(room_id)
-    case RedisHelper.get(room_canvas_key) do
-      {:ok, nil} -> {:ok, nil}
-      {:ok, canvas_data} ->
-        case Jason.decode!(canvas_data) do
-          %{"canvas" => canvas} -> {:ok, canvas}
-          _ -> {:ok, nil}
-        end
+    case RedisHelper.lrange(room_canvas_key) do
+      {:ok, []} -> {:ok, nil}
+      {:ok, entries} when is_list(entries) ->
+        canvas = Enum.map(entries, &Jason.decode!/1)
+        {:ok, canvas}
       error -> error
     end
   end

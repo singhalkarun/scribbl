@@ -4,6 +4,8 @@ defmodule ScribblBackend.GameFlow do
   Extracts core game flow functionality from GameHelper.
   """
 
+  require Logger
+
   alias ScribblBackend.RedisHelper
   alias ScribblBackend.GameState
   alias ScribblBackend.PlayerManager
@@ -15,6 +17,10 @@ defmodule ScribblBackend.GameFlow do
   @word_selection_timeout 10
   @turn_transition_delay 3
 
+  # Safety limits
+  @max_start_retries 10
+  @start_lock_ttl_ms 10_000
+
   # Scoring constants
   @base_points 50
   @speed_bonus_max 50
@@ -24,12 +30,36 @@ defmodule ScribblBackend.GameFlow do
   @all_guessed_bonus 40
 
   @doc """
-  Start the game in a room.
+  Start the game in a room. Acquires a distributed lock to prevent
+  concurrent execution across nodes.
 
   ## Parameters
     - `room_id`: The ID of the room to start the game in.
   """
   def start(room_id) do
+    lock_key = KeyManager.game_start_lock(room_id)
+    node_id = Atom.to_string(Node.self())
+
+    case Redix.command(RedisHelper.redix_conn(), ["SET", lock_key, node_id, "NX", "PX", Integer.to_string(@start_lock_ttl_ms)]) do
+      {:ok, "OK"} ->
+        try do
+          do_start(room_id, 0)
+        after
+          RedisHelper.del(lock_key)
+        end
+
+      _ ->
+        # Another node is handling game start for this room
+        :ok
+    end
+  end
+
+  defp do_start(_room_id, retries) when retries >= @max_start_retries do
+    Logger.warning("[GameFlow] Max retries (#{@max_start_retries}) reached, aborting start")
+    {:error, "Max retries reached"}
+  end
+
+  defp do_start(room_id, retries) do
     # get or initialize the room
     {:ok, room_info} = GameState.get_or_initialize_room(room_id)
 
@@ -100,13 +130,19 @@ defmodule ScribblBackend.GameFlow do
           # get the set of players in the room
           {:ok, players} = RedisHelper.smembers(players_key)
 
-          # add players to the eligible drawers set
-          RedisHelper.sadd(eligible_drawers_key, players)
+          # Guard: if no players remain, don't recurse
+          if players == [] do
+            Logger.warning("[GameFlow] No players in room #{room_id}, aborting start")
+            {:error, "No players"}
+          else
+            # add players to the eligible drawers set
+            RedisHelper.sadd(eligible_drawers_key, players)
 
-          RedisHelper.del(non_eligible_guessers_key)
+            RedisHelper.del(non_eligible_guessers_key)
 
-          # trigger start function again
-          start(room_id)
+            # trigger start function again with incremented retry counter
+            do_start(room_id, retries + 1)
+          end
         end
 
       {:ok, drawer} ->
@@ -132,8 +168,8 @@ defmodule ScribblBackend.GameFlow do
             }
           )
 
-          # generate a random word and send to the drawer
-          words = WordManager.generate_words(room_id)
+          # generate a random word and send to the drawer (pass room_info to avoid re-fetch)
+          words = WordManager.generate_words(room_id, room_info)
 
           # Set up word selection timer for automatic selection
           setup_word_selection_timer(room_id, words)
@@ -152,10 +188,10 @@ defmodule ScribblBackend.GameFlow do
           )
         else
           # Drawer has left the room, remove them from eligible drawers and try again
-          IO.puts("[GameFlow] Selected drawer #{drawer} is no longer in room #{room_id}, removing from eligible drawers and retrying")
+          Logger.info("[GameFlow] Selected drawer #{drawer} is no longer in room #{room_id}, retrying")
           RedisHelper.srem(eligible_drawers_key, drawer)
-          # Recursively call start again to pick a new drawer
-          start(room_id)
+          # Recursively call with incremented retry counter
+          do_start(room_id, retries + 1)
         end
     end
   end
@@ -172,14 +208,13 @@ defmodule ScribblBackend.GameFlow do
   def handle_guess(message, socket) do
     # check if the guess is correct
     room_id = String.split(socket.topic, ":") |> List.last()
-    room_key = KeyManager.room_info(room_id)
     user_id = socket.assigns.user_id
 
-    # First, check game status
-    {:ok, status} = RedisHelper.hget(room_key, "status")
+    # Single HGETALL to get all room info at once instead of multiple HGETs
+    {:ok, room_info} = GameState.get_room(room_id)
 
     # If game is not active, just broadcast the message
-    if status != "active" do
+    if room_info.status != "active" do
       Phoenix.PubSub.broadcast(
         ScribblBackend.PubSub,
         socket.topic,
@@ -196,8 +231,8 @@ defmodule ScribblBackend.GameFlow do
       # Game is active, proceed with normal guess handling
       players_key = KeyManager.room_players(room_id)
 
-      {:ok, drawer} = GameState.get_current_drawer(room_id)
-      {:ok, round} = RedisHelper.hget(room_key, "current_round")
+      drawer = room_info.current_drawer
+      round = room_info.current_round
       room_timer_key = KeyManager.turn_timer(room_id)
 
       if drawer == socket.assigns.user_id do
@@ -288,8 +323,7 @@ defmodule ScribblBackend.GameFlow do
                 # Get time remaining on the timer - this determines the score
                 {:ok, time_remaining_seconds} = RedisHelper.ttl(room_timer_key)
 
-                # Fetch turn_time from room info (default 60 if not set)
-                {:ok, room_info} = GameState.get_room(room_id)
+                # Use turn_time from room_info already fetched above
                 turn_time = case room_info.turn_time do
                   nil -> 60
                   "" -> 60
@@ -376,8 +410,7 @@ defmodule ScribblBackend.GameFlow do
                   # Check if all players except the drawer have guessed correctly
                   if num_non_eligible_players == num_players - 1 do
                     # All players have guessed correctly, award bonus to drawer
-                    {:ok, drawer_current_score} = PlayerManager.get_player_score(room_id, drawer)
-                    {:ok, _} = PlayerManager.update_player_score(room_id, drawer, @all_guessed_bonus)
+                    {:ok, drawer_new_total} = PlayerManager.update_player_score(room_id, drawer, @all_guessed_bonus)
 
                     # Broadcast updated drawer score with all-guessed bonus
                     Phoenix.PubSub.broadcast(
@@ -387,7 +420,7 @@ defmodule ScribblBackend.GameFlow do
                         event: "score_updated",
                         payload: %{
                           "user_id" => drawer,
-                          "score" => drawer_current_score + @all_guessed_bonus
+                          "score" => drawer_new_total
                         }
                       }
                     )
@@ -474,15 +507,13 @@ defmodule ScribblBackend.GameFlow do
     # Get all players who have guessed correctly
     {:ok, guessed_players} = RedisHelper.smembers(non_eligible_guessers_key)
 
-    # Reset streak for all non-drawer players who did NOT guess correctly
-    missed_players = non_drawer_players -- guessed_players
-    # Only reset streak for missed guessers, not the drawer
-    Enum.each(missed_players, fn player_id ->
-      PlayerManager.reset_player_streak(player_id)
-    end)
-
     # Check if all non-drawer players have guessed correctly
     if length(non_drawer_players) > 0 && length(guessed_players) >= length(non_drawer_players) do
+      # Only reset streaks at turn END (when all have guessed), not mid-turn
+      missed_players = non_drawer_players -- guessed_players
+      Enum.each(missed_players, fn player_id ->
+        PlayerManager.reset_player_streak(player_id)
+      end)
       # Get the current word
       {:ok, word} = WordManager.get_current_word(room_id)
 
@@ -542,11 +573,17 @@ defmodule ScribblBackend.GameFlow do
     RedisHelper.setex(turn_transition_timer_key, @turn_transition_delay, "start_next_turn")
   end
 
-    # Set up the word selection timer with the available words stored in Redis.
+  # Set up the word selection timer. Words are stored in a separate non-expiring key
+  # so they survive the timer key's expiration and can be read by TimeoutWatcher.
   def setup_word_selection_timer(room_id, words) do
     word_selection_timer_key = KeyManager.word_selection_timer(room_id)
+    word_selection_words_key = KeyManager.word_selection_words(room_id)
     words_json = Jason.encode!(words)
-    RedisHelper.setex(word_selection_timer_key, @word_selection_timeout, words_json)
+
+    # Store words separately (non-expiring) so they survive timer expiration
+    RedisHelper.set(word_selection_words_key, words_json)
+    # Timer key only used for timing — value is irrelevant
+    RedisHelper.setex(word_selection_timer_key, @word_selection_timeout, "pending")
   end
 
   @doc """
@@ -557,10 +594,13 @@ defmodule ScribblBackend.GameFlow do
     - `room_id`: The ID of the room to clean up timers for.
   """
   def cleanup_game_timers(room_id) do
-    # Clean up all possible active timers
-    RedisHelper.del(KeyManager.turn_timer(room_id))
-    RedisHelper.del(KeyManager.reveal_timer(room_id))
-    RedisHelper.del(KeyManager.word_selection_timer(room_id))
-    RedisHelper.del(KeyManager.turn_transition_timer(room_id))
+    # Clean up all possible active timers in a single pipeline
+    RedisHelper.pipeline([
+      ["DEL", KeyManager.turn_timer(room_id)],
+      ["DEL", KeyManager.reveal_timer(room_id)],
+      ["DEL", KeyManager.word_selection_timer(room_id)],
+      ["DEL", KeyManager.turn_transition_timer(room_id)],
+      ["DEL", KeyManager.word_selection_words(room_id)]
+    ])
   end
 end

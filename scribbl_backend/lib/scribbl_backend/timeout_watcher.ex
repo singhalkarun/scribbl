@@ -7,6 +7,7 @@ defmodule ScribblBackend.TimeoutWatcher do
   alias ScribblBackend.RedisHelper
   alias ScribblBackend.GameState
   alias ScribblBackend.GameFlow
+  alias ScribblBackend.PlayerManager
   alias ScribblBackend.WordManager
   alias ScribblBackend.KeyManager
 
@@ -121,7 +122,9 @@ defmodule ScribblBackend.TimeoutWatcher do
 
   defp handle_timeout_logic(room_id, word) do
     case check_game_active(room_id) do
-      {:ok, _room_info} ->
+      {:ok, room_info} ->
+        # Reset streaks for players who didn't guess before timeout
+        reset_streaks_for_non_guessers(room_id, room_info.current_round)
         # Game is active, proceed with timeout logic
         broadcast_turn_over(room_id, word, "timeout")
         cleanup_turn_resources(room_id)
@@ -129,6 +132,22 @@ defmodule ScribblBackend.TimeoutWatcher do
       _ ->
         # Game is not active, do nothing
         :noop
+    end
+  end
+
+  defp reset_streaks_for_non_guessers(room_id, round) do
+    with {:ok, all_players} <- PlayerManager.get_players(room_id),
+         {:ok, current_drawer} <- GameState.get_current_drawer(room_id) do
+      non_drawer_players = all_players -- [current_drawer]
+      non_eligible_guessers_key = KeyManager.non_eligible_guessers(room_id, round)
+      {:ok, guessed_players} = RedisHelper.smembers(non_eligible_guessers_key)
+
+      missed_players = non_drawer_players -- guessed_players
+      Enum.each(missed_players, fn player_id ->
+        PlayerManager.reset_player_streak(player_id)
+      end)
+    else
+      _ -> :ok
     end
   end
 
@@ -257,7 +276,7 @@ defmodule ScribblBackend.TimeoutWatcher do
     word_selection_timer_key = KeyManager.word_selection_timer(room_id)
 
     # Get stored words or generate new ones
-    words = get_words_for_auto_selection(room_id, word_selection_timer_key)
+    words = get_words_for_auto_selection(room_id)
     selected_word = Enum.random(words)
 
     case GameState.get_current_drawer(room_id) do
@@ -267,12 +286,15 @@ defmodule ScribblBackend.TimeoutWatcher do
         :noop
     end
 
-    # Clean up the timer
+    # Clean up the timer and the words storage key
     cleanup_timer_key(word_selection_timer_key)
+    cleanup_timer_key(KeyManager.word_selection_words(room_id))
   end
 
-  defp get_words_for_auto_selection(room_id, word_selection_timer_key) do
-    case RedisHelper.get(word_selection_timer_key) do
+  defp get_words_for_auto_selection(room_id) do
+    # Read words from the separate non-expiring key (not the timer key which is already gone)
+    word_selection_words_key = KeyManager.word_selection_words(room_id)
+    case RedisHelper.get(word_selection_words_key) do
       {:ok, words_json} when is_binary(words_json) ->
         case Jason.decode(words_json) do
           {:ok, decoded_words} -> decoded_words
@@ -373,7 +395,7 @@ defmodule ScribblBackend.TimeoutWatcher do
   # Attempt to acquire a distributed lock for timer handling.
   # Returns {:ok, "OK"} if lock acquired, anything else means another container got it.
   defp acquire_distributed_lock(lock_key) do
-    Redix.command(:redix, [
+    Redix.command(ScribblBackend.RedisHelper.redix_conn(), [
       "SET",
       lock_key,
       node_id(),

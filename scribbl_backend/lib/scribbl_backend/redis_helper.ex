@@ -1,9 +1,48 @@
-# redis helper module (use redix, name : :redix)
+# redis helper module (uses a pool of Redix connections)
 
 defmodule ScribblBackend.RedisHelper do
   @moduledoc """
   A helper module for interacting with Redis using Redix.
+  Uses a connection pool for improved throughput.
   """
+
+  # Select a connection from the pool using the calling process pid
+  def redix_conn do
+    pool_size = :persistent_term.get(:redis_pool_size, 5)
+    :"redix_#{:erlang.phash2(self(), pool_size)}"
+  end
+
+  @doc """
+  Execute a Redis pipeline (multiple commands in one round-trip).
+
+  ## Parameters
+    - `commands`: A list of commands, where each command is a list of strings.
+
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.pipeline([["GET", "key1"], ["GET", "key2"]])
+      {:ok, ["value1", "value2"]}
+  """
+  def pipeline(commands) do
+    Redix.pipeline(redix_conn(), commands)
+  end
+
+  @doc """
+  Get multiple keys in a single MGET call.
+
+  ## Parameters
+    - `keys`: A list of keys to get.
+
+  ## Examples
+
+      iex> ScribblBackend.RedisHelper.mget(["key1", "key2"])
+      {:ok, ["value1", "value2"]}
+  """
+  def mget(keys) when is_list(keys) and keys != [] do
+    Redix.command(redix_conn(), ["MGET" | keys])
+  end
+
+  def mget([]), do: {:ok, []}
 
   @doc """
   Sets a key-value pair in Redis.
@@ -19,7 +58,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def set(key, value) do
-    Redix.command(:redix, ["SET", key, value])
+    Redix.command(redix_conn(), ["SET", key, value])
   end
 
   @doc """
@@ -35,7 +74,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, "my_value"}
   """
   def get(key) do
-    Redix.command(:redix, ["GET", key])
+    Redix.command(redix_conn(), ["GET", key])
   end
 
   @doc """
@@ -52,7 +91,7 @@ defmodule ScribblBackend.RedisHelper do
   def hset(key, fields) when is_map(fields) do
     # Convert the map to a list of tuples
     fields_list = Enum.flat_map(fields, fn {k, v} -> [k, v] end)
-    Redix.command(:redix, ["HSET", key | fields_list])
+    Redix.command(redix_conn(), ["HSET", key | fields_list])
   end
 
   @doc """
@@ -68,7 +107,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def hset(key, field, value) do
-    Redix.command(:redix, ["HSET", key, field, value])
+    Redix.command(redix_conn(), ["HSET", key, field, value])
   end
 
   @doc """
@@ -77,7 +116,7 @@ defmodule ScribblBackend.RedisHelper do
   def hmset(key, fields) do
     # Convert the map to a list of tuples
     fields_list = Enum.flat_map(fields, fn {k, v} -> [k, v] end)
-    Redix.command(:redix, ["HMSET", key | fields_list])
+    Redix.command(redix_conn(), ["HMSET", key | fields_list])
   end
 
   @doc """
@@ -92,7 +131,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, "my_value"}
   """
   def hget(key, field) do
-    Redix.command(:redix, ["HGET", key, field])
+    Redix.command(redix_conn(), ["HGET", key, field])
   end
   @doc """
   Deletes a key from Redis.
@@ -105,7 +144,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def delete(key) do
-    Redix.command(:redix, ["DEL", key])
+    Redix.command(redix_conn(), ["DEL", key])
   end
   @doc """
   Deletes a field from a Hash in Redis.
@@ -119,7 +158,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def hdel(key, field) do
-    Redix.command(:redix, ["HDEL", key, field])
+    Redix.command(redix_conn(), ["HDEL", key, field])
   end
   @doc """
   Gets all fields and values from a Hash in Redis.
@@ -132,7 +171,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, %{"field1" => "value1", "field2" => "value2"}}
   """
   def hgetall(key) do
-    Redix.command(:redix, ["HGETALL", key])
+    Redix.command(redix_conn(), ["HGETALL", key])
   end
 
   @doc """
@@ -147,7 +186,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 1}
   """
   def hexists(key, field) do
-    Redix.command(:redix, ["HEXISTS", key, field])
+    Redix.command(redix_conn(), ["HEXISTS", key, field])
   end
 
   @doc """
@@ -162,7 +201,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def rpush(key, value) do
-    Redix.command(:redix, ["RPUSH", key, value])
+    Redix.command(redix_conn(), ["RPUSH", key, value])
   end
 
   @doc """
@@ -176,7 +215,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, "my_value"}
   """
   def rpop(key) do
-    Redix.command(:redix, ["RPOP", key])
+    Redix.command(redix_conn(), ["RPOP", key])
   end
 
   @doc """
@@ -190,7 +229,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, ["value1", "value2"]}
   """
   def lrange(key) do
-    Redix.command(:redix, ["LRANGE", key, "0", "-1"])
+    Redix.command(redix_conn(), ["LRANGE", key, "0", "-1"])
   end
 
   @doc """
@@ -204,7 +243,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 2}
   """
   def llen(key) do
-    Redix.command(:redix, ["LLEN", key])
+    Redix.command(redix_conn(), ["LLEN", key])
   end
 
   @doc """
@@ -218,7 +257,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 1}
   """
   def exists(key) do
-    Redix.command(:redix, ["EXISTS", key])
+    Redix.command(redix_conn(), ["EXISTS", key])
   end
 
   @doc """
@@ -233,7 +272,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def lrem(key, value) do
-    Redix.command(:redix, ["LREM", key, "0", value])
+    Redix.command(redix_conn(), ["LREM", key, "0", value])
   end
 
   @doc """
@@ -253,11 +292,11 @@ defmodule ScribblBackend.RedisHelper do
   def sadd(key, members) when is_list(members) do
     # Convert the list to a flat list of arguments
     members_list = Enum.flat_map(members, fn member -> [member] end)
-    Redix.command(:redix, ["SADD", key | members_list])
+    Redix.command(redix_conn(), ["SADD", key | members_list])
   end
 
   def sadd(key, member) do
-    Redix.command(:redix, ["SADD", key, member])
+    Redix.command(redix_conn(), ["SADD", key, member])
   end
 
   @doc """
@@ -277,11 +316,11 @@ defmodule ScribblBackend.RedisHelper do
   def srem(key, members) when is_list(members) do
     # Convert the list to a flat list of arguments
     members_list = Enum.flat_map(members, fn member -> [member] end)
-    Redix.command(:redix, ["SREM", key | members_list])
+    Redix.command(redix_conn(), ["SREM", key | members_list])
   end
 
   def srem(key, member) do
-    Redix.command(:redix, ["SREM", key, member])
+    Redix.command(redix_conn(), ["SREM", key, member])
   end
 
   @doc """
@@ -296,7 +335,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 1}
   """
   def sismember(key, member) do
-    Redix.command(:redix, ["SISMEMBER", key, member])
+    Redix.command(redix_conn(), ["SISMEMBER", key, member])
   end
 
 
@@ -311,7 +350,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, "member1"}
   """
   def srandmember(key) do
-    Redix.command(:redix, ["SRANDMEMBER", key])
+    Redix.command(redix_conn(), ["SRANDMEMBER", key])
   end
 
   @doc """
@@ -325,7 +364,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, "member1"}
   """
   def spop(key) do
-    Redix.command(:redix, ["SPOP", key])
+    Redix.command(redix_conn(), ["SPOP", key])
   end
 
   @doc """
@@ -340,7 +379,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, ["member1", "member2"]}
   """
   def smembers(key) do
-    Redix.command(:redix, ["SMEMBERS", key])
+    Redix.command(redix_conn(), ["SMEMBERS", key])
   end
 
   @doc """
@@ -356,7 +395,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def setex(key, seconds, value) do
-    Redix.command(:redix, ["SETEX", key, Integer.to_string(seconds), value])
+    Redix.command(redix_conn(), ["SETEX", key, Integer.to_string(seconds), value])
   end
 
   @doc """
@@ -371,7 +410,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 2}
   """
   def incr(key, increment) do
-    Redix.command(:redix, ["INCRBY", key, increment])
+    Redix.command(redix_conn(), ["INCRBY", key, increment])
   end
   @doc """
 
@@ -386,7 +425,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 0}
   """
   def decr(key, decrement) do
-    Redix.command(:redix, ["DECRBY", key, decrement])
+    Redix.command(redix_conn(), ["DECRBY", key, decrement])
   end
 
   @doc """
@@ -400,7 +439,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 60}
   """
   def ttl(key) do
-    Redix.command(:redix, ["TTL", key])
+    Redix.command(redix_conn(), ["TTL", key])
   end
 
   @doc """
@@ -414,7 +453,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, 2}
   """
   def scard(key) do
-    Redix.command(:redix, ["SCARD", key])
+    Redix.command(redix_conn(), ["SCARD", key])
   end
 
   @doc """
@@ -429,7 +468,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def expire(key, ttl) do
-    Redix.command(:redix, ["EXPIRE", key, ttl])
+    Redix.command(redix_conn(), ["EXPIRE", key, ttl])
   end
 
   @doc """
@@ -443,7 +482,7 @@ defmodule ScribblBackend.RedisHelper do
       :ok
   """
   def del(key) do
-    Redix.command(:redix, ["DEL", key])
+    Redix.command(redix_conn(), ["DEL", key])
   end
 
   @doc """
@@ -455,7 +494,7 @@ defmodule ScribblBackend.RedisHelper do
       {:ok, ["user:1", "user:2"]}
   """
   def keys(pattern) do
-    Redix.command(:redix, ["KEYS", pattern])
+    Redix.command(redix_conn(), ["KEYS", pattern])
   end
 
 end

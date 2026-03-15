@@ -110,16 +110,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // When paths state changes, update the canvas to match
   useEffect(() => {
     if (canvasRef.current && paths.length >= 0) {
-      // Only update if the paths have actually changed
-      const currentPaths = canvasRef.current.exportPaths();
-      if (JSON.stringify(currentPaths) !== JSON.stringify(paths)) {
-        // Clear first to avoid duplicating paths
-        canvasRef.current.clearCanvas();
+      // Clear first to avoid duplicating paths
+      canvasRef.current.clearCanvas();
 
-        // Only load paths if we have any
-        if (paths.length > 0) {
-          canvasRef.current.loadPaths(paths);
-        }
+      // Only load paths if we have any
+      if (paths.length > 0) {
+        canvasRef.current.loadPaths(paths);
       }
     }
   }, [paths]);
@@ -127,15 +123,11 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   // Connect to Phoenix channel for drawing events
   useEffect(() => {
     if (!channel) {
-      console.log("[Canvas] No channel available yet");
       return;
     }
 
-    console.log("[Canvas] Setting up drawing event listeners");
-
     // Listen for drawing events from other users
     const drawingRef = channel.on("drawing", (payload) => {
-      console.log("[Canvas] Received drawing event:", payload);
 
       if (!isDrawer) {
         const container = canvasContainerRef.current;
@@ -192,7 +184,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
 
     // Listen for clear canvas events - use drawing_clear to avoid conflicts
     const clearCanvasRef = channel.on("drawing_clear", () => {
-      console.log("[Canvas] Received clear canvas event");
 
       // Reset all drawing state if we're a viewer
       if (!isDrawer) {
@@ -207,14 +198,12 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       setTimeout(() => {
         if (canvasRef.current) {
           canvasRef.current.clearCanvas();
-          console.log("[Canvas] Canvas cleared from remote event");
         }
       }, 10);
     });
 
     // Clear canvas when a new turn starts
     const turnStartedRef = channel.on("turn_started", () => {
-      console.log("[Canvas] New turn started, clearing canvas");
       setPaths([]);
       setActionTaken(null); // Reset like/dislike state for new turn
     });
@@ -268,12 +257,10 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
     setTimeout(() => {
       if (canvasRef.current) {
         canvasRef.current.clearCanvas();
-        console.log("[Canvas] Canvas cleared locally");
       }
     }, 10);
 
     // Send clear event to server - use drawing_clear to avoid conflicts
-    console.log("[Canvas] Sending clear canvas event");
     if (channel) {
       channel.push("drawing_clear", {});
     }
@@ -350,7 +337,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
       isDrawingRef.current = true;
       lastSentPointsRef.current = 0;
       previousPathRef.current = null;
-      console.log("[Canvas] Starting to draw");
     }
 
     // Throttle the path export and sending
@@ -418,7 +404,6 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
           setPaths(exportedPaths);
 
           // Send the new path to the server with isComplete flag
-          console.log("[Canvas] Sending final drawing event:", newPath);
           channel.push("drawing", {
             drawMode: newPath.drawMode,
             strokeColor: newPath.strokeColor,
@@ -565,4 +550,4 @@ const Canvas = forwardRef<CanvasHandle, CanvasProps>(function Canvas(
   );
 });
 
-export default Canvas;
+export default React.memo(Canvas);

@@ -243,4 +243,27 @@ defmodule ScribblBackend.KeyManager do
     The Redis key for the public rooms set.
   """
   def public_rooms(), do: "public_rooms"
+
+  @doc """
+  Get the key for storing word selection words separately from the timer.
+  This allows words to persist after the timer key expires.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for the word selection words storage.
+  """
+  def word_selection_words(room_id), do: "#{@room_prefix}{#{room_id}}:word_selection_words"
+
+  @doc """
+  Get the lock key for GameFlow.start() to prevent concurrent execution across nodes.
+
+  ## Parameters
+    - `room_id`: The ID of the room.
+
+  ## Returns
+    The Redis key for the game start lock.
+  """
+  def game_start_lock(room_id), do: "lock:#{@room_prefix}{#{room_id}}:game_start"
 end
