@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { PlayerCard } from "@/components/PlayerCard";
 
 const DIFFICULTIES = ["easy", "medium", "hard"] as const;
@@ -50,8 +50,18 @@ export function Lobby({
   const playerEntries = Object.entries(players);
   const emptySlots = Math.max(0, maxPlayers - playerEntries.length);
 
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  const showCopyFeedback = (text: string) => {
+    setCopyFeedback(text);
+    setTimeout(() => setCopyFeedback(null), 2000);
+  };
+
   const copyRoomCode = () => {
-    navigator.clipboard.writeText(roomId);
+    navigator.clipboard.writeText(roomId).then(
+      () => showCopyFeedback("Copied!"),
+      () => showCopyFeedback("Failed to copy")
+    );
   };
 
   const shareRoom = () => {
@@ -59,7 +69,10 @@ export function Lobby({
     if (navigator.share) {
       navigator.share({ title: "Join my Scribbl game!", url });
     } else {
-      navigator.clipboard.writeText(url);
+      navigator.clipboard.writeText(url).then(
+        () => showCopyFeedback("Link copied!"),
+        () => showCopyFeedback("Failed to copy")
+      );
     }
   };
 
@@ -85,7 +98,7 @@ export function Lobby({
           <p className="text-[13px] text-[var(--text-placeholder)] mt-0.5">Hang tight! The game will start soon</p>
         </div>
 
-        <div className="bg-[var(--color-yellow)] border-[2.5px] border-ink rounded-scribbl-md px-5 py-3.5 flex items-center justify-between mb-6 shadow-scribbl-md">
+        <div className="bg-[var(--color-yellow)] border-[2.5px] border-ink rounded-scribbl-md px-5 py-3.5 flex items-center justify-between mb-8 shadow-scribbl-md relative">
           <div>
             <div className="text-xs font-extrabold text-[var(--text-muted)] uppercase tracking-wide">Room Code</div>
             <div className="text-2xl font-extrabold tracking-[6px]">{roomId}</div>
@@ -104,6 +117,11 @@ export function Lobby({
               🔗 Share
             </button>
           </div>
+          {copyFeedback && (
+            <div className="absolute -bottom-7 right-0 bg-ink text-white text-xs font-bold px-3 py-1 rounded-scribbl-xs shadow-scribbl-sm animate-[fadeIn_0.15s_ease-out]">
+              {copyFeedback}
+            </div>
+          )}
         </div>
 
         {isAdmin && onUpdateSettings ? (
@@ -237,7 +255,7 @@ export function Lobby({
               {playerEntries.length} / {maxPlayers}
             </span>
           </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-2.5">
             {playerEntries.map(([uid, name]) => (
               <PlayerCard
                 key={uid}

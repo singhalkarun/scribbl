@@ -26,10 +26,10 @@ export function PlayerBadge({
 
   return (
     <div
-      className={`flex items-center gap-1.5 ${bgClass} border-[2.5px] border-ink rounded-[12px] px-3 py-[5px] text-[13px] font-bold shadow-scribbl-sm whitespace-nowrap flex-shrink-0 transition-transform duration-150 odd:-rotate-[0.5deg] even:rotate-[0.5deg] ${className}`}
+      className={`flex items-center gap-1.5 ${bgClass} border-[2.5px] border-ink rounded-[12px] px-3 py-[5px] text-[13px] font-bold shadow-scribbl-sm whitespace-nowrap min-w-0 transition-transform duration-150 odd:-rotate-[0.5deg] even:rotate-[0.5deg] ${className}`}
     >
       <DoodleAvatar name={name} seed={avatarSeed} size={28} className="rounded-[8px] border-2 border-ink flex-shrink-0" />
-      <span>{name}</span>
+      <span className="truncate">{name}</span>
       {isDrawing && <span className="text-xs">✏️</span>}
       {hasGuessed && <span className="text-[#27ae60] text-xs">✓</span>}
       <span className="text-[var(--text-muted)] font-semibold text-xs">{score}</span>
