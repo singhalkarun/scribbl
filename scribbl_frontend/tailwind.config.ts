@@ -7,25 +7,33 @@ const config: Config = {
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
-    fontFamily: {
-      sans: ["var(--font-outfit)", "system-ui", "sans-serif"],
-      mono: ["var(--font-jetbrains-mono)", "monospace"],
-    },
     extend: {
       fontFamily: {
-        outfit: ["var(--font-outfit)"],
-        inter: ["var(--font-inter)"],
+        sans: ["var(--font-nunito)", "system-ui", "sans-serif"],
+        display: ["var(--font-lilita)", "cursive"],
       },
-      animation: {
-        fadeIn: "fadeIn 0.5s ease-in-out",
-        "pulse-slow": "pulse 3s ease-in-out infinite",
-        "spin-slow": "spin 8s linear infinite",
+      colors: {
+        cream: "#FFF8E7",
+        coral: "#FF6B6B",
+        "scribbl-yellow": "#FFEAA7",
+        "scribbl-yellow-dark": "#FDCB6E",
+        "scribbl-green": "#55EFC4",
+        "scribbl-blue": "#74B9FF",
+        "scribbl-purple": "#A29BFE",
+        "scribbl-pink": "#FD79A8",
+        ink: "#333333",
       },
-      keyframes: {
-        fadeIn: {
-          "0%": { opacity: "0", transform: "translateY(-10px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
+      borderRadius: {
+        "scribbl-lg": "20px",
+        "scribbl-md": "14px",
+        "scribbl-sm": "10px",
+        "scribbl-xs": "8px",
+      },
+      boxShadow: {
+        "scribbl-lg": "6px 6px 0 #333",
+        "scribbl-md": "3px 3px 0 #333",
+        "scribbl-sm": "2px 2px 0 #333",
+        "scribbl-xs": "1px 1px 0 #333",
       },
     },
   },

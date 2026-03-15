@@ -1,55 +1,122 @@
 @import "tailwindcss";
 
 :root {
-  --default-font-family: var(--font-quicksand);
-  --font-sans: var(--font-quicksand);
-  --font-mono: var(--font-jetbrains-mono);
+  /* Backgrounds */
+  --bg-cream: #FFF8E7;
+  --bg-white: #FFFFFF;
+
+  /* Primary */
+  --color-coral: #FF6B6B;
+  --color-yellow: #FFEAA7;
+  --color-yellow-dark: #FDCB6E;
+  --color-green: #55EFC4;
+  --color-blue: #74B9FF;
+  --color-purple: #A29BFE;
+  --color-pink: #FD79A8;
+
+  /* Text */
+  --text-primary: #333;
+  --text-secondary: #555;
+  --text-muted: #888;
+  --text-placeholder: #999;
+  --text-disabled: #ccc;
+
+  /* Borders */
+  --border-color: #333;
+  --border-width-lg: 3px;
+  --border-width-md: 2.5px;
+  --border-width-sm: 2px;
+
+  /* Shadows */
+  --shadow-lg: 6px 6px 0 #333;
+  --shadow-md: 3px 3px 0 #333;
+  --shadow-sm: 2px 2px 0 #333;
+  --shadow-xs: 1px 1px 0 #333;
+
+  /* Radii */
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --radius-xs: 8px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-display: var(--font-lilita), cursive;
+  --font-body: var(--font-nunito), sans-serif;
+  --default-font-family: var(--font-nunito);
+  --font-sans: var(--font-nunito);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
 }
 
-html,
+/* Paper texture background */
 body {
+  background: var(--bg-cream);
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
   overscroll-behavior: none;
 }
 
-@keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(60px, -100px) scale(1.1);
-  }
-  66% {
-    transform: translate(-40px, 40px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
 @keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-3px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateX(3px);
-  }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
 }
 
-.animate-blob {
-  animation: blob 15s infinite;
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.animate-shake {
-  animation: shake 0.5s ease-in-out;
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
 }
 
-.animation-delay-2000 {
-  animation-delay: 2s;
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
 }
 
-.animation-delay-4000 {
-  animation-delay: 4s;
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-shake { animation: shake 0.5s ease-in-out; }
+.animate-fadeIn { animation: fadeIn 0.5s ease-in-out; }
+.animate-bounce { animation: bounce 1s ease-in-out infinite; }
+.animate-pulse { animation: pulse 2s ease-in-out infinite; }
+.animate-shrink { animation: shrink 3s linear forwards; }
+.animate-spin { animation: spin 1s linear infinite; }
+
+.animation-delay-500 { animation-delay: 0.5s; }
+.animation-delay-1000 { animation-delay: 1s; }
+.animation-delay-1500 { animation-delay: 1.5s; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-2500 { animation-delay: 2.5s; }
+.animation-delay-3000 { animation-delay: 3s; }
+.animation-delay-4000 { animation-delay: 4s; }
+
+/* Focus-visible utility for keyboard navigation */
+.focus-ring:focus-visible {
+  outline: 3px solid var(--color-blue);
+  outline-offset: 2px;
+}
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { scrollbar-width: none; }
