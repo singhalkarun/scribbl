@@ -1,24 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono, Outfit } from "next/font/google";
+import { Lilita_One, Nunito } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import SocketInitializer from "@/components/SocketInitializer";
 import OrientationLock from "@/components/OrientationLock";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
+const lilitaOne = Lilita_One({
+  variable: "--font-lilita",
   subsets: ["latin"],
+  weight: "400",
   display: "swap",
 });
 
-const inter = Inter({
-  variable: "--font-inter",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-jetbrains-mono",
-  subsets: ["latin"],
+  weight: ["400", "600", "700", "800"],
+  display: "swap",
 });
 
 // Determine if we are running in the production environment. The variable is populated
@@ -98,7 +96,7 @@ export const metadata: Metadata = {
     "apple-mobile-web-app-title": "Scribbl",
     "application-name": "Scribbl",
     "mobile-web-app-capable": "yes",
-    "theme-color": "#6366f1", // Indigo color matching your design
+    "theme-color": "#FF6B6B",
   },
 };
 
@@ -110,8 +108,8 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${inter.variable} ${jetbrainsMono.variable}`}
-      style={{ fontFamily: "var(--font-outfit)" }}
+      className={`${lilitaOne.variable} ${nunito.variable}`}
+      style={{ fontFamily: "var(--font-nunito)" }}
     >
       <head>
         <meta
