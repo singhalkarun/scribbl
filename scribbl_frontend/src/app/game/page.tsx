@@ -13,6 +13,7 @@ import { TurnToast } from "@/components/TurnToast";
 import GameOverModal from "@/components/GameOverModal";
 import KickPlayerModal from "@/components/KickPlayerModal";
 import KickedModal from "@/components/KickedModal";
+import VoiceChat from "@/components/VoiceChat";
 import { useRouter } from "next/navigation";
 import { useRoomChannel } from "@/hooks/useRoomChannel";
 import { useSoundEffects } from "@/utils/useSoundEffects";
@@ -186,7 +187,8 @@ export default function GamePage() {
         // Check if this position is a special char (space, hyphen, etc.)
         const special = specialChars.find((sc) => sc.index === i);
         if (special) {
-          display.push(special.char);
+          // Use non-breaking spaces so the gap is visible in HTML
+          display.push(special.char === " " ? "\u00A0\u00A0" : special.char);
         } else if (revealedLetters[i] && revealedLetters[i] !== "_") {
           display.push(revealedLetters[i]);
         } else {
@@ -1111,7 +1113,7 @@ export default function GamePage() {
       </div>
 
       {/* Zone 2: Players Bar */}
-      <div className="flex gap-2 overflow-x-auto flex-shrink-0 scrollbar-hide py-0.5">
+      <div className="flex gap-2 overflow-x-auto flex-shrink-0 scrollbar-hide py-0.5 items-center">
         {Object.entries(players).map(([uid, name]) => (
           <PlayerBadge
             key={uid}
@@ -1122,6 +1124,11 @@ export default function GamePage() {
             hasGuessed={guessedPlayers.has(uid)}
           />
         ))}
+        <VoiceChat
+          scores={scores}
+          currentDrawerId={gameInfo.currentDrawer}
+          currentPlayerName={playerName}
+        />
       </div>
 
       {/* Zone 3: Canvas */}

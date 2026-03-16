@@ -181,7 +181,6 @@ export function JoinCard({
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                 placeholder="ABC123"
-                maxLength={10}
                 className="w-full bg-cream border-[2.5px] border-ink rounded-[12px] px-3.5 py-2.5 text-xl font-extrabold text-center uppercase tracking-[4px] shadow-[2px_2px_0_#ddd] outline-none transition-all duration-150 focus:border-[var(--color-blue)] focus:shadow-[2px_2px_0_var(--color-blue)] focus:bg-white placeholder:text-[var(--text-disabled)]"
               />
             </div>

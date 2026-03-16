@@ -108,7 +108,7 @@ export function Lobby({
               onClick={copyRoomCode}
               className="bg-white border-2 border-ink rounded-scribbl-xs px-2.5 py-1.5 text-xs font-bold shadow-scribbl-xs hover:translate-x-px hover:translate-y-px hover:shadow-none transition-all duration-150 flex items-center gap-1"
             >
-              📋 Copy
+              {copyFeedback === "Copied!" ? "✅ Copied" : "📋 Copy"}
             </button>
             <button
               onClick={shareRoom}
