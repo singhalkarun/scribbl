@@ -8,58 +8,90 @@ services:
     restart: always
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  auth:
+    image: ghcr.io/singhalkarun/scribbl-auth:${AUTH_IMAGE_TAG:-main}
+    environment:
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_DB: ${AUTH_REDIS_DB}
+      TWO_FACTOR_API_KEY: ${TWO_FACTOR_API_KEY}
+      OTP_TEMPLATE_NAME: ${OTP_TEMPLATE_NAME}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+      PORT: 8080
+      APP_ENV: production
+      LOG_LEVEL: INFO
+      RATE_LIMIT_PER_MINUTE: ${RATE_LIMIT_PER_MINUTE:-5}
+    restart: always
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   scribbl_backend_1:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       NODE_NAME: "1"
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
-      REDIS_DB: ${REDIS_DB}
+      REDIS_DB: ${SCRIBBL_REDIS_DB}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     restart: always
     depends_on:
       - postgres
+      
 
   scribbl_backend_2:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       NODE_NAME: "2"
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
-      REDIS_DB: ${REDIS_DB}
+      REDIS_DB: ${SCRIBBL_REDIS_DB}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     restart: always
     depends_on:
       - postgres
 
   scribbl_backend_3:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       NODE_NAME: "3"
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
-      REDIS_DB: ${REDIS_DB}
+      REDIS_DB: ${SCRIBBL_REDIS_DB}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     restart: always
     depends_on:
       - postgres
 
   scribbl_backend_4:
-    image: ghcr.io/singhalkarun/scribbl-backend:main
+    image: ghcr.io/singhalkarun/scribbl-backend:${BACKEND_IMAGE_TAG:-main}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}
       SECRET_KEY_BASE: ${SECRET_KEY_BASE}
       NODE_NAME: "4"
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT}
-      REDIS_DB: ${REDIS_DB}
+      REDIS_DB: ${SCRIBBL_REDIS_DB}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
     restart: always
     depends_on:
@@ -81,6 +113,7 @@ services:
       - scribbl_backend_2
       - scribbl_backend_3
       - scribbl_backend_4
+      - auth
 
   redis:
     image: redis:7.4.3-alpine
@@ -88,6 +121,12 @@ services:
     command: redis-server --notify-keyspace-events Ex
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
 volumes:
   pgdata:
